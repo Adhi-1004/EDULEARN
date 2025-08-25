@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # Frontend React App
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:5003
+    networks:
+      - edulearn-network
+
+  # Backend Flask API
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    ports:
+      - "5003:5003"
+    environment:
+      - FLASK_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MONGO_URI=mongodb://mongodb:27017/edulearn
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      - mongodb
+    networks:
+      - edulearn-network
+    volumes:
+      - ./Backend:/app
+      - /app/__pycache__
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=edulearn
+    volumes:
+      - mongodb_data:/data/db
+      - ./Backend/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - edulearn-network
+
+  # Redis Cache (optional)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - edulearn-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  edulearn-network:
+    driver: bridge

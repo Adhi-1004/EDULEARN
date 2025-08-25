@@ -208,15 +208,6 @@ export interface StudentProgress {
   certificatesEarned: number;
 }
 
-export interface LeaderboardEntry {
-  rank: number;
-  studentId: string;
-  studentName: string;
-  score: number;
-  timeSpent: number;
-  avatar?: string;
-}
-
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -272,6 +263,7 @@ export interface CourseSummary {
   learningStyle?: 'visual' | 'analytical' | 'auditory' | 'kinesthetic';
 }
 
+// Updated LeaderboardEntry interface (merged the two versions)
 export interface LeaderboardEntry {
   rank: number;
   studentId: string;

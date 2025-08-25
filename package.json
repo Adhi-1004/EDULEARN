@@ -1,13 +1,41 @@
 {
-  "name": "my-v0-project",
-  "version": "0.1.0",
+  "name": "edulearn-ai",
+  "version": "2.0.0",
+  "description": "AI-Powered Educational Platform with Advanced MCQ Assessments, Coding Practice, and Personalized Learning",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
   },
+  "keywords": [
+    "education",
+    "ai",
+    "learning",
+    "assessment",
+    "coding",
+    "react",
+    "typescript",
+    "flask",
+    "mongodb"
+  ],
+  "author": "EduLearn AI Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/edulearn-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/edulearn-ai/issues"
+  },
+  "homepage": "https://github.com/yourusername/edulearn-ai#readme",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
     "@types/react": "^19.1.9",
@@ -18,7 +46,16 @@
     "tailwindcss": "3.4",
     "tw-animate-css": "^1.3.6",
     "typescript": "^5.9.2",
-    "vite": "^7.1.1"
+    "vite": "^7.1.1",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "prettier": "^3.2.5",
+    "vitest": "^1.3.0",
+    "@vitest/coverage-v8": "^1.3.0"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
