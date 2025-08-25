@@ -1325,3 +1325,29 @@
 2025-08-25 20:30:32,221 - INFO - 127.0.0.1 - - [25/Aug/2025 20:30:32] "GET /getQuestions HTTP/1.1" 200 -
 2025-08-25 20:31:32,957 - INFO - 127.0.0.1 - - [25/Aug/2025 20:31:32] "OPTIONS /getQuestions HTTP/1.1" 200 -
 2025-08-25 20:31:33,222 - INFO - 127.0.0.1 - - [25/Aug/2025 20:31:33] "GET /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:15:25,376 - INFO - EduLearnAI Backend Server Started
+2025-08-26 02:15:25,429 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5003
+ * Running on http://192.168.0.200:5003
+2025-08-26 02:15:25,430 - INFO - [33mPress CTRL+C to quit[0m
+2025-08-26 02:15:25,432 - INFO -  * Restarting with stat
+2025-08-26 02:15:26,307 - INFO - EduLearnAI Backend Server Started
+2025-08-26 02:15:26,318 - WARNING -  * Debugger is active!
+2025-08-26 02:15:26,321 - INFO -  * Debugger PIN: 118-468-140
+2025-08-26 02:18:05,975 - INFO - 127.0.0.1 - - [26/Aug/2025 02:18:05] "OPTIONS /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:18:05,977 - INFO - 127.0.0.1 - - [26/Aug/2025 02:18:05] "OPTIONS /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:18:06,244 - INFO - 127.0.0.1 - - [26/Aug/2025 02:18:06] "GET /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:18:06,292 - INFO - 127.0.0.1 - - [26/Aug/2025 02:18:06] "GET /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:18:35,988 - INFO - 127.0.0.1 - - [26/Aug/2025 02:18:35] "OPTIONS /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:18:36,257 - INFO - 127.0.0.1 - - [26/Aug/2025 02:18:36] "GET /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:18:52,329 - INFO - 127.0.0.1 - - [26/Aug/2025 02:18:52] "OPTIONS /coding/generate HTTP/1.1" 200 -
+2025-08-26 02:18:54,103 - ERROR - {'error': 'Failed to generate coding problems: Expecting value: line 1 column 1 (char 0)'}
+2025-08-26 02:18:54,104 - INFO - 127.0.0.1 - - [26/Aug/2025 02:18:54] "[35m[1mPOST /coding/generate HTTP/1.1[0m" 500 -
+2025-08-26 02:19:05,672 - INFO - 127.0.0.1 - - [26/Aug/2025 02:19:05] "OPTIONS /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:19:05,993 - INFO - 127.0.0.1 - - [26/Aug/2025 02:19:05] "GET /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:19:06,600 - INFO - 127.0.0.1 - - [26/Aug/2025 02:19:06] "POST /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:19:28,868 - INFO - 127.0.0.1 - - [26/Aug/2025 02:19:28] "OPTIONS /getQuizFeedback HTTP/1.1" 200 -
+2025-08-26 02:19:29,516 - INFO - 127.0.0.1 - - [26/Aug/2025 02:19:29] "[35m[1mPOST /getQuizFeedback HTTP/1.1[0m" 500 -
+2025-08-26 02:19:35,677 - INFO - 127.0.0.1 - - [26/Aug/2025 02:19:35] "OPTIONS /getQuestions HTTP/1.1" 200 -
+2025-08-26 02:19:35,996 - INFO - 127.0.0.1 - - [26/Aug/2025 02:19:35] "GET /getQuestions HTTP/1.1" 200 -
