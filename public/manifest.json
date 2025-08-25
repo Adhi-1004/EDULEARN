@@ -1,0 +1,16 @@
+{
+  "name": "EduLearn AI",
+  "short_name": "EduLearn",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e0a12",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
