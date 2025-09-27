@@ -1,96 +1,106 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import HomePage from './pages/HomePage';
-import { StudentDashboard } from './pages/student/StudentDashboard';
-import { TeacherDashboard } from './pages/teacher/TeacherDashboard';
-import { useAuth, AuthProvider } from './hooks/useAuth.tsx';
-import LoginPage from './pages/LoginPage.jsx';
-import RegisterPage from './pages/RegisterPage.jsx';
-import MCQAssessment from './pages/student/MCQAssessment.jsx';
-import ResultsPage from './pages/student/ResultsPage.jsx';
-import { BackendProvider } from './contexts/BackendContext.jsx';
+import React from "react";
+import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 
-function InnerApp() {
-  const { user, login, logout, loading } = useAuth();
+import { ThemeProvider } from "./contexts/ThemeContext";
+import { ToastProvider, useToast } from "./contexts/ToastContext";
+import { useAuth } from "./hooks/useAuth";
+import Navbar from "./components/Navbar";
+import ToastContainer from "./components/ui/ToastContainer";
+import LoadingState from "./components/LoadingState";
+import LandingPage from "./pages/LandingPage";
+import Dashboard from "./pages/Dashboard";
+import AssessConfig from "./pages/AssessConfig";
+import Assessment from "./pages/Assessment";
+import Results from "./pages/Results";
+import TestResultDetail from "./pages/TestResultDetail";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import UserProfile from "./pages/UserProfile";
+import Settings from "./pages/Settings";
+import CodingPlatform from "./pages/CodingPlatform";
+import CodingProblemPage from "./pages/CodingProblem";
+import AssessmentChoice from "./pages/AssessmentChoice";
 
-  if (loading) {
+const AppContent: React.FC = () => {
+    const { user, setUser, logout, isLoading } = useAuth();
+    const { toasts, removeToast } = useToast();
+
+    if (isLoading) {
+        return <LoadingState text="Loading application..." size="lg" fullScreen={true} />;
+    }
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading EduLearn AI...</p>
-        </div>
-      </div>
+        <Router>
+            <div className="min-h-screen relative overflow-hidden transition-colors duration-300">
+                <Navbar user={user} setUser={logout} />
+                <ToastContainer toasts={toasts} onClose={removeToast} />
+                <AnimatePresence mode="wait">
+                    <Routes>
+                        <Route path="/" element={<LandingPage />} />
+                        <Route 
+                            path="/login" 
+                            element={user ? <Navigate to="/dashboard" replace /> : <Login setUser={setUser} />} 
+                        />
+                        <Route 
+                            path="/signup" 
+                            element={user ? <Navigate to="/dashboard" replace /> : <Signup setUser={setUser} />} 
+                        />
+                        <Route 
+                            path="/dashboard" 
+                            element={user ? <Dashboard user={user} /> : <Navigate to="/login" replace />} 
+                        />
+                        <Route 
+                            path="/assessconfig" 
+                            element={user ? <AssessConfig user={user} /> : <Navigate to="/login" replace />}
+                        /> 
+                        <Route 
+                            path="/assessment" 
+                            element={user ? <Assessment user={user} /> : <Navigate to="/login" replace />} 
+                        />
+                        <Route 
+                            path="/results" 
+                            element={user ? <Results user={user} /> : <Navigate to="/login" replace />} 
+                        />
+                        <Route 
+                            path="/test-result/:resultId" 
+                            element={user ? <TestResultDetail user={user} /> : <Navigate to="/login" replace />} 
+                        />
+                        <Route 
+                            path="/profile" 
+                            element={user ? <UserProfile user={user} /> : <Navigate to="/login" replace />} 
+                        />
+                        <Route 
+                            path="/settings" 
+                            element={user ? <Settings user={user} /> : <Navigate to="/login" replace />} 
+                        />
+                        <Route 
+                            path="/coding" 
+                            element={user ? <CodingPlatform user={user} /> : <Navigate to="/login" replace />} 
+                        />
+                        <Route 
+                            path="/coding/problem/:problemId" 
+                            element={user ? <CodingProblemPage user={user} /> : <Navigate to="/login" replace />} 
+                        />
+                        <Route 
+                            path="/assessment-choice" 
+                            element={user ? <AssessmentChoice user={user} /> : <Navigate to="/login" replace />} 
+                        />
+                    </Routes>
+                </AnimatePresence>
+            </div>
+        </Router>
     );
-  }
+};
 
-  return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage onLogin={login} />} />
-        <Route path="/register" element={<RegisterPage onLogin={login} />} />
-        
-        {/* Student Routes */}
-        <Route
-          path="/student/dashboard"
-          element={
-            user?.role === 'student' ? (
-              <StudentDashboard user={user} onLogout={logout} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-
-        <Route
-          path="/student/mcq"
-          element={
-            user?.role === 'student' ? (
-              <MCQAssessment />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-
-        <Route
-          path="/student/results"
-          element={
-            user?.role === 'student' ? (
-              <ResultsPage user={user} onLogout={logout} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-
-        {/* Teacher Routes */}
-        <Route
-          path="/teacher/dashboard"
-          element={
-            user?.role === 'teacher' ? (
-              <TeacherDashboard user={user} onLogout={logout} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-
-        {/* Catch all route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
-  );
-}
-
-function App() {
-  return (
-    <AuthProvider>
-      <BackendProvider>
-        <InnerApp />
-      </BackendProvider>
-    </AuthProvider>
-  );
-}
+const App: React.FC = () => {
+    return (
+        <ThemeProvider>
+            <ToastProvider>
+                <AppContent />
+            </ToastProvider>
+        </ThemeProvider>
+    );
+};
 
 export default App;
