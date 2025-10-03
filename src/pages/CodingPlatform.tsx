@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { User, CodingProblem, CodingAnalytics } from '../types';
-import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../hooks/useAuth';
 import AnimatedBackground from '../components/AnimatedBackground';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -11,22 +11,59 @@ import api from '../utils/api';
 import { ANIMATION_VARIANTS } from '../utils/constants';
 
 interface CodingPlatformProps {
-  user: User;
+  user?: User;
 }
 
-const CodingPlatform: React.FC<CodingPlatformProps> = ({ user }) => {
-  const { mode } = useTheme();
+const CodingPlatform: React.FC<CodingPlatformProps> = ({ user: propUser }) => {
+  const { user: authUser } = useAuth();
   const { success, error: showError } = useToast();
+  
+  // Use prop user or auth user
+  const user = propUser || authUser;
+  
+  // Debug user authentication
+  console.log('🔐 [CODING_PLATFORM] User authentication status:', {
+    propUser: propUser,
+    authUser: authUser,
+    finalUser: user,
+    isAuthenticated: !!user,
+    userId: user?.id || user?._id,
+    userRole: user?.role
+  });
   
   const [analytics, setAnalytics] = useState<CodingAnalytics | null>(null);
   const [recentProblems, setRecentProblems] = useState<CodingProblem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTopic, setSelectedTopic] = useState<string>('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('');
+  
+  // Show loading if user is not available yet
+  if (!user) {
+    return (
+      <>
+        <AnimatedBackground />
+        <div className="min-h-screen pt-20 px-4 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            <Card className="p-8 text-center">
+              <LoadingSpinner size="lg" />
+              <p className="text-purple-300 mt-4">Loading coding platform...</p>
+            </Card>
+          </div>
+        </div>
+      </>
+    );
+  }
 
-  const topics = [
+  const popularTopics = [
     'Arrays', 'Strings', 'Linked Lists', 'Trees', 'Graphs', 'Dynamic Programming',
-    'Sorting', 'Searching', 'Hash Tables', 'Stack & Queue', 'Greedy', 'Backtracking'
+    'Machine Learning', 'Web Development', 'Python Programming', 'JavaScript'
+  ];
+  
+  const allTopics = [
+    'Arrays', 'Strings', 'Linked Lists', 'Trees', 'Graphs', 'Dynamic Programming',
+    'Sorting', 'Searching', 'Hash Tables', 'Stack & Queue', 'Greedy', 'Backtracking',
+    'Machine Learning', 'Web Development', 'Data Structures', 'Algorithms', 'Python Programming',
+    'JavaScript', 'Database Design', 'System Design', 'Object-Oriented Programming', 'Functional Programming'
   ];
 
   const difficulties = ['easy', 'medium', 'hard'];
@@ -49,20 +86,36 @@ const CodingPlatform: React.FC<CodingPlatformProps> = ({ user }) => {
 
   const fetchRecentProblems = async () => {
     try {
+      console.log('🔄 [CODING_PLATFORM] Fetching recent problems...');
       const response = await api.get('/api/coding/problems?limit=6');
+      console.log('✅ [CODING_PLATFORM] Recent problems response:', response.data);
       if (response.data.success) {
         setRecentProblems(response.data.problems);
       }
-    } catch (error) {
-      console.error('Error fetching recent problems:', error);
+    } catch (error: any) {
+      console.error('❌ [CODING_PLATFORM] Error fetching recent problems:', error);
+      console.error('❌ [CODING_PLATFORM] Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      // If no problems exist, show empty state instead of error
+      if (error.response?.status === 404 || error.response?.status === 500) {
+        setRecentProblems([]);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const generateProblem = async () => {
+    if (!user) {
+      showError('Please log in to generate problems');
+      return;
+    }
+    
     if (!selectedTopic || !selectedDifficulty) {
-      showError('Please enter a topic and select difficulty');
+      showError('Please select a topic and difficulty');
       return;
     }
 
@@ -76,7 +129,7 @@ const CodingPlatform: React.FC<CodingPlatformProps> = ({ user }) => {
         focus_areas: [selectedTopic], // Focus on the selected topic
         avoid_topics: analytics?.weak_topics || [], // Avoid weak areas
         timestamp: Date.now(), // Ensure uniqueness
-        user_id: user.id, // User-specific generation
+        user_id: user?.id, // User-specific generation
         session_id: Math.random().toString(36).substring(7) // Session uniqueness
       });
 
@@ -85,8 +138,10 @@ const CodingPlatform: React.FC<CodingPlatformProps> = ({ user }) => {
         // Navigate to the problem
         window.location.href = `/coding/problem/${response.data.problem.id}`;
       }
-    } catch (error) {
-      showError('Failed to generate problem. Please try again.');
+    } catch (error: any) {
+      console.error('Error generating problem:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to generate problem. Please try again.';
+      showError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -196,70 +251,106 @@ const CodingPlatform: React.FC<CodingPlatformProps> = ({ user }) => {
               <h3 className="text-xl font-semibold text-purple-200 mb-4">
                 🧠 Generate AI-Powered Problem
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="flex flex-col">
                   <label className="block text-sm font-medium text-purple-300 mb-2">
-                    Enter Topic
+                    Select Topic
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={selectedTopic}
                     onChange={(e) => setSelectedTopic(e.target.value)}
-                    placeholder="Enter any topic (e.g., Machine Learning, Web Development, Data Structures)"
-                    className="w-full px-3 py-2 bg-purple-800/30 border border-purple-500/30 rounded-lg text-purple-100 focus:outline-none focus:border-purple-400 placeholder-purple-400"
-                  />
+                    className="w-full px-3 py-2 bg-purple-800/50 border border-purple-500/50 rounded-lg text-white focus:outline-none focus:border-purple-400 hover:border-purple-400 transition-colors"
+                    style={{
+                      colorScheme: 'dark',
+                      backgroundColor: '#1a1a2e',
+                      color: '#ffffff'
+                    }}
+                  >
+                    <option value="" style={{ backgroundColor: '#1a1a2e', color: '#ffffff' }}>Select Topic</option>
+                    <optgroup label="🔥 Popular Topics" style={{ backgroundColor: '#1a1a2e', color: '#ffffff' }}>
+                      {popularTopics.map(topic => (
+                        <option key={topic} value={topic} style={{ backgroundColor: '#1a1a2e', color: '#ffffff' }}>
+                          {topic}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="📚 All Topics" style={{ backgroundColor: '#1a1a2e', color: '#ffffff' }}>
+                      {allTopics.filter(topic => !popularTopics.includes(topic)).map(topic => (
+                        <option key={topic} value={topic} style={{ backgroundColor: '#1a1a2e', color: '#ffffff' }}>
+                          {topic}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  {selectedTopic && (
+                    <div className="mt-2 text-sm text-purple-300">
+                      Selected: <span className="font-semibold text-purple-200">{selectedTopic}</span>
+                    </div>
+                  )}
                 </div>
                 
-                <div>
+                <div className="flex flex-col">
                   <label className="block text-sm font-medium text-purple-300 mb-2">
                     Difficulty
                   </label>
                   <select
                     value={selectedDifficulty}
                     onChange={(e) => setSelectedDifficulty(e.target.value)}
-                    className="w-full px-3 py-2 bg-purple-800/30 border border-purple-500/30 rounded-lg text-purple-100 focus:outline-none focus:border-purple-400"
+                    className="w-full px-3 py-2 bg-purple-800/50 border border-purple-500/50 rounded-lg text-white focus:outline-none focus:border-purple-400 hover:border-purple-400 transition-colors"
+                    style={{
+                      colorScheme: 'dark',
+                      backgroundColor: '#1a1a2e',
+                      color: '#ffffff'
+                    }}
                   >
-                    <option value="">Select Difficulty</option>
+                    <option value="" style={{ backgroundColor: '#1a1a2e', color: '#ffffff' }}>Select Difficulty</option>
                     {difficulties.map(diff => (
-                      <option key={diff} value={diff} className="capitalize">
+                      <option key={diff} value={diff} className="capitalize" style={{ backgroundColor: '#1a1a2e', color: '#ffffff' }}>
                         {diff}
                       </option>
                     ))}
                   </select>
                 </div>
                 
-                <div className="flex items-end gap-3">
-                  <Button
-                    onClick={generateProblem}
-                    disabled={loading || !selectedTopic || !selectedDifficulty}
-                    className="flex-1"
-                    variant="primary"
-                  >
-                    {loading ? (
-                      <>
-                        <LoadingSpinner size="sm" />
-                        <span className="ml-2">Generating...</span>
-                      </>
-                    ) : (
-                      '🚀 Generate Problem'
-                    )}
-                  </Button>
-                  
-                  <Button
-                    onClick={generateProblem}
-                    disabled={loading || !selectedTopic || !selectedDifficulty}
-                    className="flex-1"
-                    variant="outline"
-                  >
-                    {loading ? (
-                      <>
-                        <LoadingSpinner size="sm" />
-                        <span className="ml-2">Creating...</span>
-                      </>
-                    ) : (
-                      '✨ Generate Unique Problem'
-                    )}
-                  </Button>
+                <div className="flex flex-col justify-end gap-3">
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={generateProblem}
+                      disabled={loading || !selectedTopic || !selectedDifficulty}
+                      className="flex-1"
+                      variant="primary"
+                    >
+                      {loading ? (
+                        <>
+                          <LoadingSpinner size="sm" />
+                          <span className="ml-2">Generating...</span>
+                        </>
+                      ) : (
+                        '🚀 Generate Problem'
+                      )}
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        const randomTopic = popularTopics[Math.floor(Math.random() * popularTopics.length)];
+                        const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+                        setSelectedTopic(randomTopic);
+                        setSelectedDifficulty(randomDifficulty);
+                      }}
+                      disabled={loading}
+                      className="flex-1"
+                      variant="outline"
+                    >
+                      {loading ? (
+                        <>
+                          <LoadingSpinner size="sm" />
+                          <span className="ml-2">Creating...</span>
+                        </>
+                      ) : (
+                        '🎲 Quick Generate'
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -301,7 +392,7 @@ const CodingPlatform: React.FC<CodingPlatformProps> = ({ user }) => {
                 variants={ANIMATION_VARIANTS.stagger}
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
               >
-                {recentProblems.map((problem, index) => (
+                 {recentProblems.map((problem) => (
                   <motion.div
                     key={problem.id}
                     variants={ANIMATION_VARIANTS.slideUp}

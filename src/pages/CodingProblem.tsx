@@ -16,7 +16,7 @@ interface CodingProblemPageProps {
   user: User;
 }
 
-const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user }) => {
+const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) => {
   const { problemId } = useParams<{ problemId: string }>();
   const { colorScheme } = useTheme();
   const { success, error: showError, info } = useToast();
@@ -35,6 +35,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user }) => {
   const [startTime] = useState(Date.now());
   const [autocompleteEnabled, setAutocompleteEnabled] = useState(true);
   const [useJudge0, setUseJudge0] = useState(false);
+  const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set());
 
   const languages = [
     { value: 'python', label: 'Python', template: '# Write your solution here\ndef solution():\n    pass' },
@@ -145,20 +146,25 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user }) => {
     setTestResults([]);
 
     try {
-      // Use visible test cases for running
-      const visibleTestCases = problem.examples.map((example, index) => ({
+      // Use actual test cases for running (not just examples)
+      const testCases = problem.test_cases || problem.examples.map((example, index) => ({
         input: parseInput(example.input),
         output: parseOutput(example.output),
         description: `Example ${index + 1}`
       }));
+      
+      console.log('🧪 [EXECUTION] Using test cases:', testCases.length);
+      console.log('🧪 [EXECUTION] Test cases:', testCases);
 
       const response = await api.post('/api/execute/execute', {
         code: codeToExecute,
         language,
-        test_cases: visibleTestCases,
+        test_cases: testCases,
         timeout: 10,
         use_judge0: useJudge0
       });
+      
+      console.log('🔍 [EXECUTION] Response:', response.data);
 
       if (response.data.success) {
         const results = response.data.results || [];
@@ -167,11 +173,14 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user }) => {
         const passed = response.data.passed_tests || 0;
         const total = response.data.total_tests || 0;
         
+        console.log(`📊 [EXECUTION] Results: ${passed}/${total} passed`);
+        
         if (passed === total && total > 0) {
           success(`All ${total} test cases passed! 🎉`);
         } else if (total > 0) {
           const failedTests = results.filter((r: any) => !r.passed);
           if (failedTests.length > 0) {
+            console.log('❌ [EXECUTION] Failed tests:', failedTests);
             info(`${passed}/${total} test cases passed. Check the results below for details.`);
           } else {
             info(`${passed}/${total} test cases passed`);
@@ -190,7 +199,10 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user }) => {
           }
         });
       } else {
-        showError(response.data.error || 'Execution failed');
+        console.error('❌ [EXECUTION] Execution failed:', response.data);
+        const errorMessage = response.data.error || response.data.error_message || 'Execution failed';
+        const errorDetails = response.data.details || '';
+        showError(`Execution failed: ${errorMessage}${errorDetails ? `\nDetails: ${errorDetails}` : ''}`);
       }
     } catch (error: any) {
       console.error('Execution error:', error);
@@ -227,17 +239,20 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user }) => {
     setSubmitting(true);
 
     try {
-      // First run tests to validate with visible examples
-      const visibleTestCases = problem.examples.map((example, index) => ({
+      // Use the same test cases that were used in execution for consistency
+      const testCasesToUse = problem.test_cases || problem.examples.map((example, index) => ({
         input: parseInput(example.input),
         output: parseOutput(example.output),
         description: `Example ${index + 1}`
       }));
+      
+      console.log('📤 [SUBMISSION] Using test cases:', testCasesToUse.length);
+      console.log('📤 [SUBMISSION] Test cases:', testCasesToUse);
 
       const testResponse = await api.post('/api/execute/execute', {
         code: codeToExecute,
         language,
-        test_cases: visibleTestCases,
+        test_cases: testCasesToUse,
         timeout: 10,
         use_judge0: useJudge0
       });
@@ -414,6 +429,18 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user }) => {
     }
     
     return { isValid: errors.length === 0, errors };
+  };
+
+  const toggleTestExpansion = (index: number) => {
+    setExpandedTests(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -855,42 +882,145 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user }) => {
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 max-h-48 overflow-y-auto border-t border-purple-500/20 pt-4"
+                    className="mt-6 bg-purple-900/20 rounded-lg p-4 border border-purple-500/30"
                   >
-                    <h4 className="text-sm font-semibold text-purple-200 mb-2">Test Results</h4>
-                    <div className="space-y-2">
-                      {testResults.map((result, index) => (
-                        <div
-                          key={index}
-                          className={`p-3 rounded-lg border text-sm ${
-                            result.passed
-                              ? 'bg-green-900/20 border-green-500/30 text-green-200'
-                              : 'bg-red-900/20 border-red-500/30 text-red-200'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium">
-                              Test {index + 1}: {result.passed ? '✅ Passed' : '❌ Failed'}
-                            </span>
-                            <span className="text-xs opacity-75">
-                              {result.execution_time}ms
-                            </span>
-                          </div>
-                          
-                          {!result.passed && (
-                            <div className="space-y-1 text-xs opacity-90">
-                              {result.error ? (
-                                <div>Error: {typeof result.error === 'string' ? result.error : JSON.stringify(result.error)}</div>
-                              ) : (
-                                <>
-                                  <div>Expected: {typeof result.expected === 'string' ? result.expected : JSON.stringify(result.expected)}</div>
-                                  <div>Got: {typeof result.output === 'string' ? result.output : JSON.stringify(result.output)}</div>
-                                </>
-                              )}
-                            </div>
-                          )}
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-semibold text-purple-200 flex items-center">
+                        <span className="mr-2">🧪</span>
+                        Test Results
+                      </h4>
+                      <div className="flex items-center space-x-4">
+                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          testResults.filter(r => r.passed).length === testResults.length
+                            ? 'bg-green-900/30 text-green-300 border border-green-500/30'
+                            : 'bg-red-900/30 text-red-300 border border-red-500/30'
+                        }`}>
+                          {testResults.filter(r => r.passed).length}/{testResults.length} passed
                         </div>
-                      ))}
+                        <button
+                          onClick={() => setExpandedTests(new Set(testResults.map((_, i) => i)))}
+                          className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                        >
+                          {expandedTests.size === testResults.length ? 'Collapse All' : 'Expand All'}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {testResults.map((result, index) => {
+                        const isExpanded = expandedTests.has(index);
+                        return (
+                          <div
+                            key={index}
+                            className={`p-4 rounded-lg border transition-all duration-200 ${
+                              result.passed
+                                ? 'bg-green-900/20 border-green-500/30 hover:bg-green-900/30'
+                                : 'bg-red-900/20 border-red-500/30 hover:bg-red-900/30'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <button
+                                onClick={() => toggleTestExpansion(index)}
+                                className="font-medium flex items-center space-x-3 hover:opacity-80 transition-opacity group"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-purple-300">Test {index + 1}:</span>
+                                  <span className={`font-semibold ${
+                                    result.passed ? 'text-green-400' : 'text-red-400'
+                                  }`}>
+                                    {result.passed ? '✅ Passed' : '❌ Failed'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs text-purple-400">
+                                    {result.execution_time || 0}ms
+                                  </span>
+                                  <span className="text-lg group-hover:scale-110 transition-transform">
+                                    {isExpanded ? '▼' : '▶'}
+                                  </span>
+                                </div>
+                              </button>
+                            </div>
+                            
+                            {/* Expandable Test Details */}
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="space-y-4 mt-4 pt-4 border-t border-purple-500/20"
+                              >
+                                {/* Test Case Input */}
+                                <div>
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <span className="text-sm font-medium text-purple-300">📥 Input:</span>
+                                  </div>
+                                  <div className="p-3 bg-black/30 rounded-lg border border-purple-500/20 font-mono text-sm">
+                                    {result.test_input ? (
+                                      typeof result.test_input === 'string' 
+                                        ? result.test_input 
+                                        : JSON.stringify(result.test_input, null, 2)
+                                    ) : (
+                                      <span className="text-purple-400 opacity-75">No input data</span>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {!result.passed && (
+                                  <div className="space-y-4">
+                                    {/* Error Message */}
+                                    {result.error && (
+                                      <div>
+                                        <div className="flex items-center space-x-2 mb-2">
+                                          <span className="text-sm font-medium text-red-300">❌ Error:</span>
+                                        </div>
+                                        <div className="p-3 bg-red-900/30 rounded-lg border border-red-500/30 text-red-200 text-sm font-mono">
+                                          {typeof result.error === 'string' ? result.error : JSON.stringify(result.error)}
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Expected vs Actual Output */}
+                                    {!result.error && (
+                                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        <div>
+                                          <div className="flex items-center space-x-2 mb-2">
+                                            <span className="text-sm font-medium text-green-300">✅ Expected:</span>
+                                          </div>
+                                          <div className="p-3 bg-green-900/20 rounded-lg border border-green-500/30 text-green-200 text-sm font-mono">
+                                            {typeof result.expected === 'string' 
+                                              ? result.expected 
+                                              : JSON.stringify(result.expected, null, 2)}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <div className="flex items-center space-x-2 mb-2">
+                                            <span className="text-sm font-medium text-red-300">❌ Got:</span>
+                                          </div>
+                                          <div className="p-3 bg-red-900/20 rounded-lg border border-red-500/30 text-red-200 text-sm font-mono">
+                                            {typeof result.output === 'string' 
+                                              ? result.output 
+                                              : JSON.stringify(result.output, null, 2)}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {/* Success Message */}
+                                {result.passed && (
+                                  <div className="flex items-center space-x-2 p-3 bg-green-900/20 rounded-lg border border-green-500/30">
+                                    <span className="text-green-400">✅</span>
+                                    <span className="text-green-300 text-sm font-medium">
+                                      Output matches expected result
+                                    </span>
+                                  </div>
+                                )}
+                              </motion.div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </motion.div>
                 )}

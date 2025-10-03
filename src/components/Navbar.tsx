@@ -59,8 +59,15 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
     }, [location.pathname]);
 
     const navItems = user ? [
-        { path: "/dashboard", label: "Dashboard" },
-    ] : [
+        { path: "/dashboard", label: "Dashboard", roles: ["student"] },
+        { path: "/teacher-dashboard", label: "Dashboard", roles: ["teacher"] },
+        { path: "/admin-dashboard", label: "Dashboard", roles: ["admin"] },
+        { path: "/coding", label: "Coding Platform", roles: ["student"] },
+        { path: "/assessment-choice", label: "Assessments", roles: ["student"] },
+        { path: "/results", label: "Results", roles: ["student"] },
+        { path: "/profile", label: "Profile", roles: ["student", "teacher", "admin"] },
+        { path: "/settings", label: "Settings", roles: ["student", "teacher", "admin"] },
+    ].filter(item => !item.roles || item.roles.includes(user.role || "student")) : [
         { path: "/login", label: "Login" }
     ];
 

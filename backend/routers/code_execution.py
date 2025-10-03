@@ -119,28 +119,71 @@ async def execute_code(
                     detail=f"Unsupported language: {request.language}"
                 )
         
-        # Local execution (fallback or primary)
-        result = await code_execution_service.execute_code(
-            code=request.code,
-            language=request.language,
-            test_cases=request.test_cases if request.test_cases else None,
-            timeout=request.timeout
-        )
+        # Use Gemini coding service for better execution
+        from services.gemini_coding_service import gemini_coding_service
         
-        return CodeExecutionResponse(
-            success=result['success'],
-            output=result.get('output', ''),
-            error=result.get('error', ''),
-            execution_time=result.get('execution_time', 0),
-            memory_used=result.get('memory_used', 0),
-            results=result.get('results'),
-            passed_tests=result.get('passed_tests'),
-            total_tests=result.get('total_tests'),
-            success_rate=result.get('success_rate')
-        )
+        if request.test_cases:
+            # Execute with test cases using Gemini service
+            execution_result = gemini_coding_service.execute_code(
+                code=request.code,
+                language=request.language,
+                test_cases=request.test_cases,
+                time_limit=request.timeout * 1000,  # Convert to milliseconds
+                memory_limit=256
+            )
+            
+            # Format results for response
+            results = []
+            passed_tests = 0
+            total_tests = len(execution_result.get('results', []))
+            
+            for i, test_result in enumerate(execution_result.get('results', [])):
+                results.append({
+                    'test_case': i + 1,
+                    'input': test_result.get('test_input', ''),
+                    'expected_output': test_result.get('expected', ''),
+                    'actual_output': test_result.get('output', ''),
+                    'passed': test_result.get('passed', False),
+                    'execution_time': test_result.get('execution_time', 0),
+                    'memory_used': test_result.get('memory_used', 0),
+                    'error': test_result.get('error', '')
+                })
+                if test_result.get('passed', False):
+                    passed_tests += 1
+            
+            return CodeExecutionResponse(
+                success=execution_result.get('success', False),
+                results=results,
+                passed_tests=passed_tests,
+                total_tests=total_tests,
+                execution_time=execution_result.get('execution_time', 0),
+                memory_used=execution_result.get('memory_used', 0)
+            )
+        else:
+            # Simple execution without test cases
+            result = await code_execution_service.execute_code(
+                code=request.code,
+                language=request.language,
+                timeout=request.timeout
+            )
+            
+            return CodeExecutionResponse(
+                success=result['success'],
+                output=result.get('output', ''),
+                error=result.get('error', ''),
+                execution_time=result.get('execution_time', 0),
+                memory_used=result.get('memory_used', 0),
+                results=result.get('results'),
+                passed_tests=result.get('passed_tests'),
+                total_tests=result.get('total_tests'),
+                success_rate=result.get('success_rate')
+            )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[ERROR] [EXECUTION] Error in execute_code: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Execution error: {str(e)}")
 
 @router.post("/debug", response_model=DebugResponse)
 async def debug_code(

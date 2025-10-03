@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 
 from database import init_db, get_db
-from routers import auth, users, questions, results, coding, code_execution
+from routers import auth, users, questions, results, coding, code_execution, teacher_dashboard, admin_dashboard, assessments
 from models.schemas import AssessmentConfig
 
 load_dotenv()
@@ -16,22 +16,22 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     # Startup
     try:
-        print("🚀 Starting FastAPI Backend...")
-        print(f"🔧 Environment check:")
+        print("[STARTUP] Starting FastAPI Backend...")
+        print(f"[ENV] Environment check:")
         print(f"   - MONGO_URI: {'Set' if os.getenv('MONGO_URI') else 'Not set'}")
         print(f"   - DB_NAME: {'Set' if os.getenv('DB_NAME') else 'Not set'}")
         print(f"   - SECRET_KEY: {'Set' if os.getenv('SECRET_KEY') else 'Not set'}")
         
         await init_db()
-        print("🚀 FastAPI Backend Started Successfully")
+        print("[SUCCESS] FastAPI Backend Started Successfully")
     except Exception as e:
-        print(f"❌ Startup Error: {str(e)}")
+        print(f"[ERROR] Startup Error: {str(e)}")
         import traceback
-        print(f"❌ Startup Traceback: {traceback.format_exc()}")
+        print(f"[ERROR] Startup Traceback: {traceback.format_exc()}")
         raise e
     yield
     # Shutdown
-    print("🛑 FastAPI Backend Shutdown")
+    print("[SHUTDOWN] FastAPI Backend Shutdown")
 
 app = FastAPI(
     title="modLRN API",
@@ -65,6 +65,9 @@ app.include_router(questions.router, prefix="/db", tags=["Questions"])
 app.include_router(results.router, prefix="/api", tags=["Results"])
 app.include_router(coding.router, prefix="/api/coding", tags=["Coding Platform"])
 app.include_router(code_execution.router, prefix="/api/execute", tags=["Code Execution"])
+app.include_router(teacher_dashboard.router, prefix="/api/teacher", tags=["Teacher Dashboard"])
+app.include_router(admin_dashboard.router, prefix="/api/admin", tags=["Admin Dashboard"])
+app.include_router(assessments.router, prefix="/api/assessments", tags=["Assessments"])
 
 # Session storage for assessment configuration
 assessment_sessions = {}

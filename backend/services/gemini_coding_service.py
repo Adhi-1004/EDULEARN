@@ -29,11 +29,11 @@ class GeminiCodingService:
                 "max_output_tokens": 4096,
             }
             self.available = True
-            print("✅ [GEMINI_CODING] Gemini AI service initialized successfully")
+            print("[SUCCESS] [GEMINI_CODING] Gemini AI service initialized successfully")
         else:
             self.model = None
             self.available = False
-            print("⚠️ [GEMINI_CODING] Gemini API key not configured, using fallback mode")
+            print("[WARNING] [GEMINI_CODING] Gemini API key not configured, using fallback mode")
 
     async def generate_coding_problem(
         self, 
@@ -62,45 +62,24 @@ class GeminiCodingService:
             Focus Areas: {focus_str}
             Avoid Topics: {avoid_str}
             
-            UNIQUENESS REQUIREMENTS:
-            - Create a completely NEW and UNIQUE problem that has never been generated before
-            - Use creative, original scenarios and contexts
-            - Vary the problem structure, input formats, and expected outputs
-            - Include unique edge cases and constraints
-            - Make the problem title and description distinctive
-            
-            Requirements:
-            1. Create a completely original problem (not from LeetCode, HackerRank, etc.)
-            2. Make it relevant to real-world scenarios when possible
-            3. Include a compelling problem statement with clear context
-            4. Provide 2-3 detailed examples with explanations
-            5. Generate 15+ comprehensive test cases including edge cases
-            6. Include 5+ hidden test cases for thorough validation
-            7. Specify time and space complexity expectations
-            8. Add 3-5 progressive hints
-            9. Include relevant tags and constraints
-            10. ENSURE UNIQUENESS: Make this problem different from any previous generation
-            
-            Return the response in this exact JSON format:
+            CRITICAL REQUIREMENTS:
+            1. Return ONLY a valid JSON object with this exact structure:
             {{
-                "title": "Problem Title",
-                "description": "Detailed problem description with context and requirements",
+                "title": "Creative Problem Title",
+                "description": "Detailed problem description with clear requirements",
                 "topic": "{topic}",
                 "difficulty": "{difficulty}",
-                "constraints": [
-                    "Constraint 1",
-                    "Constraint 2"
-                ],
+                "constraints": ["Constraint 1", "Constraint 2"],
                 "examples": [
                     {{
-                        "input": "Example input description",
+                        "input": "Example input",
                         "output": "Expected output",
                         "explanation": "Why this output is correct"
                     }}
                 ],
                 "test_cases": [
                     {{
-                        "input": {{"param1": "value1", "param2": "value2"}},
+                        "input": {{"param1": "value1"}},
                         "output": "expected_result",
                         "description": "Test case description"
                     }}
@@ -116,33 +95,42 @@ class GeminiCodingService:
                     "time": "O(n)",
                     "space": "O(1)"
                 }},
-                "hints": [
-                    "Hint 1",
-                    "Hint 2"
-                ],
+                "hints": ["Hint 1", "Hint 2"],
                 "tags": ["tag1", "tag2"]
             }}
             
-            Make sure the problem is:
-            - Original and creative
-            - Appropriate for {difficulty} level
-            - Has clear, unambiguous requirements
-            - Includes comprehensive test coverage
-            - Provides educational value
+            2. Make the problem original and creative
+            3. Ensure it's appropriate for {difficulty} level
+            4. Include clear, unambiguous requirements
+            5. Provide comprehensive test coverage
+            6. Make it educational and engaging
+            7. DO NOT include any text outside the JSON object
+            8. DO NOT use markdown formatting or code blocks
+            
+            Generate the problem now:
             """
             
             response = self.model.generate_content(prompt)
             
             if not response or not response.text:
-                print("❌ [GEMINI_CODING] No response from Gemini API")
+                print("[ERROR] [GEMINI_CODING] No response from Gemini API")
                 return self._get_fallback_problem(topic, difficulty)
             
             # Clean and parse JSON response
             response_text = response.text.strip()
+            print(f"[DEBUG] [GEMINI_CODING] Raw response: {response_text[:200]}...")
+            
+            # Remove markdown formatting if present
             if response_text.startswith("```json"):
                 response_text = response_text[7:]
             if response_text.endswith("```"):
                 response_text = response_text[:-3]
+            if response_text.startswith("```"):
+                response_text = response_text[3:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            
+            # Clean up any remaining formatting
             response_text = response_text.strip()
             
             try:
@@ -154,15 +142,38 @@ class GeminiCodingService:
                     if field not in problem_data:
                         raise ValueError(f"Missing required field: {field}")
                 
-                print(f"✅ [GEMINI_CODING] Successfully generated problem: {problem_data['title']}")
+                # Ensure test_cases and hidden_test_cases are lists
+                if not isinstance(problem_data.get('test_cases'), list):
+                    problem_data['test_cases'] = []
+                if not isinstance(problem_data.get('hidden_test_cases'), list):
+                    problem_data['hidden_test_cases'] = []
+                
+                # Ensure examples is a list
+                if not isinstance(problem_data.get('examples'), list):
+                    problem_data['examples'] = []
+                
+                # Ensure constraints is a list
+                if not isinstance(problem_data.get('constraints'), list):
+                    problem_data['constraints'] = []
+                
+                # Ensure hints is a list
+                if not isinstance(problem_data.get('hints'), list):
+                    problem_data['hints'] = []
+                
+                # Ensure tags is a list
+                if not isinstance(problem_data.get('tags'), list):
+                    problem_data['tags'] = []
+                
+                print(f"[SUCCESS] [GEMINI_CODING] Successfully generated problem: {problem_data['title']}")
                 return problem_data
                 
             except json.JSONDecodeError as e:
-                print(f"❌ [GEMINI_CODING] JSON parsing error: {str(e)}")
+                print(f"[ERROR] [GEMINI_CODING] JSON parsing error: {str(e)}")
+                print(f"[DEBUG] [GEMINI_CODING] Raw response: {response_text}")
                 return self._get_fallback_problem(topic, difficulty)
             
         except Exception as e:
-            print(f"❌ [GEMINI_CODING] Error generating problem: {str(e)}")
+            print(f"[ERROR] [GEMINI_CODING] Error generating problem: {str(e)}")
             return self._get_fallback_problem(topic, difficulty)
 
     async def analyze_code_solution(
@@ -174,7 +185,7 @@ class GeminiCodingService:
     ) -> Dict[str, Any]:
         """Analyze code solution and provide AI feedback"""
         try:
-            print(f"🔍 [GEMINI_CODING] Analyzing {language} solution")
+            print(f"[DEBUG] [GEMINI_CODING] Analyzing {language} solution")
             
             if not self.available:
                 return self._get_fallback_feedback(code, test_results)
@@ -257,14 +268,14 @@ class GeminiCodingService:
             
             try:
                 feedback_data = json.loads(response_text)
-                print("✅ [GEMINI_CODING] Code analysis completed successfully")
+                print("[SUCCESS] [GEMINI_CODING] Code analysis completed successfully")
                 return feedback_data
                 
             except json.JSONDecodeError:
                 return self._get_fallback_feedback(code, test_results)
             
         except Exception as e:
-            print(f"❌ [GEMINI_CODING] Error analyzing code: {str(e)}")
+            print(f"[ERROR] [GEMINI_CODING] Error analyzing code: {str(e)}")
             return self._get_fallback_feedback(code, test_results)
 
     async def generate_learning_path(
@@ -274,7 +285,7 @@ class GeminiCodingService:
     ) -> Dict[str, Any]:
         """Generate personalized learning path based on user performance"""
         try:
-            print("🎯 [GEMINI_CODING] Generating personalized learning path")
+            print("[TARGET] [GEMINI_CODING] Generating personalized learning path")
             
             if not self.available:
                 return self._get_fallback_learning_path()
@@ -364,14 +375,14 @@ class GeminiCodingService:
             
             try:
                 learning_data = json.loads(response_text)
-                print("✅ [GEMINI_CODING] Learning path generated successfully")
+                print("[SUCCESS] [GEMINI_CODING] Learning path generated successfully")
                 return learning_data
                 
             except json.JSONDecodeError:
                 return self._get_fallback_learning_path()
             
         except Exception as e:
-            print(f"❌ [GEMINI_CODING] Error generating learning path: {str(e)}")
+            print(f"[ERROR] [GEMINI_CODING] Error generating learning path: {str(e)}")
             return self._get_fallback_learning_path()
 
     def execute_code(
@@ -430,6 +441,7 @@ class GeminiCodingService:
                         "test_case_index": i,
                         "passed": False,
                         "output": None,
+                        "test_input": test_case.get('input', {}),
                         "error": f"Execution error: {str(e)}",
                         "execution_time": 0,
                         "memory_used": 0
@@ -437,7 +449,7 @@ class GeminiCodingService:
             
             success = all(result.get("passed", False) for result in results)
             
-            print(f"✅ [CODE_EXECUTION] Execution completed - Success: {success}")
+            print(f"[SUCCESS] [CODE_EXECUTION] Execution completed - Success: {success}")
             
             return {
                 "success": success,
@@ -448,7 +460,7 @@ class GeminiCodingService:
             }
             
         except Exception as e:
-            print(f"❌ [CODE_EXECUTION] Execution failed: {str(e)}")
+            print(f"[ERROR] [CODE_EXECUTION] Execution failed: {str(e)}")
             return {
                 "success": False,
                 "results": [],
@@ -480,26 +492,95 @@ try:
     test_input = {json.dumps(test_case.get('input', {}))}
     expected_output = {json.dumps(test_case.get('output'))}
     
-    # Call the main function (assuming it exists)
-    if 'main' in globals():
-        result = main(**test_input) if isinstance(test_input, dict) else main(test_input)
+    # Try different function calling strategies
+    result = None
+    error_msg = None
+    
+    # Strategy 1: Try to find a function that matches common patterns
+    import inspect
+    functions = [obj for name, obj in globals().items() if inspect.isfunction(obj)]
+    
+    if functions:
+        # Try the first function with different calling patterns
+        func = functions[0]
+        try:
+            # If test_input is a dict, try calling with **kwargs
+            if isinstance(test_input, dict):
+                result = func(**test_input)
+            # If test_input is a list, try calling with *args
+            elif isinstance(test_input, list):
+                result = func(*test_input)
+            # Otherwise, try calling with the input directly
+            else:
+                result = func(test_input)
+        except Exception as e:
+            # If that fails, try calling with the input as a single argument
+            try:
+                result = func(test_input)
+            except Exception as e2:
+                error_msg = f"Function call failed: {{str(e)}}"
     else:
-        # Try to find the first function defined
-        import inspect
-        functions = [obj for name, obj in globals().items() if inspect.isfunction(obj)]
-        if functions:
-            result = functions[0](**test_input) if isinstance(test_input, dict) else functions[0](test_input)
-        else:
-            result = None
+        error_msg = "No function found in the code"
+    
+    # Debug: Print what we found
+    print(f"DEBUG: Found {{len(functions)}} functions: {{[f.__name__ for f in functions]}}")
+    print(f"DEBUG: test_input = {{test_input}}, type = {{type(test_input)}}")
+    print(f"DEBUG: expected_output = {{expected_output}}, type = {{type(expected_output)}}")
+    
+    # Special handling for functions that modify input in-place (like group_seeds)
+    if result is None and error_msg is None and functions:
+        try:
+            # For functions that modify arrays in-place, we need to make a copy
+            if isinstance(test_input, list):
+                test_input_copy = test_input.copy()
+                func(test_input_copy)
+                result = test_input_copy
+            else:
+                # For other cases, try calling the function directly
+                result = func(test_input)
+        except Exception as e:
+            error_msg = f"Function execution failed: {{str(e)}}"
+    
+    # If we still don't have a result, try to evaluate the code directly
+    if result is None and error_msg is None:
+        try:
+            # Try to execute the code with the test input as a variable
+            exec(f"test_input = {{json.dumps(test_input)}}")
+            # This is a fallback - might not work for all cases
+            error_msg = "Could not determine how to call the function"
+        except Exception as e:
+            error_msg = f"Execution error: {{str(e)}}"
     
     # Compare result
-    passed = result == expected_output
+    if error_msg:
+        passed = False
+        result = None
+    else:
+        # Handle different comparison types
+        if isinstance(expected_output, list) and isinstance(result, list):
+            # For lists, compare elements
+            passed = result == expected_output
+        elif isinstance(expected_output, (int, float)) and isinstance(result, (int, float)):
+            # For numbers, allow small floating point differences
+            passed = abs(result - expected_output) < 1e-9
+        elif isinstance(expected_output, bool) and isinstance(result, bool):
+            # For booleans, direct comparison
+            passed = result == expected_output
+        else:
+            # For other types, direct comparison
+            passed = result == expected_output
+        
+        # Debug: Print comparison details
+        print(f"DEBUG: result = {{result}}, type = {{type(result)}}")
+        print(f"DEBUG: expected = {{expected_output}}, type = {{type(expected_output)}}")
+        print(f"DEBUG: passed = {{passed}}")
     
     print(json.dumps({{
         "passed": passed,
         "output": result,
         "expected": expected_output,
-        "error": None
+        "test_input": test_input,
+        "error": error_msg
     }}))
     
 except Exception as e:
@@ -507,7 +588,8 @@ except Exception as e:
         "passed": False,
         "output": None,
         "expected": {json.dumps(test_case.get('output'))},
-        "error": str(e)
+        "test_input": {json.dumps(test_case.get('input', {}))},
+        "error": f"Execution error: {{str(e)}}"
     }}))
 finally:
     sys.stdout = old_stdout
@@ -527,21 +609,44 @@ finally:
                 
                 if result.returncode == 0:
                     try:
-                        output_data = json.loads(result.stdout.strip())
+                        stdout_text = result.stdout.strip()
+                        if not stdout_text:
+                            return {
+                                "passed": False,
+                                "output": None,
+                                "error": "No output from code execution",
+                                "memory_used": 50
+                            }
+                        
+                        output_data = json.loads(stdout_text)
                         output_data["memory_used"] = 50  # Approximate memory usage
+                        
+                        # Ensure all required fields are present
+                        if "passed" not in output_data:
+                            output_data["passed"] = False
+                        if "output" not in output_data:
+                            output_data["output"] = None
+                        if "error" not in output_data:
+                            output_data["error"] = None
+                        if "test_input" not in output_data:
+                            output_data["test_input"] = test_case.get('input', {})
+                            
                         return output_data
-                    except json.JSONDecodeError:
+                    except json.JSONDecodeError as e:
                         return {
                             "passed": False,
                             "output": None,
-                            "error": "Invalid output format",
+                            "error": f"Invalid output format: {str(e)}",
+                            "test_input": test_case.get('input', {}),
                             "memory_used": 50
                         }
                 else:
+                    stderr_text = result.stderr or "Runtime error"
                     return {
                         "passed": False,
                         "output": None,
-                        "error": result.stderr or "Runtime error",
+                        "error": stderr_text,
+                        "test_input": test_case.get('input', {}),
                         "memory_used": 50
                     }
                     
@@ -564,22 +669,89 @@ finally:
         """Execute JavaScript code with a test case (basic implementation)"""
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
-                # Simple wrapper assumes exported function or main()
+                # Enhanced wrapper with better function detection
                 wrapper = """
 {code}
 
 const __testInput = {test_input};
 const __expected = {test_output};
 let __result;
+let __error = null;
+
 try {{
+  // Try to find and call the function
+  let func = null;
+  
+  // Strategy 1: Look for common function names
   if (typeof main === 'function') {{
-    __result = Array.isArray(__testInput) ? main(...__testInput) : (typeof __testInput === 'object' && __testInput !== null ? main(__testInput) : main(__testInput));
+    func = main;
+  }} else if (typeof solution === 'function') {{
+    func = solution;
+  }} else if (typeof solve === 'function') {{
+    func = solve;
   }} else {{
-    __result = __testInput; // no-op
+    // Strategy 2: Find any function in the global scope
+    const funcNames = Object.getOwnPropertyNames(this).filter(name => 
+      typeof this[name] === 'function' && name !== 'main' && name !== 'solution' && name !== 'solve'
+    );
+    if (funcNames.length > 0) {{
+      func = this[funcNames[0]];
+    }}
   }}
-  console.log(JSON.stringify({{ passed: __result === __expected, output: __result, expected: __expected, error: null }}));
+  
+  if (func) {{
+    // Try different calling patterns
+    try {{
+      if (Array.isArray(__testInput)) {{
+        // For arrays, try spreading first, then direct call
+        try {{
+          __result = func(...__testInput);
+        }} catch (e) {{
+          // If spreading fails, try calling with the array directly
+          __result = func(__testInput);
+        }}
+      }} else if (typeof __testInput === 'object' && __testInput !== null) {{
+        __result = func(__testInput);
+      }} else {{
+        __result = func(__testInput);
+      }}
+    }} catch (e) {{
+      // If that fails, try calling with the input as a single argument
+      try {{
+        __result = func(__testInput);
+      }} catch (e2) {{
+        __error = `Function call failed: ${{e.message}}`;
+      }}
+    }}
+  }} else {{
+    __error = "No function found in the code";
+  }}
+  
+  // Compare results
+  let passed = false;
+  if (__error === null) {{
+    if (Array.isArray(__expected) && Array.isArray(__result)) {{
+      passed = JSON.stringify(__result) === JSON.stringify(__expected);
+    }} else {{
+      passed = __result === __expected;
+    }}
+  }}
+  
+  console.log(JSON.stringify({{ 
+    passed: passed, 
+    output: __result, 
+    expected: __expected, 
+    test_input: __testInput, 
+    error: __error 
+  }}));
 }} catch (e) {{
-  console.log(JSON.stringify({{ passed: false, output: null, expected: __expected, error: String(e) }}));
+  console.log(JSON.stringify({{ 
+    passed: false, 
+    output: null, 
+    expected: __expected, 
+    test_input: __testInput, 
+    error: String(e) 
+  }}));
 }}
 """.format(
                     code=code,
@@ -629,46 +801,313 @@ try {{
         problems = {
             "Arrays": {
                 "easy": {
-                    "title": "Find Maximum Element",
-                    "description": "Given an array of integers, find and return the maximum element.",
+                    "title": "Maximum Subarray Sum (Kadane's Algorithm)",
+                    "description": "Given an array of integers, find the contiguous subarray with the largest sum. Implement Kadane's algorithm to solve this in O(n) time complexity.",
                     "test_cases": [
-                        {"input": {"arr": [1, 3, 2, 5, 4]}, "output": 5},
-                        {"input": {"arr": [-1, -3, -2]}, "output": -1},
-                        {"input": {"arr": [42]}, "output": 42}
+                        {"input": {"arr": [-2, 1, -3, 4, -1, 2, 1, -5, 4]}, "output": 6},
+                        {"input": {"arr": [1, 2, 3, 4, 5]}, "output": 15},
+                        {"input": {"arr": [-1, -2, -3, -4]}, "output": -1}
                     ]
                 },
                 "medium": {
-                    "title": "Two Sum",
-                    "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+                    "title": "Product of Array Except Self",
+                    "description": "Given an array nums, return an array where each element is the product of all elements in nums except nums[i]. You must solve it in O(n) time without using division.",
                     "test_cases": [
-                        {"input": {"nums": [2, 7, 11, 15], "target": 9}, "output": [0, 1]},
-                        {"input": {"nums": [3, 2, 4], "target": 6}, "output": [1, 2]}
+                        {"input": {"nums": [1, 2, 3, 4]}, "output": [24, 12, 8, 6]},
+                        {"input": {"nums": [-1, 1, 0, -3, 3]}, "output": [0, 0, 9, 0, 0]}
+                    ]
+                },
+                "hard": {
+                    "title": "Sliding Window Maximum",
+                    "description": "Given an array and a sliding window of size k, find the maximum element in each window. Solve in O(n) time using a deque.",
+                    "test_cases": [
+                        {"input": {"nums": [1, 3, -1, -3, 5, 3, 6, 7], "k": 3}, "output": [3, 3, 5, 5, 6, 7]}
+                    ]
+                }
+            },
+            "Machine Learning": {
+                "easy": {
+                    "title": "Gradient Descent Implementation",
+                    "description": "Implement gradient descent from scratch to minimize a cost function. Use the mean squared error as the loss function and implement both batch and stochastic gradient descent variants.",
+                    "test_cases": [
+                        {"input": {"X": [[1], [2], [3], [4]], "y": [2, 4, 6, 8], "learning_rate": 0.01, "epochs": 1000}, "output": "Converged weights"},
+                        {"input": {"X": [[1, 2], [2, 3], [3, 4]], "y": [3, 5, 7], "learning_rate": 0.1, "epochs": 500}, "output": "Optimized parameters"}
+                    ]
+                },
+                "medium": {
+                    "title": "Neural Network Backpropagation",
+                    "description": "Implement a simple neural network with one hidden layer using backpropagation. Include forward pass, backward pass, and weight updates. Support multiple activation functions (sigmoid, ReLU, tanh).",
+                    "test_cases": [
+                        {"input": {"X": [[0, 0], [0, 1], [1, 0], [1, 1]], "y": [0, 1, 1, 0], "hidden_size": 4, "epochs": 1000}, "output": "XOR problem solved"},
+                        {"input": {"X": [[1, 2], [2, 3], [3, 4]], "y": [0, 1, 0], "hidden_size": 3, "epochs": 500}, "output": "Classification completed"}
+                    ]
+                },
+                "hard": {
+                    "title": "Convolutional Neural Network Implementation",
+                    "description": "Implement a CNN from scratch including convolution, pooling, and fully connected layers. Support multiple filter sizes, stride, and padding. Include forward and backward propagation.",
+                    "test_cases": [
+                        {"input": {"image_shape": [28, 28, 1], "num_classes": 10, "filters": [32, 64], "epochs": 10}, "output": "CNN trained successfully"}
+                    ]
+                }
+            },
+            "Web Development": {
+                "easy": {
+                    "title": "Rate Limiting Middleware",
+                    "description": "Implement a rate limiting middleware for a web API that limits requests per IP address. Use a sliding window algorithm with Redis or in-memory storage. Support different rate limits for different endpoints.",
+                    "test_cases": [
+                        {"input": {"ip": "192.168.1.1", "endpoint": "/api/users", "limit": 100, "window": 3600}, "output": "Rate limit applied"},
+                        {"input": {"ip": "192.168.1.2", "endpoint": "/api/admin", "limit": 10, "window": 3600}, "output": "Admin rate limit enforced"}
+                    ]
+                },
+                "medium": {
+                    "title": "WebSocket Real-time Chat System",
+                    "description": "Implement a real-time chat system using WebSockets with features like private messaging, group chats, message persistence, and user presence. Include authentication and message encryption.",
+                    "test_cases": [
+                        {"input": {"users": ["user1", "user2"], "message": "Hello", "room": "general"}, "output": "Message broadcasted"},
+                        {"input": {"users": ["user1", "user3"], "message": "Private message", "room": "private"}, "output": "Private message delivered"}
+                    ]
+                },
+                "hard": {
+                    "title": "Microservices Architecture with API Gateway",
+                    "description": "Design and implement a microservices architecture with an API Gateway, service discovery, load balancing, and circuit breaker pattern. Include authentication, logging, and monitoring.",
+                    "test_cases": [
+                        {"input": {"services": ["user-service", "order-service", "payment-service"], "gateway": "api-gateway", "load_balancer": "round-robin"}, "output": "Microservices deployed"},
+                        {"input": {"circuit_breaker": {"threshold": 5, "timeout": 30}, "monitoring": "prometheus"}, "output": "Resilience patterns implemented"}
+                    ]
+                }
+            },
+            "Python Programming": {
+                "easy": {
+                    "title": "Context Manager Implementation",
+                    "description": "Implement a custom context manager class that handles database connections with automatic cleanup, connection pooling, and transaction management. Include proper exception handling and resource cleanup.",
+                    "test_cases": [
+                        {"input": {"db_url": "sqlite:///test.db", "pool_size": 5, "timeout": 30}, "output": "Connection managed successfully"},
+                        {"input": {"db_url": "postgresql://user:pass@localhost/db", "pool_size": 10, "timeout": 60}, "output": "Transaction committed"}
+                    ]
+                },
+                "medium": {
+                    "title": "Async/Await Web Scraper",
+                    "description": "Implement an asynchronous web scraper using asyncio and aiohttp that can scrape multiple URLs concurrently. Include rate limiting, retry logic, and data extraction with BeautifulSoup. Handle different content types and implement proper error handling.",
+                    "test_cases": [
+                        {"input": {"urls": ["https://example1.com", "https://example2.com"], "concurrency": 5, "rate_limit": 2}, "output": "Data scraped successfully"},
+                        {"input": {"urls": ["https://api.example.com/data"], "headers": {"Authorization": "Bearer token"}, "retry_count": 3}, "output": "API data extracted"}
+                    ]
+                },
+                "hard": {
+                    "title": "Distributed Task Queue with Celery",
+                    "description": "Implement a distributed task queue system using Celery with Redis as the message broker. Include task scheduling, priority queues, result backends, monitoring, and error handling. Support task chaining and workflow management.",
+                    "test_cases": [
+                        {"input": {"tasks": ["process_data", "send_email", "generate_report"], "workers": 4, "priority": "high"}, "output": "Tasks queued successfully"},
+                        {"input": {"workflow": "data_pipeline", "retry_policy": {"max_retries": 3, "backoff": "exponential"}, "monitoring": "flower"}, "output": "Workflow executed"}
+                    ]
+                }
+            },
+            "JavaScript": {
+                "easy": {
+                    "title": "React Hooks Custom Implementation",
+                    "description": "Implement custom React hooks including useState, useEffect, useReducer, and useCallback from scratch. Include proper dependency tracking, cleanup functions, and performance optimizations. Support concurrent features and suspense.",
+                    "test_cases": [
+                        {"input": {"hook": "useState", "initialValue": 0, "updates": [1, 2, 3]}, "output": "State managed correctly"},
+                        {"input": {"hook": "useEffect", "dependencies": ["count"], "cleanup": "timer"}, "output": "Effect executed and cleaned up"}
+                    ]
+                },
+                "medium": {
+                    "title": "Node.js Microservices with Express",
+                    "description": "Build a microservices architecture using Node.js and Express with service discovery, API Gateway, load balancing, and inter-service communication. Include authentication, logging, monitoring, and error handling.",
+                    "test_cases": [
+                        {"input": {"services": ["user-service", "order-service"], "gateway": "express-gateway", "discovery": "consul"}, "output": "Microservices deployed"},
+                        {"input": {"communication": "gRPC", "auth": "JWT", "monitoring": "prometheus"}, "output": "Services communicating"}
+                    ]
+                },
+                "hard": {
+                    "title": "Real-time Data Processing with WebSockets and Redis",
+                    "description": "Implement a real-time data processing system using WebSockets, Redis Streams, and Node.js. Include data ingestion, real-time analytics, pub/sub messaging, and horizontal scaling. Support multiple data sources and complex event processing.",
+                    "test_cases": [
+                        {"input": {"sources": ["sensor_data", "user_events"], "processing": "stream", "output": "kafka"}, "output": "Data processed in real-time"},
+                        {"input": {"analytics": "real-time", "scaling": "horizontal", "monitoring": "grafana"}, "output": "System scaled successfully"}
                     ]
                 }
             }
         }
         
-        default_problem = problems.get(topic, {}).get(difficulty, problems["Arrays"]["easy"])
+        # Try to find a matching problem or create a dynamic one
+        default_problem = problems.get(topic, {}).get(difficulty)
+        
+        if not default_problem:
+            # Try to find a similar topic
+            similar_topics = {
+                "programming": "Arrays",
+                "coding": "Arrays", 
+                "computer science": "Arrays",
+                "cs": "Arrays",
+                "software": "Arrays",
+                "web": "Web Development",
+                "frontend": "JavaScript",
+                "backend": "Python Programming",
+                "data science": "Machine Learning",
+                "ai": "Machine Learning",
+                "machine learning": "Machine Learning",
+                "ml": "Machine Learning",
+                "python": "Python Programming",
+                "javascript": "JavaScript",
+                "java": "Arrays",
+                "c++": "Arrays",
+                "react": "JavaScript",
+                "node": "JavaScript",
+                "sql": "Web Development",
+                "database": "Web Development"
+            }
+            
+            # Find similar topic
+            for key, value in similar_topics.items():
+                if key in topic.lower():
+                    default_problem = problems.get(value, {}).get(difficulty)
+                    break
+            
+            # If still no match, use Arrays as default
+            if not default_problem:
+                default_problem = problems.get("Arrays", {}).get(difficulty, problems["Arrays"]["easy"])
+        
+        # Generate dynamic problem if still no match
+        if not default_problem:
+            default_problem = self._generate_dynamic_coding_problem(topic, difficulty)
         
         return {
             "title": default_problem["title"],
             "description": default_problem["description"],
             "topic": topic,
             "difficulty": difficulty,
-            "constraints": ["1 <= n <= 1000", "Values can be negative"],
-            "examples": [
+            "constraints": default_problem.get("constraints", ["1 <= n <= 1000", "Values can be negative"]),
+            "examples": default_problem.get("examples", [
                 {
                     "input": "Example input",
                     "output": "Example output",
                     "explanation": "This is a fallback example"
                 }
-            ],
-            "test_cases": default_problem["test_cases"],
-            "hidden_test_cases": default_problem["test_cases"][:2],  # Use first 2 as hidden
-            "expected_complexity": {"time": "O(n)", "space": "O(1)"},
-            "hints": ["Think about the basic approach", "Consider edge cases"],
+            ]),
+            "test_cases": default_problem.get("test_cases", []),
+            "hidden_test_cases": default_problem.get("test_cases", [])[:2],  # Use first 2 as hidden
+            "expected_complexity": default_problem.get("expected_complexity", {"time": "O(n)", "space": "O(1)"}),
+            "hints": default_problem.get("hints", ["Think about the basic approach", "Consider edge cases"]),
             "tags": [topic.lower(), difficulty]
         }
+
+    def _generate_dynamic_coding_problem(self, topic: str, difficulty: str) -> Dict[str, Any]:
+        """Generate a dynamic coding problem for any topic"""
+        
+        # Define problem templates based on topic categories
+        programming_topics = ["programming", "coding", "computer science", "cs", "software", "web", "frontend", "backend", "data science", "ai", "machine learning", "ml", "python", "javascript", "java", "c++", "react", "node", "sql", "database"]
+        science_topics = ["science", "physics", "chemistry", "biology", "medicine", "engineering", "environmental", "geology", "astronomy"]
+        math_topics = ["math", "mathematics", "calculus", "algebra", "statistics", "geometry", "trigonometry", "linear algebra", "discrete"]
+        
+        # Determine the category
+        topic_lower = topic.lower()
+        if any(prog_topic in topic_lower for prog_topic in programming_topics):
+            category = "programming"
+        elif any(sci_topic in topic_lower for sci_topic in science_topics):
+            category = "science"
+        elif any(math_topic in topic_lower for math_topic in math_topics):
+            category = "mathematics"
+        else:
+            category = "general"
+        
+        # Generate problems based on category and difficulty
+        if category == "programming":
+            if difficulty.lower() == "easy":
+                return {
+                    "title": f"Basic {topic} Algorithm Implementation",
+                    "description": f"Implement a fundamental algorithm in {topic}. Create a function that demonstrates core programming concepts and handles basic input/output operations.",
+                    "test_cases": [
+                        {"input": {"data": [1, 2, 3, 4, 5]}, "output": "Algorithm executed successfully"},
+                        {"input": {"data": [10, 20, 30]}, "output": "Result computed"}
+                    ]
+                }
+            elif difficulty.lower() == "medium":
+                return {
+                    "title": f"Advanced {topic} Problem Solving",
+                    "description": f"Solve a complex problem in {topic} using efficient algorithms and data structures. Implement error handling and optimize for performance.",
+                    "test_cases": [
+                        {"input": {"complex_data": [1, 2, 3, 4, 5], "parameters": {"threshold": 10}}, "output": "Complex problem solved"},
+                        {"input": {"complex_data": [100, 200, 300], "parameters": {"threshold": 50}}, "output": "Optimized solution found"}
+                    ]
+                }
+            else:  # hard
+                return {
+                    "title": f"Expert-Level {topic} System Design",
+                    "description": f"Design and implement a comprehensive system in {topic} with multiple components, error handling, scalability considerations, and performance optimization.",
+                    "test_cases": [
+                        {"input": {"system_requirements": {"scale": "high", "performance": "critical"}}, "output": "System designed and implemented"},
+                        {"input": {"system_requirements": {"scale": "enterprise", "performance": "optimal"}}, "output": "Enterprise solution delivered"}
+                    ]
+                }
+        
+        elif category == "science":
+            if difficulty.lower() == "easy":
+                return {
+                    "title": f"Basic {topic} Data Analysis",
+                    "description": f"Implement a simple data analysis tool for {topic} that processes experimental data and generates basic statistics.",
+                    "test_cases": [
+                        {"input": {"data": [1.2, 2.3, 3.4, 4.5]}, "output": "Analysis completed"},
+                        {"input": {"data": [10.1, 20.2, 30.3]}, "output": "Statistics calculated"}
+                    ]
+                }
+            elif difficulty.lower() == "medium":
+                return {
+                    "title": f"Advanced {topic} Simulation",
+                    "description": f"Create a simulation model for {topic} phenomena with multiple variables and interactive parameters.",
+                    "test_cases": [
+                        {"input": {"parameters": {"time": 100, "precision": 0.01}}, "output": "Simulation completed"},
+                        {"input": {"parameters": {"time": 1000, "precision": 0.001}}, "output": "High-precision simulation finished"}
+                    ]
+                }
+            else:  # hard
+                return {
+                    "title": f"Complex {topic} Modeling System",
+                    "description": f"Implement a comprehensive modeling system for {topic} with advanced algorithms, visualization, and predictive capabilities.",
+                    "test_cases": [
+                        {"input": {"model_parameters": {"complexity": "high", "accuracy": "precise"}}, "output": "Advanced model implemented"},
+                        {"input": {"model_parameters": {"complexity": "expert", "accuracy": "optimal"}}, "output": "Expert-level model completed"}
+                    ]
+                }
+        
+        elif category == "mathematics":
+            if difficulty.lower() == "easy":
+                return {
+                    "title": f"Basic {topic} Calculator",
+                    "description": f"Implement a calculator for {topic} operations with support for basic mathematical functions and error handling.",
+                    "test_cases": [
+                        {"input": {"expression": "2 + 3 * 4"}, "output": "14"},
+                        {"input": {"expression": "sqrt(16) + 5"}, "output": "9"}
+                    ]
+                }
+            elif difficulty.lower() == "medium":
+                return {
+                    "title": f"Advanced {topic} Problem Solver",
+                    "description": f"Create a sophisticated problem solver for {topic} that handles complex equations, multiple variables, and provides step-by-step solutions.",
+                    "test_cases": [
+                        {"input": {"equation": "x^2 + 5x + 6 = 0"}, "output": "x = -2, x = -3"},
+                        {"input": {"equation": "2x + 3y = 10, x - y = 1"}, "output": "x = 2.6, y = 1.6"}
+                    ]
+                }
+            else:  # hard
+                return {
+                    "title": f"Expert {topic} Analysis System",
+                    "description": f"Implement a comprehensive analysis system for {topic} with advanced algorithms, numerical methods, and visualization capabilities.",
+                    "test_cases": [
+                        {"input": {"analysis_type": "numerical", "precision": "high"}, "output": "Numerical analysis completed"},
+                        {"input": {"analysis_type": "symbolic", "precision": "exact"}, "output": "Symbolic analysis finished"}
+                    ]
+                }
+        
+        else:  # general
+            return {
+                "title": f"General {topic} Problem",
+                "description": f"Implement a solution for a {topic} problem that demonstrates problem-solving skills and programming best practices.",
+                "test_cases": [
+                    {"input": {"problem_data": "sample"}, "output": "Problem solved"},
+                    {"input": {"problem_data": "complex"}, "output": "Complex problem addressed"}
+                ]
+            }
 
     def _get_fallback_feedback(self, code: str, test_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Get fallback feedback when AI is not available"""
@@ -752,3 +1191,40 @@ try {{
 
 # Global instance
 gemini_coding_service = GeminiCodingService()
+
+# Test function to verify execution works
+def test_execution():
+    """Test the execution system with the is_harmonious function"""
+    test_code = """
+def is_harmonious(colors):
+    for i in range(1, len(colors)):
+        if colors[i] == colors[i - 1]:
+            return False
+    return True
+"""
+    
+    test_cases = [
+        {
+            "input": [1, 2, 3, 4],
+            "output": True
+        },
+        {
+            "input": [1, 2, 2, 3, 1],
+            "output": False
+        },
+        {
+            "input": [5],
+            "output": True
+        }
+    ]
+    
+    print("🧪 [TEST] Testing execution with is_harmonious function...")
+    result = gemini_coding_service.execute_code(
+        code=test_code,
+        language="python",
+        test_cases=test_cases,
+        time_limit=5000,
+        memory_limit=256
+    )
+    print(f"🧪 [TEST] Result: {result}")
+    return result

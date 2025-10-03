@@ -27,12 +27,22 @@ router = APIRouter()
 
 @router.post("/problems/generate")
 async def generate_problem(
-    request: ProblemGenerationRequest,
+    request: dict,
     user_id: str = Depends(get_current_user_id)
 ):
     """Generate a new coding problem using Gemini AI"""
     try:
-        print(f"🧠 [CODING] User {user_id} requesting problem generation: {request.topic} ({request.difficulty})")
+        print(f"🧠 [CODING] User {user_id} requesting problem generation: {request.get('topic')} ({request.get('difficulty')})")
+        print(f"🧠 [CODING] Request data: {request}")
+        
+        # Extract parameters from request
+        topic = request.get('topic', 'Arrays')
+        difficulty = request.get('difficulty', 'easy')
+        user_skill_level = request.get('user_skill_level', 'intermediate')
+        focus_areas = request.get('focus_areas', [topic])
+        avoid_topics = request.get('avoid_topics', [])
+        timestamp = request.get('timestamp')
+        session_id = request.get('session_id')
         
         # Get user analytics to personalize problem
         db = await get_db()
@@ -40,19 +50,19 @@ async def generate_problem(
         
         # Generate unique problem using Gemini AI with additional parameters
         problem_data = await gemini_coding_service.generate_coding_problem(
-            topic=request.topic,
-            difficulty=request.difficulty,
-            user_skill_level=request.user_skill_level,
-            focus_areas=request.focus_areas,
-            avoid_topics=request.avoid_topics
+            topic=topic,
+            difficulty=difficulty,
+            user_skill_level=user_skill_level,
+            focus_areas=focus_areas,
+            avoid_topics=avoid_topics
         )
         
         # Add uniqueness parameters to ensure different problems each time
-        if hasattr(request, 'timestamp'):
-            problem_data["title"] = f"{problem_data['title']} (Generated {datetime.fromtimestamp(request.timestamp/1000).strftime('%H:%M:%S')})"
+        if timestamp:
+            problem_data["title"] = f"{problem_data['title']} (Generated {datetime.fromtimestamp(timestamp/1000).strftime('%H:%M:%S')})"
         
-        if hasattr(request, 'session_id'):
-            problem_data["description"] = f"{problem_data['description']}\n\n*Session ID: {request.session_id}*"
+        if session_id:
+            problem_data["description"] = f"{problem_data['description']}\n\n*Session ID: {session_id}*"
         
         # Create problem document
         problem_doc = {
@@ -77,7 +87,7 @@ async def generate_problem(
         result = await db.coding_problems.insert_one(problem_doc)
         problem_doc["_id"] = result.inserted_id
         
-        print(f"✅ [CODING] Problem generated and saved: {problem_data['title']}")
+        print(f"[OK] [CODING] Problem generated and saved: {problem_data['title']}")
         
         # Return problem without hidden test cases
         return {
@@ -99,7 +109,7 @@ async def generate_problem(
         }
         
     except Exception as e:
-        print(f"❌ [CODING] Error generating problem: {str(e)}")
+        print(f"[ERROR] [CODING] Error generating problem: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate problem: {str(e)}"
@@ -115,7 +125,7 @@ async def get_problems(
 ):
     """Get coding problems with optional filtering"""
     try:
-        print(f"📋 [CODING] User {user_id} requesting problems (topic: {topic}, difficulty: {difficulty})")
+        print(f"[LIST] [CODING] User {user_id} requesting problems (topic: {topic}, difficulty: {difficulty})")
         
         db = await get_db()
         
@@ -149,7 +159,7 @@ async def get_problems(
                 "average_time": problem.get("average_time")
             })
         
-        print(f"✅ [CODING] Returning {len(formatted_problems)} problems")
+        print(f"[OK] [CODING] Returning {len(formatted_problems)} problems")
         
         return {
             "success": True,
@@ -158,7 +168,7 @@ async def get_problems(
         }
         
     except Exception as e:
-        print(f"❌ [CODING] Error fetching problems: {str(e)}")
+        print(f"[ERROR] [CODING] Error fetching problems: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch problems: {str(e)}"
@@ -171,7 +181,7 @@ async def get_problem(
 ):
     """Get a specific coding problem by ID"""
     try:
-        print(f"📋 [CODING] User {user_id} requesting problem: {problem_id}")
+        print(f"[LIST] [CODING] User {user_id} requesting problem: {problem_id}")
         
         db = await get_db()
         
@@ -208,6 +218,7 @@ async def get_problem(
             "difficulty": problem["difficulty"],
             "constraints": problem["constraints"],
             "examples": problem["examples"],
+            "test_cases": problem.get("test_cases", []),
             "hints": problem["hints"],
             "tags": problem["tags"],
             "expected_complexity": problem["expected_complexity"],
@@ -216,7 +227,7 @@ async def get_problem(
             "last_attempt": last_attempt
         }
         
-        print(f"✅ [CODING] Problem retrieved: {problem['title']}")
+        print(f"[OK] [CODING] Problem retrieved: {problem['title']}")
         
         return {
             "success": True,
@@ -224,7 +235,7 @@ async def get_problem(
         }
         
     except Exception as e:
-        print(f"❌ [CODING] Error fetching problem: {str(e)}")
+        print(f"[ERROR] [CODING] Error fetching problem: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch problem: {str(e)}"
@@ -250,7 +261,7 @@ async def execute_code(
             memory_limit=request.memory_limit
         )
         
-        print(f"✅ [CODING] Code execution completed - Success: {execution_result['success']}")
+        print(f"[OK] [CODING] Code execution completed - Success: {execution_result['success']}")
         
         return {
             "success": True,
@@ -258,7 +269,7 @@ async def execute_code(
         }
         
     except Exception as e:
-        print(f"❌ [CODING] Code execution failed: {str(e)}")
+        print(f"[ERROR] [CODING] Code execution failed: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Code execution failed: {str(e)}"
@@ -272,7 +283,7 @@ async def submit_solution(
 ):
     """Submit a coding solution for evaluation"""
     try:
-        print(f"📤 [CODING] User {user_id} submitting solution for problem: {solution.problem_id}")
+        print(f"[SEND] [CODING] User {user_id} submitting solution for problem: {solution.problem_id}")
         
         db = await get_db()
         
@@ -342,7 +353,7 @@ async def submit_solution(
         background_tasks.add_task(update_user_analytics_task, user_id, status == "accepted")
         background_tasks.add_task(update_problem_stats_task, solution.problem_id, status == "accepted", execution_result["execution_time"])
         
-        print(f"✅ [CODING] Solution submitted - Status: {status}")
+        print(f"[OK] [CODING] Solution submitted - Status: {status}")
         
         return {
             "success": True,
@@ -357,7 +368,7 @@ async def submit_solution(
         }
         
     except Exception as e:
-        print(f"❌ [CODING] Solution submission failed: {str(e)}")
+        print(f"[ERROR] [CODING] Solution submission failed: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Solution submission failed: {str(e)}"
@@ -370,7 +381,7 @@ async def get_submission(
 ):
     """Get a specific submission by ID"""
     try:
-        print(f"📋 [CODING] User {user_id} requesting submission: {submission_id}")
+        print(f"[LIST] [CODING] User {user_id} requesting submission: {submission_id}")
         
         db = await get_db()
         
@@ -408,7 +419,7 @@ async def get_submission(
             "attempts": submission.get("attempts", 1)
         }
         
-        print(f"✅ [CODING] Submission retrieved")
+        print(f"[OK] [CODING] Submission retrieved")
         
         return {
             "success": True,
@@ -416,7 +427,7 @@ async def get_submission(
         }
         
     except Exception as e:
-        print(f"❌ [CODING] Error fetching submission: {str(e)}")
+        print(f"[ERROR] [CODING] Error fetching submission: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch submission: {str(e)}"
@@ -431,7 +442,7 @@ async def start_coding_session(
 ):
     """Start a new coding session"""
     try:
-        print(f"🚀 [CODING] User {user_id} starting session for problem: {session_data.problem_id}")
+        print(f"[START] [CODING] User {user_id} starting session for problem: {session_data.problem_id}")
         
         db = await get_db()
         
@@ -454,7 +465,7 @@ async def start_coding_session(
         
         result = await db.coding_sessions.insert_one(session_doc)
         
-        print(f"✅ [CODING] Session started: {result.inserted_id}")
+        print(f"[OK] [CODING] Session started: {result.inserted_id}")
         
         return {
             "success": True,
@@ -462,7 +473,7 @@ async def start_coding_session(
         }
         
     except Exception as e:
-        print(f"❌ [CODING] Error starting session: {str(e)}")
+        print(f"[ERROR] [CODING] Error starting session: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to start session: {str(e)}"
@@ -505,7 +516,7 @@ async def update_coding_session(
         return {"success": True}
         
     except Exception as e:
-        print(f"❌ [CODING] Error updating session: {str(e)}")
+        print(f"[ERROR] [CODING] Error updating session: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to update session: {str(e)}"
@@ -546,7 +557,7 @@ async def end_coding_session(
             }
         )
         
-        print(f"✅ [CODING] Session ended: {session_id} (Duration: {total_time}s)")
+        print(f"[OK] [CODING] Session ended: {session_id} (Duration: {total_time}s)")
         
         return {
             "success": True,
@@ -562,7 +573,7 @@ async def end_coding_session(
         }
         
     except Exception as e:
-        print(f"❌ [CODING] Error ending session: {str(e)}")
+        print(f"[ERROR] [CODING] Error ending session: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to end session: {str(e)}"
@@ -576,7 +587,7 @@ async def get_coding_analytics(
 ):
     """Get coding analytics for the user"""
     try:
-        print(f"📊 [CODING] User {user_id} requesting coding analytics")
+        print(f"[STATS] [CODING] User {user_id} requesting coding analytics")
         
         db = await get_db()
         
@@ -640,7 +651,7 @@ async def get_coding_analytics(
             ]
         }
         
-        print(f"✅ [CODING] Analytics retrieved for user {user_id}")
+        print(f"[OK] [CODING] Analytics retrieved for user {user_id}")
         
         return {
             "success": True,
@@ -648,7 +659,7 @@ async def get_coding_analytics(
         }
         
     except Exception as e:
-        print(f"❌ [CODING] Error fetching analytics: {str(e)}")
+        print(f"[ERROR] [CODING] Error fetching analytics: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch analytics: {str(e)}"
@@ -660,7 +671,7 @@ async def generate_learning_path(
 ):
     """Generate personalized learning path using AI"""
     try:
-        print(f"🎯 [CODING] Generating learning path for user: {user_id}")
+        print(f"[TARGET] [CODING] Generating learning path for user: {user_id}")
         
         db = await get_db()
         
@@ -710,7 +721,7 @@ async def generate_learning_path(
             upsert=True
         )
         
-        print(f"✅ [CODING] Learning path generated for user {user_id}")
+        print(f"[OK] [CODING] Learning path generated for user {user_id}")
         
         return {
             "success": True,
@@ -718,7 +729,7 @@ async def generate_learning_path(
         }
         
     except Exception as e:
-        print(f"❌ [CODING] Error generating learning path: {str(e)}")
+        print(f"[ERROR] [CODING] Error generating learning path: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate learning path: {str(e)}"
@@ -735,7 +746,7 @@ async def generate_ai_feedback_task(
 ):
     """Background task to generate AI feedback for a submission"""
     try:
-        print(f"🤖 [BACKGROUND] Generating AI feedback for submission: {submission_id}")
+        print(f"[AI] [BACKGROUND] Generating AI feedback for submission: {submission_id}")
         
         # Generate AI feedback
         feedback = await gemini_coding_service.analyze_code_solution(
@@ -757,15 +768,15 @@ async def generate_ai_feedback_task(
             }
         )
         
-        print(f"✅ [BACKGROUND] AI feedback generated for submission: {submission_id}")
+        print(f"[OK] [BACKGROUND] AI feedback generated for submission: {submission_id}")
         
     except Exception as e:
-        print(f"❌ [BACKGROUND] Error generating AI feedback: {str(e)}")
+        print(f"[ERROR] [BACKGROUND] Error generating AI feedback: {str(e)}")
 
 async def update_user_analytics_task(user_id: str, solved: bool):
     """Background task to update user analytics"""
     try:
-        print(f"📊 [BACKGROUND] Updating analytics for user: {user_id}")
+        print(f"[STATS] [BACKGROUND] Updating analytics for user: {user_id}")
         
         db = await get_db()
         
@@ -820,15 +831,15 @@ async def update_user_analytics_task(user_id: str, solved: bool):
                 }
             )
         
-        print(f"✅ [BACKGROUND] Analytics updated for user: {user_id}")
+        print(f"[OK] [BACKGROUND] Analytics updated for user: {user_id}")
         
     except Exception as e:
-        print(f"❌ [BACKGROUND] Error updating analytics: {str(e)}")
+        print(f"[ERROR] [BACKGROUND] Error updating analytics: {str(e)}")
 
 async def update_problem_stats_task(problem_id: str, solved: bool, execution_time: int):
     """Background task to update problem statistics"""
     try:
-        print(f"📈 [BACKGROUND] Updating stats for problem: {problem_id}")
+        print(f"[UP] [BACKGROUND] Updating stats for problem: {problem_id}")
         
         db = await get_db()
         
@@ -862,7 +873,7 @@ async def update_problem_stats_task(problem_id: str, solved: bool, execution_tim
                     }
                 )
         
-        print(f"✅ [BACKGROUND] Problem stats updated: {problem_id}")
+        print(f"[OK] [BACKGROUND] Problem stats updated: {problem_id}")
         
     except Exception as e:
-        print(f"❌ [BACKGROUND] Error updating problem stats: {str(e)}")
+        print(f"[ERROR] [BACKGROUND] Error updating problem stats: {str(e)}")

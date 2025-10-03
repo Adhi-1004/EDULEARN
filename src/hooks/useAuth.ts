@@ -6,6 +6,10 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('user');
     const parsedUser = savedUser ? JSON.parse(savedUser) : null;
+    // Ensure role is set with default value
+    if (parsedUser && !parsedUser.role) {
+      parsedUser.role = "student";
+    }
     return parsedUser;
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -46,9 +50,14 @@ export const useAuth = () => {
   }, []);
 
   const login = (userData: User, token?: string) => {
-    console.log('🔐 [AUTH] User logged in:', userData.email);
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
+    console.log('🔐 [AUTH] User logged in:', userData.email, 'Role:', userData.role);
+    // Ensure role is set with default value
+    const userWithRole = {
+      ...userData,
+      role: userData.role || "student"
+    };
+    setUser(userWithRole);
+    localStorage.setItem('user', JSON.stringify(userWithRole));
     if (token) {
       localStorage.setItem('access_token', token);
     }

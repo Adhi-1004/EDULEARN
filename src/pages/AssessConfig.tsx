@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { User, AssessmentConfig } from "../types";
 
+import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../contexts/ToastContext";
 import AnimatedBackground from "../components/AnimatedBackground";
 import Card from "../components/ui/Card";
@@ -13,10 +14,11 @@ import api from "../utils/api";
 import { ANIMATION_VARIANTS, TRANSITION_DEFAULTS } from "../utils/constants";
 
 interface AssessConfigProps {
-    user: User;
+    // user prop is now retrieved via useAuth hook
 }
 
-const AssessConfig: React.FC<AssessConfigProps> = ({ user }) => {
+const AssessConfig: React.FC<AssessConfigProps> = () => {
+    const { user } = useAuth();
     const { success, error: showError } = useToast();
     const [config, setConfig] = useState<AssessmentConfig>({
         topic: "Science",
@@ -25,37 +27,7 @@ const AssessConfig: React.FC<AssessConfigProps> = ({ user }) => {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
-
-    useEffect(() => {
-        const checkAuth = async () => {
-            try {
-                const token = localStorage.getItem('access_token');
-                if (!token) {
-                    navigate('/login', { replace: true });
-                    return;
-                }
-
-                const response = await api.get('/auth/status');
-                if (!response.data.isAuthenticated) {
-                    localStorage.removeItem('access_token');
-                    localStorage.removeItem('user');
-                    navigate('/login', { replace: true });
-                    return;
-                }
-
-                setIsLoading(false);
-            } catch (error) {
-                console.error('Auth check failed:', error);
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('user');
-                navigate('/login', { replace: true });
-            }
-        };
-
-        checkAuth();
-    }, [navigate]);
 
     const handleInputChange = (field: keyof AssessmentConfig, value: string | number) => {
         setConfig(prev => ({
@@ -117,16 +89,7 @@ const AssessConfig: React.FC<AssessConfigProps> = ({ user }) => {
         }
     };
 
-    if (isLoading) {
-        return (
-            <>
-                <AnimatedBackground />
-                <div className="min-h-screen pt-20 px-4 relative z-10 flex items-center justify-center">
-                    <LoadingSpinner size="lg" text="Checking authentication..." />
-                </div>
-            </>
-        );
-    }
+
 
     const difficultyOptions = [
         { value: "Very Easy", label: "Very Easy", color: "from-green-400 to-green-600" },

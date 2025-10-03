@@ -26,6 +26,7 @@ class UserModel(BaseModel):
     email: EmailStr
     password: Optional[str] = None
     is_admin: bool = False
+    role: str = "student"  # Added role field with default value
     google_id: Optional[str] = None
     name: Optional[str] = None
     profile_picture: Optional[str] = None

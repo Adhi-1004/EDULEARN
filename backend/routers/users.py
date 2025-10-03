@@ -13,14 +13,14 @@ router = APIRouter()
 async def register_user(user_data: UserCreate):
     """Register a new user"""
     try:
-        print(f"👤 [USER] New user registration attempt for email: {user_data.email}")
+        print(f"[USER] [USER] New user registration attempt for email: {user_data.email}")
         
         db = await get_db()
         
         # Check if user already exists
         existing_user = await db.users.find_one({"email": user_data.email})
         if existing_user:
-            print(f"❌ [USER] Registration failed - user already exists: {user_data.email}")
+            print(f"[ERROR] [USER] Registration failed - user already exists: {user_data.email}")
             raise HTTPException(status_code=400, detail="User already exists")
         
         # Hash password
@@ -46,7 +46,7 @@ async def register_user(user_data: UserCreate):
             data={"sub": str(result.inserted_id), "email": user_data.email}
         )
         
-        print(f"✅ [USER] User registered successfully: {user_data.email} (ID: {result.inserted_id})")
+        print(f"[SUCCESS] [USER] User registered successfully: {user_data.email} (ID: {result.inserted_id})")
         
         return {
             "success": True,
@@ -61,26 +61,26 @@ async def register_user(user_data: UserCreate):
             }
         }
     except Exception as e:
-        print(f"❌ [USER] Registration error for {user_data.email}: {e}")
+        print(f"[ERROR] [USER] Registration error for {user_data.email}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/users/login")
 async def login_user(user_data: dict):
     """Login with email and password"""
     try:
-        print(f"🔐 [USER] Login attempt for email: {user_data['email']}")
+        print(f"[SECURE] [USER] Login attempt for email: {user_data['email']}")
         
         db = await get_db()
         
         # Find user by email
         user = await db.users.find_one({"email": user_data["email"]})
         if not user:
-            print(f"❌ [USER] Login failed - user not found: {user_data['email']}")
+            print(f"[ERROR] [USER] Login failed - user not found: {user_data['email']}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         # Verify password
         if not UserModel.verify_password(user_data["password"], user["password"]):
-            print(f"❌ [USER] Login failed - invalid password for: {user_data['email']}")
+            print(f"[ERROR] [USER] Login failed - invalid password for: {user_data['email']}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         # Create access token
@@ -88,7 +88,7 @@ async def login_user(user_data: dict):
             data={"sub": str(user["_id"]), "email": user["email"]}
         )
         
-        print(f"✅ [USER] Login successful for user: {user_data['email']}")
+        print(f"[SUCCESS] [USER] Login successful for user: {user_data['email']}")
         
         return {
             "success": True,
@@ -104,28 +104,28 @@ async def login_user(user_data: dict):
             }
         }
     except Exception as e:
-        print(f"❌ [USER] Login error for {user_data['email']}: {e}")
+        print(f"[ERROR] [USER] Login error for {user_data['email']}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/users/{user_id}")
 async def get_user(user_id: str, current_user_id: str = Depends(get_current_user_id)):
     """Get user profile"""
     try:
-        print(f"👤 [USER] User {current_user_id} requesting profile for user {user_id}")
+        print(f"[USER] [USER] User {current_user_id} requesting profile for user {user_id}")
         
         # Ensure user can only access their own profile
         if user_id != current_user_id:
-            print(f"❌ [USER] Access denied: user {current_user_id} trying to access profile for {user_id}")
+            print(f"[ERROR] [USER] Access denied: user {current_user_id} trying to access profile for {user_id}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         db = await get_db()
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         
         if not user:
-            print(f"❌ [USER] Profile not found for user {user_id}")
+            print(f"[ERROR] [USER] Profile not found for user {user_id}")
             raise HTTPException(status_code=404, detail="User not found")
         
-        print(f"✅ [USER] Returning profile for user {user_id}")
+        print(f"[SUCCESS] [USER] Returning profile for user {user_id}")
         
         return {
             "success": True,
@@ -141,7 +141,7 @@ async def get_user(user_id: str, current_user_id: str = Depends(get_current_user
         }
         
     except Exception as e:
-        print(f"❌ [USER] Error fetching profile for user {user_id}: {e}")
+        print(f"[ERROR] [USER] Error fetching profile for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/users/{user_id}")
@@ -152,11 +152,11 @@ async def update_user(
 ):
     """Update user profile"""
     try:
-        print(f"👤 [USER] User {current_user_id} updating profile for user {user_id}")
+        print(f"[USER] [USER] User {current_user_id} updating profile for user {user_id}")
         
         # Ensure user can only update their own profile
         if user_id != current_user_id:
-            print(f"❌ [USER] Access denied: user {current_user_id} trying to update profile for {user_id}")
+            print(f"[ERROR] [USER] Access denied: user {current_user_id} trying to update profile for {user_id}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         db = await get_db()
@@ -164,7 +164,7 @@ async def update_user(
         # Validate user exists
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user:
-            print(f"❌ [USER] Profile not found for user {user_id}")
+            print(f"[ERROR] [USER] Profile not found for user {user_id}")
             raise HTTPException(status_code=404, detail="User not found")
         
         # Prepare update data (only allow certain fields to be updated)
@@ -176,7 +176,7 @@ async def update_user(
                 update_data[field] = user_data[field]
         
         if not update_data:
-            print(f"❌ [USER] No valid fields to update for user {user_id}")
+            print(f"[ERROR] [USER] No valid fields to update for user {user_id}")
             raise HTTPException(status_code=400, detail="No valid fields to update")
         
         # Update user
@@ -186,10 +186,10 @@ async def update_user(
         )
         
         if result.modified_count == 0:
-            print(f"❌ [USER] No changes made for user {user_id}")
+            print(f"[ERROR] [USER] No changes made for user {user_id}")
             raise HTTPException(status_code=400, detail="No changes made")
         
-        print(f"✅ [USER] Profile updated successfully for user {user_id}")
+        print(f"[SUCCESS] [USER] Profile updated successfully for user {user_id}")
         
         return {
             "success": True,
@@ -197,18 +197,18 @@ async def update_user(
         }
         
     except Exception as e:
-        print(f"❌ [USER] Error updating profile for user {user_id}: {e}")
+        print(f"[ERROR] [USER] Error updating profile for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/users/{user_id}")
 async def delete_user(user_id: str, current_user_id: str = Depends(get_current_user_id)):
     """Delete user account"""
     try:
-        print(f"🗑️ [USER] User {current_user_id} requesting account deletion for user {user_id}")
+        print(f"[DELETE] [USER] User {current_user_id} requesting account deletion for user {user_id}")
         
         # Ensure user can only delete their own account
         if user_id != current_user_id:
-            print(f"❌ [USER] Access denied: user {current_user_id} trying to delete account for {user_id}")
+            print(f"[ERROR] [USER] Access denied: user {current_user_id} trying to delete account for {user_id}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         db = await get_db()
@@ -216,14 +216,14 @@ async def delete_user(user_id: str, current_user_id: str = Depends(get_current_u
         # Validate user exists
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user:
-            print(f"❌ [USER] Account not found for user {user_id}")
+            print(f"[ERROR] [USER] Account not found for user {user_id}")
             raise HTTPException(status_code=404, detail="User not found")
         
         # Delete user and all associated data
         await db.users.delete_one({"_id": ObjectId(user_id)})
         await db.results.delete_many({"user_id": ObjectId(user_id)})
         
-        print(f"✅ [USER] Account deleted successfully for user {user_id}")
+        print(f"[SUCCESS] [USER] Account deleted successfully for user {user_id}")
         
         return {
             "success": True,
@@ -231,18 +231,18 @@ async def delete_user(user_id: str, current_user_id: str = Depends(get_current_u
         }
         
     except Exception as e:
-        print(f"❌ [USER] Error deleting account for user {user_id}: {e}")
+        print(f"[ERROR] [USER] Error deleting account for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/users/{user_id}/stats")
 async def get_user_stats(user_id: str, current_user_id: str = Depends(get_current_user_id)):
     """Get user statistics"""
     try:
-        print(f"📊 [USER] User {current_user_id} requesting stats for user {user_id}")
+        print(f"[STATS] [USER] User {current_user_id} requesting stats for user {user_id}")
         
         # Ensure user can only access their own stats
         if user_id != current_user_id:
-            print(f"❌ [USER] Access denied: user {current_user_id} trying to access stats for {user_id}")
+            print(f"[ERROR] [USER] Access denied: user {current_user_id} trying to access stats for {user_id}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         db = await get_db()
@@ -274,7 +274,7 @@ async def get_user_stats(user_id: str, current_user_id: str = Depends(get_curren
             total = difficulty_stats[diff]["total_score"]
             difficulty_stats[diff]["average_score"] = total / count if count > 0 else 0
         
-        print(f"📊 [USER] Returning stats for user {user_id} - {total_assessments} assessments, avg score: {average_score:.1f}")
+        print(f"[STATS] [USER] Returning stats for user {user_id} - {total_assessments} assessments, avg score: {average_score:.1f}")
         
         return {
             "success": True,
@@ -289,7 +289,7 @@ async def get_user_stats(user_id: str, current_user_id: str = Depends(get_curren
         }
         
     except Exception as e:
-        print(f"❌ [USER] Error fetching stats for user {user_id}: {e}")
+        print(f"[ERROR] [USER] Error fetching stats for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/users")
@@ -324,7 +324,7 @@ async def get_all_users(current_user_id: str = Depends(get_current_user_id)):
         }
         
     except Exception as e:
-        print(f"❌ [USER] Error fetching users for face recognition: {e}")
+        print(f"[ERROR] [USER] Error fetching users for face recognition: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch users: {str(e)}"
@@ -338,11 +338,11 @@ async def change_password(
 ):
     """Change user password"""
     try:
-        print(f"🔐 [USER] User {current_user_id} requesting password change for user {user_id}")
+        print(f"[SECURE] [USER] User {current_user_id} requesting password change for user {user_id}")
         
         # Ensure user can only change their own password
         if user_id != current_user_id:
-            print(f"❌ [USER] Access denied: user {current_user_id} trying to change password for {user_id}")
+            print(f"[ERROR] [USER] Access denied: user {current_user_id} trying to change password for {user_id}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         db = await get_db()
@@ -350,17 +350,17 @@ async def change_password(
         # Validate user exists
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user:
-            print(f"❌ [USER] User not found for password change: {user_id}")
+            print(f"[ERROR] [USER] User not found for password change: {user_id}")
             raise HTTPException(status_code=404, detail="User not found")
         
         # Validate password data
         if "current_password" not in password_data or "new_password" not in password_data:
-            print(f"❌ [USER] Missing password fields for user {user_id}")
+            print(f"[ERROR] [USER] Missing password fields for user {user_id}")
             raise HTTPException(status_code=400, detail="Missing password fields")
         
         # Verify current password
         if not UserModel.verify_password(password_data["current_password"], user["password"]):
-            print(f"❌ [USER] Current password incorrect for user {user_id}")
+            print(f"[ERROR] [USER] Current password incorrect for user {user_id}")
             raise HTTPException(status_code=401, detail="Current password is incorrect")
         
         # Hash new password
@@ -373,10 +373,10 @@ async def change_password(
         )
         
         if result.modified_count == 0:
-            print(f"❌ [USER] Failed to update password for user {user_id}")
+            print(f"[ERROR] [USER] Failed to update password for user {user_id}")
             raise HTTPException(status_code=400, detail="Failed to update password")
         
-        print(f"✅ [USER] Password changed successfully for user {user_id}")
+        print(f"[SUCCESS] [USER] Password changed successfully for user {user_id}")
         
         return {
             "success": True,
@@ -384,7 +384,7 @@ async def change_password(
         }
         
     except Exception as e:
-        print(f"❌ [USER] Error changing password for user {user_id}: {e}")
+        print(f"[ERROR] [USER] Error changing password for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/settings")
@@ -394,11 +394,11 @@ async def save_user_settings(
 ):
     """Save user settings"""
     try:
-        print(f"⚙️ [SETTINGS] User {current_user_id} saving settings")
+        print(f"[SETTINGS] [SETTINGS] User {current_user_id} saving settings")
         
         # Ensure user can only save their own settings
         if settings.userId != current_user_id:
-            print(f"❌ [SETTINGS] Access denied: user {current_user_id} trying to save settings for {settings.userId}")
+            print(f"[ERROR] [SETTINGS] Access denied: user {current_user_id} trying to save settings for {settings.userId}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         db = await get_db()
@@ -406,7 +406,7 @@ async def save_user_settings(
         # Validate user exists
         user = await db.users.find_one({"_id": ObjectId(current_user_id)})
         if not user:
-            print(f"❌ [SETTINGS] User not found for settings save: {current_user_id}")
+            print(f"[ERROR] [SETTINGS] User not found for settings save: {current_user_id}")
             raise HTTPException(status_code=404, detail="User not found")
         
         # Save settings to database
@@ -416,10 +416,10 @@ async def save_user_settings(
         )
         
         if result.modified_count == 0:
-            print(f"❌ [SETTINGS] Failed to save settings for user {current_user_id}")
+            print(f"[ERROR] [SETTINGS] Failed to save settings for user {current_user_id}")
             raise HTTPException(status_code=400, detail="Failed to save settings")
         
-        print(f"✅ [SETTINGS] Settings saved successfully for user {current_user_id}")
+        print(f"[SUCCESS] [SETTINGS] Settings saved successfully for user {current_user_id}")
         
         return {
             "success": True,
@@ -427,7 +427,7 @@ async def save_user_settings(
         }
         
     except Exception as e:
-        print(f"❌ [SETTINGS] Error saving settings for user {current_user_id}: {e}")
+        print(f"[ERROR] [SETTINGS] Error saving settings for user {current_user_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/settings/{user_id}")
@@ -437,23 +437,23 @@ async def get_user_settings(
 ):
     """Get user settings"""
     try:
-        print(f"⚙️ [SETTINGS] User {current_user_id} requesting settings for user {user_id}")
+        print(f"[SETTINGS] [SETTINGS] User {current_user_id} requesting settings for user {user_id}")
         
         # Ensure user can only access their own settings
         if user_id != current_user_id:
-            print(f"❌ [SETTINGS] Access denied: user {current_user_id} trying to access settings for {user_id}")
+            print(f"[ERROR] [SETTINGS] Access denied: user {current_user_id} trying to access settings for {user_id}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         db = await get_db()
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         
         if not user:
-            print(f"❌ [SETTINGS] User not found for settings retrieval: {user_id}")
+            print(f"[ERROR] [SETTINGS] User not found for settings retrieval: {user_id}")
             raise HTTPException(status_code=404, detail="User not found")
         
         settings = user.get("settings", {})
         
-        print(f"✅ [SETTINGS] Returning settings for user {user_id}")
+        print(f"[SUCCESS] [SETTINGS] Returning settings for user {user_id}")
         
         return {
             "success": True,
@@ -461,5 +461,5 @@ async def get_user_settings(
         }
         
     except Exception as e:
-        print(f"❌ [SETTINGS] Error fetching settings for user {user_id}: {e}")
+        print(f"[ERROR] [SETTINGS] Error fetching settings for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e)) 

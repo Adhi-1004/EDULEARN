@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Question, AssessmentConfig } from "../types";
 import { useTheme } from "../contexts/ThemeContext";
+import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../contexts/ToastContext";
 import AnimatedBackground from "../components/AnimatedBackground";
 import Card from "../components/ui/Card";
@@ -13,10 +14,11 @@ import api from "../utils/api";
 import { ANIMATION_VARIANTS, TRANSITION_DEFAULTS } from "../utils/constants";
 
 interface AssessmentProps {
-    user: User;
+    // user prop is now retrieved via useAuth hook
 }
 
-const Assessment: React.FC<AssessmentProps> = ({ user }) => {
+const Assessment: React.FC<AssessmentProps> = () => {
+    const { user, isLoading: isAuthChecking } = useAuth();
     const { mode, colorScheme } = useTheme();
     const { success, error: showError } = useToast();
     const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -27,39 +29,11 @@ const Assessment: React.FC<AssessmentProps> = ({ user }) => {
     const [progress, setProgress] = useState(0);
     const [config, setConfig] = useState<AssessmentConfig | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [isAuthChecking, setIsAuthChecking] = useState(true);
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false); // Add flag to prevent multiple submissions
     const navigate = useNavigate();
     const questionsFetched = useRef(false);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-    useEffect(() => {
-        const checkAuth = async () => {
-            try {
-                const token = localStorage.getItem('access_token');
-                if (!token) {
-                    navigate('/login', { replace: true });
-                    return;
-                }
-                const response = await api.get('/auth/status');
-                if (!response.data.isAuthenticated) {
-                    localStorage.removeItem('access_token');
-                    localStorage.removeItem('user');
-                    navigate('/login', { replace: true });
-                    return;
-                }
-                setIsAuthChecking(false);
-            } catch (error) {
-                console.error('Auth check failed:', error);
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('user');
-                navigate('/login', { replace: true });
-            }
-        };
-
-        checkAuth();
-    }, [navigate]);
 
     const getDifficultyTime = (difficulty: string, questionCount: number) => {
         const timePerQuestion = {
@@ -94,6 +68,7 @@ const Assessment: React.FC<AssessmentProps> = ({ user }) => {
             setTimeRemaining(totalTime);
                         
             console.log("🤖 [ASSESSMENT] Fetching questions from Gemini AI...");
+            console.log("🤖 [ASSESSMENT] Request params:", { topic, difficulty, count: qnCount });
             const geminiResponse = await api.get("/db/questions", {
                 params: {
                     topic,
@@ -103,6 +78,7 @@ const Assessment: React.FC<AssessmentProps> = ({ user }) => {
             });
                         
             console.log("✅ [ASSESSMENT] Questions received from Gemini AI");
+            console.log("✅ [ASSESSMENT] Response data:", geminiResponse.data);
                         
             if (!Array.isArray(geminiResponse.data) || geminiResponse.data.length === 0) {
                 throw new Error('No questions were generated. Please try again.');

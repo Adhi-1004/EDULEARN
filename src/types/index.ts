@@ -6,6 +6,7 @@ export interface User {
     name?: string;
     profile_picture?: string;
     is_admin?: boolean;
+    role?: string;
     has_face_descriptor?: boolean;
   }
   
@@ -96,6 +97,7 @@ export interface CodingProblem {
   difficulty: 'easy' | 'medium' | 'hard';
   constraints: string[];
   examples: ProblemExample[];
+  test_cases?: CodingTestCase[];
   hints: string[];
   tags: string[];
   expected_complexity: {
@@ -137,6 +139,7 @@ export interface CodingTestResult {
   passed: boolean;
   output: any;
   expected?: any;
+  test_input?: any;
   error?: string;
   execution_time: number;
   memory_used: number;

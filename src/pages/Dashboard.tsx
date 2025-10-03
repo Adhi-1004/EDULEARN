@@ -4,8 +4,10 @@ import { motion } from "framer-motion";
 import { User, Analytics, TestResult } from "../types";
 import { useTheme } from "../contexts/ThemeContext";
 import { useToast } from "../contexts/ToastContext";
+import { useAuth } from "../hooks/useAuth";
 import ProgressCharts from "../components/ProgressCharts";
 import AnimatedBackground from "../components/AnimatedBackground";
+import NotificationBar from "../components/NotificationBar";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
@@ -14,10 +16,6 @@ import ErrorState from "../components/ErrorState";
 import api from "../utils/api";
 import { ANIMATION_VARIANTS, TRANSITION_DEFAULTS } from "../utils/constants";
 
-interface DashboardProps {
-    user: User;
-}
-
 interface DashboardStats {
     completedAssessments: number;
     averageScore: number;
@@ -25,7 +23,8 @@ interface DashboardStats {
     topicsStudied: number;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user }) => {
+const Dashboard: React.FC = () => {
+    const { user } = useAuth();
     console.log('📊 [DASHBOARD] Loading dashboard for user:', user?.email);
     
     const { mode, colorScheme } = useTheme();
@@ -183,6 +182,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     return (
         <>
             <AnimatedBackground />
+            <NotificationBar />
             <div className="min-h-screen pt-20 px-4 relative z-10">
                 <motion.div
                     variants={ANIMATION_VARIANTS.fadeIn}

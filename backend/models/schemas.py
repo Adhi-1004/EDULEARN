@@ -24,6 +24,7 @@ class UserBase(BaseModel):
     username: Optional[str] = None
     name: Optional[str] = None
     profile_picture: Optional[str] = None
+    role: str = "student"
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
@@ -277,4 +278,130 @@ class UserSettings(BaseModel):
 
 class SettingsResponse(BaseModel):
     success: bool
-    message: str 
+    message: str
+
+# Assessment System Schemas
+class QuestionCreate(BaseModel):
+    question: str = Field(..., min_length=1)
+    options: List[str] = Field(..., min_items=2, max_items=6)
+    correct_answer: int = Field(..., ge=0)
+    explanation: Optional[str] = None
+    points: int = Field(default=1, ge=1)
+
+class CodingQuestionCreate(BaseModel):
+    title: str = Field(..., min_length=1)
+    description: str = Field(..., min_length=10)
+    problem_statement: str = Field(..., min_length=10)
+    constraints: List[str] = []
+    examples: List[Dict[str, Any]] = []
+    test_cases: List[Dict[str, Any]] = Field(..., min_items=1)
+    hidden_test_cases: List[Dict[str, Any]] = []
+    expected_complexity: Optional[str] = None
+    hints: List[str] = []
+    points: int = Field(default=10, ge=1)
+    time_limit: int = Field(default=30, ge=1)  # seconds per test case
+    memory_limit: int = Field(default=128, ge=1)  # MB
+
+class CodingQuestionResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    problem_statement: str
+    constraints: List[str]
+    examples: List[Dict[str, Any]]
+    hints: List[str]
+    points: int
+    time_limit: int
+    memory_limit: int
+    test_cases: List[Dict[str, Any]]  # Only visible test cases
+
+class QuestionResponse(BaseModel):
+    id: str
+    question: str
+    options: List[str]
+    correct_answer: int
+    explanation: Optional[str] = None
+    points: int
+
+class AssessmentCreate(BaseModel):
+    title: str = Field(..., min_length=1)
+    topic: str = Field(..., min_length=1)
+    difficulty: str = Field(..., pattern="^(easy|medium|hard)$")
+    description: Optional[str] = None
+    time_limit: Optional[int] = None  # in minutes
+    max_attempts: int = Field(default=1, ge=1)
+    type: str = Field(default="mcq", pattern="^(mcq|challenge|ai)$")
+
+class AssessmentResponse(BaseModel):
+    id: str
+    title: str
+    topic: str
+    difficulty: str
+    description: Optional[str] = None
+    time_limit: Optional[int] = None
+    max_attempts: int
+    question_count: int
+    created_by: str
+    created_at: str
+    status: str  # draft, published, closed
+    type: str  # mcq, challenge, ai
+
+class AssessmentSubmission(BaseModel):
+    assessment_id: str
+    answers: List[int]  # List of selected option indices
+    time_taken: Optional[int] = None  # in seconds
+
+class CodingSubmission(BaseModel):
+    assessment_id: str
+    question_id: str
+    code: str
+    language: str = Field(..., pattern="^(python|javascript|java|cpp|go)$")
+    time_taken: Optional[int] = None  # in seconds
+
+class CodingSubmissionResponse(BaseModel):
+    id: str
+    assessment_id: str
+    question_id: str
+    status: str  # "accepted", "wrong_answer", "time_limit_exceeded", "runtime_error", "compilation_error"
+    execution_time: Optional[int] = None
+    memory_used: Optional[int] = None
+    test_results: List[Dict[str, Any]]
+    score: int
+    max_score: int
+    submitted_at: str
+
+class AssessmentResult(BaseModel):
+    id: str
+    assessment_id: str
+    student_id: str
+    student_name: str
+    score: int
+    total_questions: int
+    percentage: float
+    time_taken: Optional[int] = None
+    submitted_at: str
+    attempt_number: int
+
+class LeaderboardEntry(BaseModel):
+    student_id: str
+    student_name: str
+    score: int
+    percentage: float
+    time_taken: Optional[int] = None
+    rank: int
+
+class AssessmentLeaderboard(BaseModel):
+    assessment_id: str
+    assessment_title: str
+    total_students: int
+    leaderboard: List[LeaderboardEntry]
+
+class StudentNotification(BaseModel):
+    id: str
+    student_id: str
+    type: str  # assessment_assigned, assessment_due, result_available
+    title: str
+    message: str
+    assessment_id: Optional[str] = None
+    created_at: str
+    is_read: bool = False 

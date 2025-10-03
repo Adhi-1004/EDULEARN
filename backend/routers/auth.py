@@ -33,33 +33,33 @@ sessions = {}
 async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[str]:
     """Get current user ID from JWT token"""
     try:
-        print(f"🔍 Verifying token...")
+        print(f"[DEBUG] Verifying token...")
         payload = verify_token(credentials.credentials)
         user_id = payload.get("sub")
         if user_id is None:
-            print("❌ No user_id in token payload")
+            print("[ERROR] No user_id in token payload")
             raise HTTPException(status_code=401, detail="Invalid token")
-        print(f"✅ Token verified for user: {user_id}")
+        print(f"[SUCCESS] Token verified for user: {user_id}")
         return str(user_id)  # Ensure it's a string
     except JWTError as e:
-        print(f"❌ JWT verification failed")
+        print(f"[ERROR] JWT verification failed")
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        print(f"❌ Unexpected error in token verification")
+        print(f"[ERROR] Unexpected error in token verification")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 @router.post("/register")
 async def register_user(user_data: UserCreate):
     """Register a new user"""
     try:
-        print(f"🔐 [REGISTER] Starting registration for email: {user_data.email}")
+        print(f"[SECURE] [REGISTER] Starting registration for email: {user_data.email}")
         
         # Get database connection
         try:
             db = await get_db()
-            print(f"✅ [REGISTER] Database connection successful")
+            print(f"[SUCCESS] [REGISTER] Database connection successful")
         except Exception as db_error:
-            print(f"❌ [REGISTER] Database connection failed: {str(db_error)}")
+            print(f"[ERROR] [REGISTER] Database connection failed: {str(db_error)}")
             raise HTTPException(
                 status_code=500, 
                 detail="Unable to connect to the database. Please try again later."
@@ -68,19 +68,19 @@ async def register_user(user_data: UserCreate):
         # Check if user already exists
         existing_user = await db.users.find_one({"email": user_data.email})
         if existing_user:
-            print(f"❌ [REGISTER] User already exists: {user_data.email}")
+            print(f"[ERROR] [REGISTER] User already exists: {user_data.email}")
             raise HTTPException(
                 status_code=400, 
                 detail="User already exists. Please login instead."
             )
-        print(f"✅ [REGISTER] No existing user found")
+        print(f"[SUCCESS] [REGISTER] No existing user found")
         
         # Hash password
         try:
             hashed_password = UserModel.hash_password(user_data.password)
-            print(f"✅ [REGISTER] Password hashed successfully")
+            print(f"[SUCCESS] [REGISTER] Password hashed successfully")
         except Exception as hash_error:
-            print(f"❌ [REGISTER] Password hashing failed: {str(hash_error)}")
+            print(f"[ERROR] [REGISTER] Password hashing failed: {str(hash_error)}")
             raise HTTPException(
                 status_code=500, 
                 detail="Unable to process your password. Please try again."
@@ -91,7 +91,8 @@ async def register_user(user_data: UserCreate):
             "username": user_data.username,
             "email": user_data.email,
             "password": hashed_password,
-            "is_admin": False,
+            "is_admin": user_data.role == "admin",
+            "role": user_data.role or "student",
             "google_id": user_data.google_id,
             "name": user_data.name,
             "profile_picture": user_data.profile_picture,
@@ -102,9 +103,9 @@ async def register_user(user_data: UserCreate):
         try:
             result = await db.users.insert_one(user_doc)
             user_doc["_id"] = result.inserted_id
-            print(f"✅ [REGISTER] User inserted with ID: {result.inserted_id}")
+            print(f"[SUCCESS] [REGISTER] User inserted with ID: {result.inserted_id}")
         except Exception as insert_error:
-            print(f"❌ [REGISTER] Database insert failed: {str(insert_error)}")
+            print(f"[ERROR] [REGISTER] Database insert failed: {str(insert_error)}")
             raise HTTPException(
                 status_code=500, 
                 detail="Unable to save your account. Please try again."
@@ -115,15 +116,15 @@ async def register_user(user_data: UserCreate):
             access_token = create_access_token(
                 data={"sub": str(result.inserted_id), "email": user_data.email}
             )
-            print(f"✅ [REGISTER] Access token created successfully")
+            print(f"[SUCCESS] [REGISTER] Access token created successfully")
         except Exception as token_error:
-            print(f"❌ [REGISTER] Token creation failed: {str(token_error)}")
+            print(f"[ERROR] [REGISTER] Token creation failed: {str(token_error)}")
             raise HTTPException(
                 status_code=500, 
                 detail="Account created but unable to log you in. Please try logging in."
             )
         
-        print(f"✅ [REGISTER] Registration successful for user: {user_data.email}")
+        print(f"[SUCCESS] [REGISTER] Registration successful for user: {user_data.email}")
         return {
             "success": True,
             "message": "User registered successfully",
@@ -133,17 +134,19 @@ async def register_user(user_data: UserCreate):
                 "email": user_data.email,
                 "username": user_data.username,
                 "name": user_data.name,
-                "profile_picture": user_data.profile_picture
+                "profile_picture": user_data.profile_picture,
+                "role": user_data.role or "student",
+                "is_admin": user_data.role == "admin"
             }
         }
     except HTTPException:
         # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
-        print(f"❌ [REGISTER] Unexpected error: {str(e)}")
-        print(f"❌ [REGISTER] Error type: {type(e).__name__}")
+        print(f"[ERROR] [REGISTER] Unexpected error: {str(e)}")
+        print(f"[ERROR] [REGISTER] Error type: {type(e).__name__}")
         import traceback
-        print(f"❌ [REGISTER] Traceback: {traceback.format_exc()}")
+        print(f"[ERROR] [REGISTER] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500, 
             detail="Registration failed. Please try again later."
@@ -158,12 +161,12 @@ async def login_user(user_data: UserLogin):
         # Find user by email
         user = await db.users.find_one({"email": user_data.email})
         if not user:
-            print(f"❌ [LOGIN] Failed login attempt for email: {user_data.email}")
+            print(f"[ERROR] [LOGIN] Failed login attempt for email: {user_data.email}")
             raise HTTPException(status_code=401, detail="No account found with this email. Please check your email or create an account.")
         
         # Verify password
         if not UserModel.verify_password(user_data.password, user["password"]):
-            print(f"❌ [LOGIN] Invalid password for user: {user_data.email}")
+            print(f"[ERROR] [LOGIN] Invalid password for user: {user_data.email}")
             raise HTTPException(status_code=401, detail="Incorrect password. Please try again.")
         
         # Create access token
@@ -171,7 +174,7 @@ async def login_user(user_data: UserLogin):
             data={"sub": str(user["_id"]), "email": user["email"]}
         )
         
-        print(f"✅ [LOGIN] User logged in successfully: {user_data.email}")
+        print(f"[SUCCESS] [LOGIN] User logged in successfully: {user_data.email}")
         
         return {
             "success": True,
@@ -182,11 +185,13 @@ async def login_user(user_data: UserLogin):
                 "email": user["email"],
                 "username": user.get("username"),
                 "name": user.get("name"),
-                "profile_picture": user.get("profile_picture")
+                "profile_picture": user.get("profile_picture"),
+                "role": user.get("role", "student"),
+                "is_admin": user.get("is_admin", False)
             }
         }
     except Exception as e:
-        print(f"❌ [LOGIN] Error during login: {str(e)}")
+        print(f"[ERROR] [LOGIN] Error during login: {str(e)}")
         raise HTTPException(
             status_code=500, 
             detail="Login failed. Please try again later."
@@ -196,11 +201,11 @@ async def login_user(user_data: UserLogin):
 async def face_login(face_data: FaceLoginRequest):
     """Login using face recognition"""
     try:
-        print(f"👤 Face login attempt received")
+        print(f"[USER] Face login attempt received")
         
         # Validate face descriptor
         if not face_data.face_descriptor or len(face_data.face_descriptor) != 128:
-            print("❌ Invalid face descriptor format")
+            print("[ERROR] Invalid face descriptor format")
             raise HTTPException(status_code=400, detail="Invalid face descriptor format")
         
         db = await get_db()
@@ -209,10 +214,10 @@ async def face_login(face_data: FaceLoginRequest):
         users_with_faces = await db.users.find({
             "face_descriptor": {"$exists": True, "$ne": None}
         }).to_list(None)
-        print(f"👤 Checking {len(users_with_faces)} registered faces")
+        print(f"[USER] Checking {len(users_with_faces)} registered faces")
         
         if not users_with_faces:
-            print("❌ No registered faces found")
+            print("[ERROR] No registered faces found")
             raise HTTPException(
                 status_code=401, 
                 detail="No registered faces found. Please register your face first in your profile settings."
@@ -232,7 +237,7 @@ async def face_login(face_data: FaceLoginRequest):
                     best_match = user
         
         if not best_match or best_distance >= threshold:
-            print(f"❌ Face recognition failed (distance: {best_distance:.3f})")
+            print(f"[ERROR] Face recognition failed (distance: {best_distance:.3f})")
             raise HTTPException(status_code=401, detail="Face recognition failed")
         
         # Create access token
@@ -240,7 +245,7 @@ async def face_login(face_data: FaceLoginRequest):
             data={"sub": str(best_match["_id"]), "email": best_match["email"]}
         )
         
-        print(f"✅ Face login successful for user: {best_match['email']}")
+        print(f"[SUCCESS] Face login successful for user: {best_match['email']}")
         return {
             "success": True,
             "message": "Face login successful",
@@ -254,14 +259,14 @@ async def face_login(face_data: FaceLoginRequest):
             }
         }
     except Exception as e:
-        print(f"❌ Face login failed")
+        print(f"[ERROR] Face login failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/face-status")
 async def get_face_status(user_id: str = Depends(get_current_user_id)):
     """Check if user has registered face"""
     try:
-        print(f"🔍 Face status check for user: {user_id}")
+        print(f"[DEBUG] Face status check for user: {user_id}")
         
         db = await get_db()
         from bson import ObjectId
@@ -273,25 +278,25 @@ async def get_face_status(user_id: str = Depends(get_current_user_id)):
         
         has_face = user.get("face_descriptor") is not None and len(user.get("face_descriptor", [])) == 128
         
-        print(f"🔍 User has registered face: {has_face}")
+        print(f"[DEBUG] User has registered face: {has_face}")
         
         return {
             "success": True,
             "has_face": has_face
         }
     except Exception as e:
-        print(f"❌ Face status check failed")
+        print(f"[ERROR] Face status check failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/register-face")
 async def register_face(face_data: FaceLoginRequest, user_id: str = Depends(get_current_user_id)):
     """Register face descriptor for user"""
     try:
-        print(f"🔍 Face registration requested for user: {user_id}")
+        print(f"[DEBUG] Face registration requested for user: {user_id}")
         
         # Validate face descriptor
         if not face_data.face_descriptor or len(face_data.face_descriptor) != 128:
-            print("❌ Invalid face descriptor format")
+            print("[ERROR] Invalid face descriptor format")
             raise HTTPException(status_code=400, detail="Invalid face descriptor format")
         
         db = await get_db()
@@ -304,25 +309,25 @@ async def register_face(face_data: FaceLoginRequest, user_id: str = Depends(get_
         )
         
         if result.modified_count == 0:
-            print("❌ User not found for face registration")
+            print("[ERROR] User not found for face registration")
             raise HTTPException(status_code=404, detail="User not found")
         
-        print(f"✅ Face registration successful for user: {user_id}")
+        print(f"[SUCCESS] Face registration successful for user: {user_id}")
         return {
             "success": True,
             "message": "Face registered successfully"
         }
     except Exception as e:
-        print(f"❌ Face registration failed for user {user_id}")
+        print(f"[ERROR] Face registration failed for user {user_id}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/google")
 async def google_oauth():
     """Initiate Google OAuth flow"""
-    print(f"🔐 Google OAuth initiated")
+    print(f"[SECURE] Google OAuth initiated")
     
     if not GOOGLE_CLIENT_ID or GOOGLE_CLIENT_ID == "your-google-client-id":
-        print("❌ Google OAuth not configured")
+        print("[ERROR] Google OAuth not configured")
         raise HTTPException(
             status_code=500, 
             detail="Google OAuth not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your environment variables."
@@ -340,22 +345,22 @@ async def google_oauth():
     
     query_string = "&".join([f"{k}={v}" for k, v in params.items()])
     final_url = f"{auth_url}?{query_string}"
-    print(f"🔐 Redirecting user to Google OAuth")
+    print(f"[SECURE] Redirecting user to Google OAuth")
     return RedirectResponse(url=final_url)
 
 @router.get("/google/callback")
 async def google_oauth_callback(code: str):
     """Handle Google OAuth callback"""
-    print(f"🔐 Processing Google OAuth callback")
+    print(f"[SECURE] Processing Google OAuth callback")
     try:
         if not GOOGLE_CLIENT_SECRET or GOOGLE_CLIENT_SECRET == "your-google-client-secret":
-            print("❌ Google OAuth not configured")
+            print("[ERROR] Google OAuth not configured")
             raise HTTPException(
                 status_code=500, 
                 detail="Google OAuth not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your environment variables."
             )
         
-        print(f"🔐 Exchanging authorization code for tokens")
+        print(f"[SECURE] Exchanging authorization code for tokens")
         # Exchange code for tokens
         token_url = "https://oauth2.googleapis.com/token"
         token_data = {
@@ -369,12 +374,12 @@ async def google_oauth_callback(code: str):
         async with httpx.AsyncClient() as client:
             token_response = await client.post(token_url, data=token_data)
             if not token_response.is_success:
-                print(f"❌ Token exchange failed")
+                print(f"[ERROR] Token exchange failed")
                 raise HTTPException(status_code=400, detail="Token exchange failed")
             token_response.raise_for_status()
             tokens = token_response.json()
         
-        print(f"🔐 Fetching user profile from Google")
+        print(f"[SECURE] Fetching user profile from Google")
         # Get user info
         user_info_url = "https://www.googleapis.com/oauth2/v2/userinfo"
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
@@ -382,32 +387,33 @@ async def google_oauth_callback(code: str):
         async with httpx.AsyncClient() as client:
             user_response = await client.get(user_info_url, headers=headers)
             if not user_response.is_success:
-                print(f"❌ Failed to fetch user info")
+                print(f"[ERROR] Failed to fetch user info")
                 raise HTTPException(status_code=400, detail="Failed to fetch user info")
             user_response.raise_for_status()
             user_info = user_response.json()
         
         user_email = user_info.get('email', 'Unknown')
-        print(f"🔐 Google OAuth successful for user: {user_email}")
+        print(f"[SECURE] Google OAuth successful for user: {user_email}")
         
         # Create or update user
         db = await get_db()
         user = await db.users.find_one({"email": user_info["email"]})
         
         if not user:
-            print(f"👤 Creating new user via Google OAuth: {user_email}")
+            print(f"[USER] Creating new user via Google OAuth: {user_email}")
             # Create new user
             user_doc = {
                 "email": user_info["email"],
                 "name": user_info.get("name"),
                 "profile_picture": user_info.get("picture"),
                 "google_id": user_info["id"],
-                "is_admin": False
+                "is_admin": False,
+                "role": "student"
             }
             result = await db.users.insert_one(user_doc)
             user_id = result.inserted_id
         else:
-            print(f"👤 Updating existing user via Google OAuth: {user_email}")
+            print(f"[USER] Updating existing user via Google OAuth: {user_email}")
             # Update existing user
             await db.users.update_one(
                 {"_id": user["_id"]},
@@ -426,14 +432,14 @@ async def google_oauth_callback(code: str):
             data={"sub": str(user_id), "email": user_info["email"]}
         )
         
-        print(f"🔐 [GOOGLE_OAUTH] Login successful for {user_email}, redirecting to frontend")
+        print(f"[SECURE] [GOOGLE_OAUTH] Login successful for {user_email}, redirecting to frontend")
         # Redirect to frontend with token - use environment variable or default
         frontend_base_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
         frontend_url = f"{frontend_base_url}/login?token={access_token}"
         return RedirectResponse(url=frontend_url)
         
     except Exception as e:
-        print(f"❌ [GOOGLE_OAUTH] Error during callback: {str(e)}")
+        print(f"[ERROR] [GOOGLE_OAUTH] Error during callback: {str(e)}")
         # Redirect to login page with error - use environment variable or default
         frontend_base_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
         error_url = f"{frontend_base_url}/login?error=Google+login+failed"
@@ -450,10 +456,10 @@ async def logout():
 @router.get("/status")
 async def auth_status(user_id: Optional[str] = Depends(get_current_user_id)):
     """Check authentication status"""
-    print(f"🔍 Auth status check for user_id: {user_id}")
+    print(f"[DEBUG] Auth status check for user_id: {user_id}")
     
     if not user_id:
-        print("❌ No user_id provided")
+        print("[ERROR] No user_id provided")
         return {
             "isAuthenticated": False,
             "user": None
@@ -465,22 +471,24 @@ async def auth_status(user_id: Optional[str] = Depends(get_current_user_id)):
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         
         if not user:
-            print(f"❌ User not found in database: {user_id}")
+            print(f"[ERROR] User not found in database: {user_id}")
             return {
                 "isAuthenticated": False,
                 "user": None
             }
         
-        print(f"✅ User authenticated: {user.get('email', 'Unknown')}")
+        print(f"[SUCCESS] User authenticated: {user.get('email', 'Unknown')}")
         return {
             "isAuthenticated": True,
             "user": {
                 "id": str(user["_id"]),
                 "email": user["email"],
                 "name": user.get("name"),
-                "profile_picture": user.get("profile_picture")
+                "profile_picture": user.get("profile_picture"),
+                "role": user.get("role", "student"),
+                "is_admin": user.get("is_admin", False)
             }
         }
     except Exception as e:
-        print(f"❌ Error in auth status: {e}")
+        print(f"[ERROR] Error in auth status: {e}")
         raise HTTPException(status_code=500, detail=str(e)) 

@@ -34,11 +34,11 @@ def euclidean_distance(descriptor1: list, descriptor2: list) -> float:
     try:
         # Validate inputs
         if not isinstance(descriptor1, list) or not isinstance(descriptor2, list):
-            print(f"❌ Invalid descriptor types")
+            print(f"[ERROR] Invalid descriptor types")
             return float('inf')
         
         if len(descriptor1) != len(descriptor2):
-            print(f"❌ Descriptor length mismatch")
+            print(f"[ERROR] Descriptor length mismatch")
             return float('inf')
         
         # Convert to numpy arrays for efficient calculation
@@ -50,7 +50,7 @@ def euclidean_distance(descriptor1: list, descriptor2: list) -> float:
         result = float(distance)
         return result
     except Exception as e:
-        print(f"❌ Error calculating Euclidean distance")
+        print(f"[ERROR] Error calculating Euclidean distance")
         return float('inf')
 
 def validate_face_descriptor(descriptor: list) -> bool:

@@ -8,6 +8,7 @@ import { useAuth } from "./hooks/useAuth";
 import Navbar from "./components/Navbar";
 import ToastContainer from "./components/ui/ToastContainer";
 import LoadingState from "./components/LoadingState";
+import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import Dashboard from "./pages/Dashboard";
 import AssessConfig from "./pages/AssessConfig";
@@ -21,10 +22,31 @@ import Settings from "./pages/Settings";
 import CodingPlatform from "./pages/CodingPlatform";
 import CodingProblemPage from "./pages/CodingProblem";
 import AssessmentChoice from "./pages/AssessmentChoice";
+import TeacherDashboard from "./pages/TeacherDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
+import TestInterface from "./components/TestInterface";
+import AssessmentResults from "./components/AssessmentResults";
+import TestPage from "./pages/TestPage";
 
 const AppContent: React.FC = () => {
     const { user, setUser, logout, isLoading } = useAuth();
     const { toasts, removeToast } = useToast();
+
+    // Function to get the appropriate dashboard path based on user role
+    const getDashboardPath = (user: any) => {
+        if (!user) return "/login";
+        
+        const userRole = user.role || "student";
+        switch (userRole) {
+            case "teacher":
+                return "/teacher-dashboard";
+            case "admin":
+                return "/admin-dashboard";
+            case "student":
+            default:
+                return "/dashboard";
+        }
+    };
 
     if (isLoading) {
         return <LoadingState text="Loading application..." size="lg" fullScreen={true} />;
@@ -37,54 +59,118 @@ const AppContent: React.FC = () => {
                 <ToastContainer toasts={toasts} onClose={removeToast} />
                 <AnimatePresence mode="wait">
                     <Routes>
-                        <Route path="/" element={<LandingPage />} />
+                        <Route path="/" element={user ? <Navigate to={getDashboardPath(user)} replace /> : <LandingPage />} />
                         <Route 
                             path="/login" 
-                            element={user ? <Navigate to="/dashboard" replace /> : <Login setUser={setUser} />} 
+                            element={user ? <Navigate to={getDashboardPath(user)} replace /> : <Login setUser={setUser} />} 
                         />
                         <Route 
                             path="/signup" 
-                            element={user ? <Navigate to="/dashboard" replace /> : <Signup setUser={setUser} />} 
+                            element={user ? <Navigate to={getDashboardPath(user)} replace /> : <Signup setUser={setUser} />} 
                         />
                         <Route 
                             path="/dashboard" 
-                            element={user ? <Dashboard user={user} /> : <Navigate to="/login" replace />} 
+                            element={
+                                <ProtectedRoute allowedRoles={["student"]}>
+                                    <Dashboard />
+                                </ProtectedRoute>
+                            } 
+                        />
+                        <Route 
+                            path="/teacher-dashboard" 
+                            element={
+                                <ProtectedRoute allowedRoles={["teacher"]}>
+                                    <TeacherDashboard />
+                                </ProtectedRoute>
+                            } 
+                        />
+                        <Route 
+                            path="/admin-dashboard" 
+                            element={
+                                <ProtectedRoute allowedRoles={["admin"]}>
+                                    <AdminDashboard />
+                                </ProtectedRoute>
+                            } 
                         />
                         <Route 
                             path="/assessconfig" 
-                            element={user ? <AssessConfig user={user} /> : <Navigate to="/login" replace />}
+                            element={
+                                <ProtectedRoute allowedRoles={["student"]}>
+                                    <AssessConfig />
+                                </ProtectedRoute>
+                            }
                         /> 
                         <Route 
                             path="/assessment" 
-                            element={user ? <Assessment user={user} /> : <Navigate to="/login" replace />} 
+                            element={
+                                <ProtectedRoute allowedRoles={["student"]}>
+                                    <Assessment />
+                                </ProtectedRoute>
+                            } 
+                        />
+                        <Route 
+                            path="/test/:assessmentId" 
+                            element={
+                                <ProtectedRoute allowedRoles={["student"]}>
+                                    <TestPage />
+                                </ProtectedRoute>
+                            } 
                         />
                         <Route 
                             path="/results" 
-                            element={user ? <Results user={user} /> : <Navigate to="/login" replace />} 
+                            element={
+                                <ProtectedRoute allowedRoles={["student"]}>
+                                    <Results />
+                                </ProtectedRoute>
+                            } 
                         />
                         <Route 
                             path="/test-result/:resultId" 
-                            element={user ? <TestResultDetail user={user} /> : <Navigate to="/login" replace />} 
+                            element={
+                                <ProtectedRoute allowedRoles={["student"]}>
+                                    <TestResultDetail />
+                                </ProtectedRoute>
+                            } 
                         />
                         <Route 
                             path="/profile" 
-                            element={user ? <UserProfile user={user} /> : <Navigate to="/login" replace />} 
+                            element={
+                                <ProtectedRoute allowedRoles={["student", "teacher", "admin"]}>
+                                    <UserProfile />
+                                </ProtectedRoute>
+                            } 
                         />
                         <Route 
                             path="/settings" 
-                            element={user ? <Settings user={user} /> : <Navigate to="/login" replace />} 
+                            element={
+                                <ProtectedRoute allowedRoles={["student", "teacher", "admin"]}>
+                                    <Settings />
+                                </ProtectedRoute>
+                            } 
                         />
                         <Route 
                             path="/coding" 
-                            element={user ? <CodingPlatform user={user} /> : <Navigate to="/login" replace />} 
+                            element={
+                                <ProtectedRoute allowedRoles={["student"]}>
+                                    <CodingPlatform />
+                                </ProtectedRoute>
+                            } 
                         />
                         <Route 
                             path="/coding/problem/:problemId" 
-                            element={user ? <CodingProblemPage user={user} /> : <Navigate to="/login" replace />} 
+                            element={
+                                <ProtectedRoute allowedRoles={["student"]}>
+                                    <CodingProblemPage />
+                                </ProtectedRoute>
+                            } 
                         />
                         <Route 
                             path="/assessment-choice" 
-                            element={user ? <AssessmentChoice user={user} /> : <Navigate to="/login" replace />} 
+                            element={
+                                <ProtectedRoute allowedRoles={["student"]}>
+                                    <AssessmentChoice />
+                                </ProtectedRoute>
+                            } 
                         />
                     </Routes>
                 </AnimatePresence>
