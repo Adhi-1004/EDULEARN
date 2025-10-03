@@ -11,6 +11,8 @@ from models.schemas import (
     AssessmentSubmission, AssessmentResult, LeaderboardEntry, AssessmentLeaderboard,
     StudentNotification
 )
+from dependencies import require_teacher, require_admin, require_teacher_or_admin, require_student
+from routers.auth import get_current_user
 import os
 
 router = APIRouter(tags=["assessments"])
@@ -558,14 +560,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 # Assessment Management Endpoints
 
 @router.post("/", response_model=AssessmentResponse)
-async def create_assessment(assessment_data: AssessmentCreate, user: dict = Depends(get_current_user)):
-    """Create a new assessment"""
+async def create_assessment(assessment_data: AssessmentCreate, user: dict = Depends(require_teacher)):
+    """Create a new assessment - Teacher/Admin only"""
     try:
         db = await get_db()
-        
-        # Check if user is teacher
-        if user.get("role") != "teacher":
-            raise HTTPException(status_code=403, detail="Only teachers can create assessments")
         
         assessment_doc = {
             "title": assessment_data.title,
@@ -639,14 +637,12 @@ async def get_teacher_assessments(user: dict = Depends(get_current_user)):
 async def add_question_to_assessment(
     assessment_id: str, 
     question_data: QuestionCreate, 
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(require_teacher)
 ):
     """Add a question to an assessment"""
     try:
         db = await get_db()
         
-        if user.get("role") != "teacher":
-            raise HTTPException(status_code=403, detail="Only teachers can add questions")
         
         if not ObjectId.is_valid(assessment_id):
             raise HTTPException(status_code=400, detail="Invalid assessment ID")

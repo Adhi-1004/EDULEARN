@@ -18,7 +18,8 @@ from models.schemas import (
 from models.models import (
     CodingProblemModel, CodingSolutionModel, CodingSessionModel, CodingAnalyticsModel
 )
-from routers.auth import get_current_user_id
+from routers.auth import get_current_user_id, get_current_user
+from dependencies import require_student, require_teacher, require_admin
 from services.gemini_coding_service import gemini_coding_service
 
 router = APIRouter()

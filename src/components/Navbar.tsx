@@ -7,6 +7,7 @@ import { useToast } from "../contexts/ToastContext";
 import ThemeToggle from "./ui/ThemeToggle";
 import UserProfileDropdown from "./ui/UserProfileDropdown";
 import BackendStatusIndicator from "./BackendStatusIndicator";
+import { getNavigationItems, canAccessRoute, getUserDisplayName, getRoleDisplayName } from "../utils/roleUtils";
 import api from "../utils/api";
 import { ANIMATION_VARIANTS, TRANSITION_DEFAULTS } from "../utils/constants";
 
@@ -58,16 +59,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
         return location.pathname === path || (path === '/coding' && location.pathname.startsWith('/coding'));
     }, [location.pathname]);
 
-    const navItems = user ? [
-        { path: "/dashboard", label: "Dashboard", roles: ["student"] },
-        { path: "/teacher-dashboard", label: "Dashboard", roles: ["teacher"] },
-        { path: "/admin-dashboard", label: "Dashboard", roles: ["admin"] },
-        { path: "/coding", label: "Coding Platform", roles: ["student"] },
-        { path: "/assessment-choice", label: "Assessments", roles: ["student"] },
-        { path: "/results", label: "Results", roles: ["student"] },
-        { path: "/profile", label: "Profile", roles: ["student", "teacher", "admin"] },
-        { path: "/settings", label: "Settings", roles: ["student", "teacher", "admin"] },
-    ].filter(item => !item.roles || item.roles.includes(user.role || "student")) : [
+    const navItems = user ? getNavigationItems(user) : [
         { path: "/login", label: "Login" }
     ];
 

@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import RedirectResponse
 import httpx
 import os
-from typing import Optional
+from typing import Optional, Dict, Any
 import numpy as np
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -41,6 +41,32 @@ async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depend
             raise HTTPException(status_code=401, detail="Invalid token")
         print(f"[SUCCESS] Token verified for user: {user_id}")
         return str(user_id)  # Ensure it's a string
+    except JWTError as e:
+        print(f"[ERROR] JWT verification failed")
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        print(f"[ERROR] Unexpected error in token verification")
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+    """Get current user information from JWT token"""
+    try:
+        print(f"[DEBUG] Getting current user from token...")
+        payload = verify_token(credentials.credentials)
+        user_id = payload.get("sub")
+        email = payload.get("email")
+        role = payload.get("role", "student")
+        
+        if user_id is None:
+            print("[ERROR] No user_id in token payload")
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        print(f"[SUCCESS] User info retrieved: {user_id}, role: {role}")
+        return {
+            "id": user_id,
+            "email": email,
+            "role": role
+        }
     except JWTError as e:
         print(f"[ERROR] JWT verification failed")
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -169,9 +195,13 @@ async def login_user(user_data: UserLogin):
             print(f"[ERROR] [LOGIN] Invalid password for user: {user_data.email}")
             raise HTTPException(status_code=401, detail="Incorrect password. Please try again.")
         
-        # Create access token
+        # Create access token with role information
         access_token = create_access_token(
-            data={"sub": str(user["_id"]), "email": user["email"]}
+            data={
+                "sub": str(user["_id"]), 
+                "email": user["email"],
+                "role": user.get("role", "student")
+            }
         )
         
         print(f"[SUCCESS] [LOGIN] User logged in successfully: {user_data.email}")

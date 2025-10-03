@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 
 from database import init_db, get_db
-from routers import auth, users, questions, results, coding, code_execution, teacher_dashboard, admin_dashboard, assessments
+from routers import auth, users, questions, results, coding, code_execution, teacher_dashboard, admin_dashboard, assessments, admin
 from models.schemas import AssessmentConfig
 
 load_dotenv()
@@ -67,6 +67,7 @@ app.include_router(coding.router, prefix="/api/coding", tags=["Coding Platform"]
 app.include_router(code_execution.router, prefix="/api/execute", tags=["Code Execution"])
 app.include_router(teacher_dashboard.router, prefix="/api/teacher", tags=["Teacher Dashboard"])
 app.include_router(admin_dashboard.router, prefix="/api/admin", tags=["Admin Dashboard"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin Management"])
 app.include_router(assessments.router, prefix="/api/assessments", tags=["Assessments"])
 
 # Session storage for assessment configuration

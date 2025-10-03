@@ -29,6 +29,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
     google_id: Optional[str] = None
+    role: str = "student"  # Allow role specification for admin creation
 
 class UserLogin(BaseModel):
     email: EmailStr
