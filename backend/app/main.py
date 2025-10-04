@@ -7,20 +7,12 @@ from contextlib import asynccontextmanager
 import uvicorn
 from datetime import datetime
 
-<<<<<<< HEAD:backend/main.py
-from database import init_db, get_db
-from routers import auth, users, questions, results, coding, code_execution, teacher_dashboard, admin_dashboard, assessments, admin
-from routers import enhanced_users, enhanced_teacher_dashboard, enhanced_admin_dashboard
-from models.schemas import AssessmentConfig
-
-load_dotenv()
-=======
 from .core.config import settings
 from .db import init_db, get_db
 from .api.endpoints import auth, assessments
 from .api import users, questions, results, coding, code_execution, teacher_dashboard, admin_dashboard, admin
+from .api import enhanced_users, enhanced_teacher_dashboard, enhanced_admin_dashboard
 from .schemas import AssessmentConfig
->>>>>>> 4e9ef52473735c482a573c088abf5a9ea611b54f:backend/app/main.py
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

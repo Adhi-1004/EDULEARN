@@ -7,10 +7,10 @@ from datetime import datetime, timedelta
 from bson import ObjectId
 from pydantic import BaseModel
 
-from database import get_db
-from models.models import UserModel, LearningPathModel, BadgeModel
-from routers.auth import get_current_user_id
-from services.gemini_coding_service import gemini_coding_service
+from ..db import get_db
+from ..models.models import UserModel, LearningPathModel, BadgeModel
+from .endpoints.auth import get_current_user_id
+from ..services.gemini_coding_service import gemini_coding_service
 
 router = APIRouter(prefix="/api/users", tags=["enhanced_users"])
 

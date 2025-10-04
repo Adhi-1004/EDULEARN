@@ -7,10 +7,10 @@ from datetime import datetime, timedelta
 from bson import ObjectId
 from pydantic import BaseModel
 
-from database import get_db
-from models.models import PlatformMetricsModel, ContentQualityModel, TeacherPerformanceModel
-from routers.admin_dashboard import get_current_admin
-from services.gemini_coding_service import gemini_coding_service
+from ..db import get_db
+from ..models.models import PlatformMetricsModel, ContentQualityModel, TeacherPerformanceModel
+from .admin_dashboard import get_current_admin
+from ..services.gemini_coding_service import gemini_coding_service
 
 router = APIRouter(prefix="/api/admin", tags=["enhanced_admin_dashboard"])
 
