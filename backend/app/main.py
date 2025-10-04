@@ -11,7 +11,7 @@ from .core.config import settings
 from .db import init_db, get_db
 from .api.endpoints import auth, assessments
 from .api import users, questions, results, coding, code_execution, teacher_dashboard, admin_dashboard, admin
-from .api import enhanced_users, enhanced_teacher_dashboard, enhanced_admin_dashboard
+from .api import enhanced_users, enhanced_teacher_dashboard, enhanced_admin_dashboard, reset_admin
 from .schemas import AssessmentConfig
 
 @asynccontextmanager
@@ -69,6 +69,9 @@ app.include_router(assessments.router, prefix="/api/assessments", tags=["Assessm
 app.include_router(enhanced_users.router, tags=["Enhanced Users"])
 app.include_router(enhanced_teacher_dashboard.router, tags=["Enhanced Teacher Dashboard"])
 app.include_router(enhanced_admin_dashboard.router, tags=["Enhanced Admin Dashboard"])
+
+# Admin reset endpoint
+app.include_router(reset_admin.router, prefix="/api", tags=["Admin Reset"])
 
 # Session storage for assessment configuration
 assessment_sessions = {}

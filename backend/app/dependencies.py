@@ -5,6 +5,7 @@ Provides security middleware for protecting API endpoints based on user roles
 from fastapi import Depends, HTTPException, status
 from typing import Dict, Any, List
 from .api.endpoints.auth import get_current_user
+from .models.models import UserRole
 
 # Role hierarchy: admin > teacher > student
 ROLE_HIERARCHY = {
@@ -90,3 +91,64 @@ def can_access_coding_platform(user: Dict[str, Any]) -> bool:
 def can_submit_solutions(user: Dict[str, Any]) -> bool:
     """Check if user can submit coding solutions (all roles)"""
     return True  # All authenticated users can submit solutions
+
+# Specific action-based dependencies
+async def require_batch_management(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Require teacher or admin role for batch management"""
+    user_role = current_user.get("role", "student")
+    if user_role not in ["teacher", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Batch management requires teacher or admin privileges"
+        )
+    return current_user
+
+async def require_user_management(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Require admin role for user management"""
+    user_role = current_user.get("role", "student")
+    if user_role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User management requires admin privileges"
+        )
+    return current_user
+
+async def require_assessment_creation(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Require teacher or admin role for assessment creation"""
+    user_role = current_user.get("role", "student")
+    if user_role not in ["teacher", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Assessment creation requires teacher or admin privileges"
+        )
+    return current_user
+
+async def require_analytics_access(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Require teacher or admin role for analytics access"""
+    user_role = current_user.get("role", "student")
+    if user_role not in ["teacher", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Analytics access requires teacher or admin privileges"
+        )
+    return current_user
+
+async def require_platform_management(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Require admin role for platform management"""
+    user_role = current_user.get("role", "student")
+    if user_role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform management requires admin privileges"
+        )
+    return current_user
+
+async def require_content_management(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Require teacher or admin role for content management"""
+    user_role = current_user.get("role", "student")
+    if user_role not in ["teacher", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Content management requires teacher or admin privileges"
+        )
+    return current_user

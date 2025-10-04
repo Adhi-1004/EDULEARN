@@ -2,7 +2,7 @@
 Initialize default badges in the database
 """
 import asyncio
-from database import get_db
+from app.db import get_db
 from datetime import datetime
 
 async def init_badges():

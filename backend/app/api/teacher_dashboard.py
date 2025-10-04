@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from ..db import get_db
 from ..schemas import UserResponse
 from ..models import UserModel
+from ..dependencies import require_teacher_or_admin, require_batch_management, require_analytics_access, require_assessment_creation
 import os
 
 router = APIRouter(prefix="/teacher", tags=["teacher_dashboard"])
@@ -118,7 +119,7 @@ class ClassAnalytics(BaseModel):
 # Teacher Dashboard Endpoints
 
 @router.get("/students", response_model=List[StudentResponse])
-async def get_teacher_students(teacher: dict = Depends(get_current_user)):
+async def get_teacher_students(teacher: dict = Depends(require_teacher_or_admin)):
     """Get all students assigned to this teacher"""
     try:
         db = await get_db()
@@ -151,7 +152,7 @@ async def get_teacher_students(teacher: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/students/{student_id}", response_model=StudentResponse)
-async def get_student_details(student_id: str, teacher: dict = Depends(get_current_user)):
+async def get_student_details(student_id: str, teacher: dict = Depends(require_teacher_or_admin)):
     """Get detailed information for a specific student"""
     try:
         db = await get_db()
@@ -184,7 +185,7 @@ async def get_student_details(student_id: str, teacher: dict = Depends(get_curre
 # Batch Management Endpoints
 
 @router.post("/batches", response_model=BatchResponse)
-async def create_batch(batch_data: BatchCreate, teacher: dict = Depends(get_current_user)):
+async def create_batch(batch_data: BatchCreate, teacher: dict = Depends(require_batch_management)):
     """Create a new batch"""
     try:
         db = await get_db()
@@ -211,7 +212,7 @@ async def create_batch(batch_data: BatchCreate, teacher: dict = Depends(get_curr
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/batches", response_model=List[BatchResponse])
-async def get_teacher_batches(teacher: dict = Depends(get_current_user)):
+async def get_teacher_batches(teacher: dict = Depends(require_teacher_or_admin)):
     """Get all batches created by this teacher"""
     try:
         db = await get_db()
@@ -238,7 +239,7 @@ async def get_teacher_batches(teacher: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/batches/{batch_id}", response_model=BatchResponse)
-async def get_batch_details(batch_id: str, teacher: dict = Depends(get_current_user)):
+async def get_batch_details(batch_id: str, teacher: dict = Depends(require_teacher_or_admin)):
     """Get detailed information for a specific batch"""
     try:
         db = await get_db()
@@ -265,7 +266,7 @@ async def get_batch_details(batch_id: str, teacher: dict = Depends(get_current_u
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/batches/{batch_id}/students/{student_id}", response_model=BatchStudentResponse)
-async def add_student_to_batch(batch_id: str, student_id: str, teacher: dict = Depends(get_current_user)):
+async def add_student_to_batch(batch_id: str, student_id: str, teacher: dict = Depends(require_batch_management)):
     """Add a student to a batch"""
     try:
         db = await get_db()
@@ -302,7 +303,7 @@ async def add_student_to_batch(batch_id: str, student_id: str, teacher: dict = D
 async def add_student_to_batch_by_email_or_name(
     batch_id: str, 
     request: AddStudentToBatchRequest, 
-    teacher: dict = Depends(get_current_user)
+    teacher: dict = Depends(require_batch_management)
 ):
     """Add a student to a batch by email, name, or student ID"""
     try:
@@ -364,7 +365,7 @@ async def add_student_to_batch_by_email_or_name(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/batches/{batch_id}/students/{student_id}")
-async def remove_student_from_batch(batch_id: str, student_id: str, teacher: dict = Depends(get_current_user)):
+async def remove_student_from_batch(batch_id: str, student_id: str, teacher: dict = Depends(require_batch_management)):
     """Remove a student from a batch"""
     try:
         db = await get_db()
@@ -390,7 +391,7 @@ async def remove_student_from_batch(batch_id: str, student_id: str, teacher: dic
 # Assessment Management Endpoints
 
 @router.post("/assessments", response_model=AssessmentResponse)
-async def create_assessment(assessment_data: AssessmentCreate, teacher: dict = Depends(get_current_user)):
+async def create_assessment(assessment_data: AssessmentCreate, teacher: dict = Depends(require_assessment_creation)):
     """Create a new assessment"""
     try:
         db = await get_db()
@@ -423,7 +424,7 @@ async def create_assessment(assessment_data: AssessmentCreate, teacher: dict = D
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/assessments", response_model=List[AssessmentResponse])
-async def get_teacher_assessments(teacher: dict = Depends(get_current_user)):
+async def get_teacher_assessments(teacher: dict = Depends(require_teacher_or_admin)):
     """Get all assessments created by this teacher"""
     try:
         db = await get_db()
@@ -452,7 +453,7 @@ async def get_teacher_assessments(teacher: dict = Depends(get_current_user)):
 # Analytics Endpoints
 
 @router.get("/analytics/class", response_model=ClassAnalytics)
-async def get_class_analytics(teacher: dict = Depends(get_current_user)):
+async def get_class_analytics(teacher: dict = Depends(require_analytics_access)):
     """Get class-level analytics"""
     try:
         db = await get_db()
@@ -504,7 +505,7 @@ async def get_class_analytics(teacher: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/analytics/students", response_model=List[StudentProgress])
-async def get_student_progress_list(teacher: dict = Depends(get_current_user)):
+async def get_student_progress_list(teacher: dict = Depends(require_analytics_access)):
     """Get progress data for all students"""
     try:
         db = await get_db()

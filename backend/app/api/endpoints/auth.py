@@ -137,10 +137,14 @@ async def register_user(user_data: UserCreate):
                 detail="Unable to save your account. Please try again."
             )
         
-        # Create access token
+        # Create access token with role information
         try:
             access_token = create_access_token(
-                data={"sub": str(result.inserted_id), "email": user_data.email}
+                data={
+                    "sub": str(result.inserted_id), 
+                    "email": user_data.email,
+                    "role": user_data.role or "student"
+                }
             )
             print(f"[SUCCESS] [REGISTER] Access token created successfully")
         except Exception as token_error:
@@ -270,9 +274,13 @@ async def face_login(face_data: FaceLoginRequest):
             print(f"[ERROR] Face recognition failed (distance: {best_distance:.3f})")
             raise HTTPException(status_code=401, detail="Face recognition failed")
         
-        # Create access token
+        # Create access token with role information
         access_token = create_access_token(
-            data={"sub": str(best_match["_id"]), "email": best_match["email"]}
+            data={
+                "sub": str(best_match["_id"]), 
+                "email": best_match["email"],
+                "role": best_match.get("role", "student")
+            }
         )
         
         print(f"[SUCCESS] Face login successful for user: {best_match['email']}")
@@ -457,9 +465,13 @@ async def google_oauth_callback(code: str):
             )
             user_id = user["_id"]
         
-        # Create access token
+        # Create access token with role information
         access_token = create_access_token(
-            data={"sub": str(user_id), "email": user_info["email"]}
+            data={
+                "sub": str(user_id), 
+                "email": user_info["email"],
+                "role": user.get("role", "student")
+            }
         )
         
         print(f"[SECURE] [GOOGLE_OAUTH] Login successful for {user_email}, redirecting to frontend")

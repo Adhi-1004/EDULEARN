@@ -17,18 +17,18 @@ def start_backend():
     
     print(f"📁 Working directory: {os.getcwd()}")
     print("🔧 Starting FastAPI server...")
-    print("🌐 Server will be available at: http://localhost:8000")
-    print("📚 API documentation: http://localhost:8000/docs")
+    print("🌐 Server will be available at: http://localhost:5001")
+    print("📚 API documentation: http://localhost:5001/docs")
     print("=" * 50)
     
     try:
         # Start the server
         subprocess.run([
             sys.executable, "-m", "uvicorn", 
-            "main:app", 
+            "app.main:app", 
             "--reload", 
             "--host", "127.0.0.1", 
-            "--port", "8000"
+            "--port", "5001"
         ])
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")

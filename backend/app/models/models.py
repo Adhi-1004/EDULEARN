@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from bson import ObjectId
 import bcrypt
+from enum import Enum
 
 class PyObjectId(ObjectId):
     @classmethod
@@ -19,6 +20,12 @@ class PyObjectId(ObjectId):
     def __get_pydantic_json_schema__(cls, field_schema):
         field_schema.update(type="string")
 
+# Define the available roles
+class UserRole(str, Enum):
+    student = "student"
+    teacher = "teacher"
+    admin = "admin"
+
 # User Model
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
@@ -26,7 +33,7 @@ class UserModel(BaseModel):
     email: EmailStr
     password: Optional[str] = None
     is_admin: bool = False
-    role: str = "student"  # Added role field with default value
+    role: UserRole = UserRole.student  # Use enum for role validation
     google_id: Optional[str] = None
     name: Optional[str] = None
     profile_picture: Optional[str] = None
@@ -85,6 +92,39 @@ class UserModel(BaseModel):
     def verify_password(cls, password: str, hashed: str) -> bool:
         """Verify password against hash"""
         return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    
+    def is_admin_role(self) -> bool:
+        """Check if user has admin role"""
+        return self.role == UserRole.admin
+    
+    def is_teacher_role(self) -> bool:
+        """Check if user has teacher role"""
+        return self.role == UserRole.teacher
+    
+    def is_student_role(self) -> bool:
+        """Check if user has student role"""
+        return self.role == UserRole.student
+    
+    def has_role_or_higher(self, required_role: UserRole) -> bool:
+        """Check if user has required role or higher in hierarchy"""
+        role_hierarchy = {
+            UserRole.student: 1,
+            UserRole.teacher: 2,
+            UserRole.admin: 3
+        }
+        return role_hierarchy.get(self.role, 0) >= role_hierarchy.get(required_role, 0)
+    
+    def can_manage_users(self) -> bool:
+        """Check if user can manage other users (admin only)"""
+        return self.is_admin_role()
+    
+    def can_create_assessments(self) -> bool:
+        """Check if user can create assessments (teacher or admin)"""
+        return self.role in [UserRole.teacher, UserRole.admin]
+    
+    def can_view_analytics(self) -> bool:
+        """Check if user can view analytics (teacher or admin)"""
+        return self.role in [UserRole.teacher, UserRole.admin]
 
 # Question Model
 class QuestionModel(BaseModel):

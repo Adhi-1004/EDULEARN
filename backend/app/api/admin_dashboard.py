@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from ..db import get_db
 from ..schemas import UserCreate, UserResponse
 from ..models import UserModel
+from ..dependencies import require_admin_only, require_user_management, require_platform_management, require_analytics_access
 import os
 
 router = APIRouter(prefix="/admin", tags=["admin_dashboard"])
@@ -94,7 +95,7 @@ async def get_users(
     per_page: int = Query(10, le=100),
     role: Optional[str] = None,
     search: Optional[str] = None,
-    admin: dict = Depends(get_current_admin)
+    admin: dict = Depends(require_user_management)
 ):
     """Get list of all users with pagination and filtering"""
     try:
@@ -141,7 +142,7 @@ async def get_users(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/users", response_model=UserCreateResponse)
-async def create_user(user_data: UserCreate, admin: dict = Depends(get_current_admin)):
+async def create_user(user_data: UserCreate, admin: dict = Depends(require_user_management)):
     """Create a new user"""
     try:
         db = await get_db()
@@ -186,7 +187,7 @@ async def create_user(user_data: UserCreate, admin: dict = Depends(get_current_a
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/users/{user_id}", response_model=UserResponse)
-async def get_user(user_id: str, admin: dict = Depends(get_current_admin)):
+async def get_user(user_id: str, admin: dict = Depends(require_user_management)):
     """Get details of a specific user"""
     try:
         db = await get_db()
@@ -211,7 +212,7 @@ async def get_user(user_id: str, admin: dict = Depends(get_current_admin)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/users/{user_id}", response_model=UserResponse)
-async def update_user(user_id: str, user_data: UserUpdate, admin: dict = Depends(get_current_admin)):
+async def update_user(user_id: str, user_data: UserUpdate, admin: dict = Depends(require_user_management)):
     """Update a user's information"""
     try:
         db = await get_db()
@@ -258,7 +259,7 @@ async def update_user(user_id: str, user_data: UserUpdate, admin: dict = Depends
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/users/{user_id}")
-async def delete_user(user_id: str, admin: dict = Depends(get_current_admin)):
+async def delete_user(user_id: str, admin: dict = Depends(require_user_management)):
     """Delete a user"""
     try:
         db = await get_db()
@@ -281,7 +282,7 @@ async def delete_user(user_id: str, admin: dict = Depends(get_current_admin)):
 # Analytics Endpoints
 
 @router.get("/analytics/platform", response_model=PlatformStats)
-async def get_platform_stats(admin: dict = Depends(get_current_admin)):
+async def get_platform_stats(admin: dict = Depends(require_analytics_access)):
     """Get platform-wide statistics"""
     try:
         db = await get_db()
@@ -313,7 +314,7 @@ async def get_platform_stats(admin: dict = Depends(get_current_admin)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/analytics/users", response_model=List[UserActivity])
-async def get_user_activity(admin: dict = Depends(get_current_admin)):
+async def get_user_activity(admin: dict = Depends(require_analytics_access)):
     """Get user activity data"""
     try:
         db = await get_db()
@@ -354,7 +355,7 @@ async def get_user_activity(admin: dict = Depends(get_current_admin)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/analytics/content", response_model=ContentStats)
-async def get_content_stats(admin: dict = Depends(get_current_admin)):
+async def get_content_stats(admin: dict = Depends(require_analytics_access)):
     """Get content-related statistics"""
     try:
         db = await get_db()
@@ -392,7 +393,7 @@ async def get_content_stats(admin: dict = Depends(get_current_admin)):
 # System Management Endpoints
 
 @router.get("/system/health")
-async def system_health_check(admin: dict = Depends(get_current_admin)):
+async def system_health_check(admin: dict = Depends(require_platform_management)):
     """Check system health"""
     try:
         db = await get_db()

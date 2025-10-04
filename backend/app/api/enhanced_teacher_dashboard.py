@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from ..db import get_db
 from ..models.models import BatchModel, BatchAnalyticsModel, AIStudentReportModel, TeacherPerformanceModel
 from .teacher_dashboard import get_current_user
+from ..dependencies import require_teacher_or_admin, require_analytics_access, require_batch_management, require_assessment_creation
 from ..services.gemini_coding_service import gemini_coding_service
 
 router = APIRouter(prefix="/api/teacher", tags=["enhanced_teacher_dashboard"])
@@ -59,7 +60,7 @@ class TeacherPerformanceResponse(BaseModel):
 # Batch Mission Control Endpoints
 
 @router.get("/batches/mission-control", response_model=List[BatchMissionControlResponse])
-async def get_batch_mission_control(teacher: dict = Depends(get_current_user)):
+async def get_batch_mission_control(teacher: dict = Depends(require_analytics_access)):
     """Get batch performance mission control data"""
     try:
         db = await get_db()
@@ -191,7 +192,7 @@ async def get_batch_mission_control(teacher: dict = Depends(get_current_user)):
 # AI Student Reports Endpoints
 
 @router.post("/students/{student_id}/ai-report", response_model=AIStudentReportResponse)
-async def generate_ai_student_report(student_id: str, teacher: dict = Depends(get_current_user)):
+async def generate_ai_student_report(student_id: str, teacher: dict = Depends(require_analytics_access)):
     """Generate AI-powered student performance report"""
     try:
         db = await get_db()
@@ -269,7 +270,7 @@ async def generate_ai_student_report(student_id: str, teacher: dict = Depends(ge
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/students/{student_id}/ai-reports", response_model=List[AIStudentReportResponse])
-async def get_student_ai_reports(student_id: str, teacher: dict = Depends(get_current_user)):
+async def get_student_ai_reports(student_id: str, teacher: dict = Depends(require_analytics_access)):
     """Get all AI reports for a student"""
     try:
         db = await get_db()
@@ -301,7 +302,7 @@ async def get_student_ai_reports(student_id: str, teacher: dict = Depends(get_cu
 # Smart Assessment Creator Endpoints
 
 @router.post("/assessments/smart-create")
-async def create_smart_assessment(request: SmartAssessmentRequest, teacher: dict = Depends(get_current_user)):
+async def create_smart_assessment(request: SmartAssessmentRequest, teacher: dict = Depends(require_assessment_creation)):
     """Create AI-powered assessment targeting batch weaknesses"""
     try:
         db = await get_db()
@@ -389,7 +390,7 @@ async def create_smart_assessment(request: SmartAssessmentRequest, teacher: dict
 # Teacher Performance Endpoints
 
 @router.get("/performance/leaderboard", response_model=List[TeacherPerformanceResponse])
-async def get_teacher_performance_leaderboard(teacher: dict = Depends(get_current_user)):
+async def get_teacher_performance_leaderboard(teacher: dict = Depends(require_analytics_access)):
     """Get teacher performance leaderboard"""
     try:
         db = await get_db()

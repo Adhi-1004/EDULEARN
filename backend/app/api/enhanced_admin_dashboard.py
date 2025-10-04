@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from ..db import get_db
 from ..models.models import PlatformMetricsModel, ContentQualityModel, TeacherPerformanceModel
 from .admin_dashboard import get_current_admin
+from ..dependencies import require_admin_only, require_platform_management, require_analytics_access, require_content_management
 from ..services.gemini_coding_service import gemini_coding_service
 
 router = APIRouter(prefix="/api/admin", tags=["enhanced_admin_dashboard"])
@@ -63,7 +64,7 @@ class TeacherLeaderboardResponse(BaseModel):
 # Platform Health & Engagement Metrics
 
 @router.get("/metrics/platform-health", response_model=PlatformHealthResponse)
-async def get_platform_health_metrics(admin: dict = Depends(get_current_admin)):
+async def get_platform_health_metrics(admin: dict = Depends(require_analytics_access)):
     """Get comprehensive platform health and engagement metrics"""
     try:
         db = await get_db()
@@ -148,7 +149,7 @@ async def get_platform_health_metrics(admin: dict = Depends(get_current_admin)):
 # Content Quality Oversight
 
 @router.get("/content/quality-issues", response_model=List[ContentQualityResponse])
-async def get_content_quality_issues(admin: dict = Depends(get_current_admin)):
+async def get_content_quality_issues(admin: dict = Depends(require_content_management)):
     """Get flagged content with quality issues"""
     try:
         db = await get_db()
@@ -192,7 +193,7 @@ async def get_content_quality_issues(admin: dict = Depends(get_current_admin)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/content/{content_id}/audit", response_model=ContentAuditResponse)
-async def audit_content_with_ai(content_id: str, content_type: str, admin: dict = Depends(get_current_admin)):
+async def audit_content_with_ai(content_id: str, content_type: str, admin: dict = Depends(require_content_management)):
     """Audit content using AI for quality assessment"""
     try:
         db = await get_db()
@@ -261,7 +262,7 @@ async def audit_content_with_ai(content_id: str, content_type: str, admin: dict 
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/content/bulk-audit")
-async def bulk_audit_content(admin: dict = Depends(get_current_admin)):
+async def bulk_audit_content(admin: dict = Depends(require_content_management)):
     """Bulk audit content for quality issues"""
     try:
         db = await get_db()
@@ -319,7 +320,7 @@ async def bulk_audit_content(admin: dict = Depends(get_current_admin)):
 # Teacher Performance Leaderboard
 
 @router.get("/teachers/leaderboard", response_model=List[TeacherLeaderboardResponse])
-async def get_teacher_performance_leaderboard(admin: dict = Depends(get_current_admin)):
+async def get_teacher_performance_leaderboard(admin: dict = Depends(require_analytics_access)):
     """Get teacher performance and contribution leaderboard"""
     try:
         db = await get_db()
@@ -392,7 +393,7 @@ async def get_teacher_performance_leaderboard(admin: dict = Depends(get_current_
 # System Health Monitoring
 
 @router.get("/system/health-detailed")
-async def get_detailed_system_health(admin: dict = Depends(get_current_admin)):
+async def get_detailed_system_health(admin: dict = Depends(require_platform_management)):
     """Get detailed system health metrics"""
     try:
         db = await get_db()
