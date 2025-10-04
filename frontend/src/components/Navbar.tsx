@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, memo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { Bell, X } from "lucide-react";
 import { User } from "../types";
 import { useTheme } from "../contexts/ThemeContext";
 import { useToast } from "../contexts/ToastContext";
@@ -10,6 +11,16 @@ import BackendStatusIndicator from "./BackendStatusIndicator";
 import { getNavigationItems, canAccessRoute, getUserDisplayName, getRoleDisplayName } from "../utils/roleUtils";
 import api from "../utils/api";
 import { ANIMATION_VARIANTS, TRANSITION_DEFAULTS } from "../utils/constants";
+import { 
+    getNotifications, 
+    markNotificationAsRead, 
+    markAllNotificationsAsRead,
+    deleteNotification,
+    formatNotificationTime,
+    getNotificationIcon,
+    getNotificationTypeDisplayName,
+    Notification 
+} from "../services/notificationService";
 
 interface NavbarProps {
     user: User | null;
@@ -23,6 +34,9 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
     const location = useLocation();
     const [scrolled, setScrolled] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
 
     const handleScroll = useCallback(() => {
         setScrolled(window.scrollY > 20);
@@ -35,6 +49,43 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
             window.removeEventListener("scroll", handleScroll);
         };
     }, [handleScroll]);
+
+    // Fetch notifications when user is authenticated
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            if (user) {
+                try {
+                    const response = await getNotifications();
+                    setNotifications(response.notifications);
+                    setUnreadCount(response.unread_count);
+                } catch (error) {
+                    console.error("Error fetching notifications:", error);
+                }
+            }
+        };
+
+        fetchNotifications();
+        
+        // Set up polling for notifications every 30 seconds
+        const interval = setInterval(fetchNotifications, 30000);
+        
+        return () => clearInterval(interval);
+    }, [user]);
+
+    // Close notifications dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (showNotifications) {
+                const target = event.target as Element;
+                if (!target.closest('.notification-dropdown')) {
+                    setShowNotifications(false);
+                }
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showNotifications]);
 
     const handleLogout = useCallback(async () => {
         try {
@@ -58,6 +109,41 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
     const isActive = useCallback((path: string) => {
         return location.pathname === path || (path === '/coding' && location.pathname.startsWith('/coding'));
     }, [location.pathname]);
+
+    // Notification handlers
+    const handleNotificationClick = useCallback(async (notification: Notification) => {
+        if (!notification.read) {
+            try {
+                await markNotificationAsRead(notification._id);
+                setNotifications(prev => 
+                    prev.map(n => n._id === notification._id ? { ...n, read: true } : n)
+                );
+                setUnreadCount(prev => Math.max(0, prev - 1));
+            } catch (error) {
+                console.error('Failed to mark notification as read:', error);
+            }
+        }
+    }, []);
+
+    const handleMarkAllAsRead = useCallback(async () => {
+        try {
+            await markAllNotificationsAsRead();
+            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            setUnreadCount(0);
+        } catch (error) {
+            console.error('Failed to mark all notifications as read:', error);
+        }
+    }, []);
+
+    const handleDeleteNotification = useCallback(async (notificationId: string) => {
+        try {
+            await deleteNotification(notificationId);
+            setNotifications(prev => prev.filter(n => n._id !== notificationId));
+            setUnreadCount(prev => Math.max(0, prev - 1));
+        } catch (error) {
+            console.error('Failed to delete notification:', error);
+        }
+    }, []);
 
     const navItems = user ? getNavigationItems(user) : [
         { path: "/login", label: "Login" }
@@ -171,7 +257,137 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
                             <ThemeToggle />
                             
                             {user ? (
-                                <UserProfileDropdown user={user} onLogout={handleLogout} />
+                                <>
+                                    {/* Notifications Bell */}
+                                    <div className="relative">
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setShowNotifications(!showNotifications)}
+                                            className={`
+                                                relative p-2 rounded-lg transition-all duration-300
+                                                ${colorScheme === 'dark'
+                                                    ? mode === 'professional'
+                                                        ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800/30"
+                                                        : "text-purple-200 hover:text-blue-400 hover:bg-purple-900/20"
+                                                    : mode === 'professional'
+                                                        ? "text-gray-600 hover:text-gray-800 hover:bg-gray-100/30"
+                                                        : "text-purple-700 hover:text-blue-600 hover:bg-purple-100/30"
+                                                }
+                                            `}
+                                        >
+                                            <Bell className="h-6 w-6" />
+                                            {unreadCount > 0 && (
+                                                <motion.span
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold border-2 border-white"
+                                                >
+                                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                                </motion.span>
+                                            )}
+                                        </motion.button>
+
+                                        {/* Notifications Dropdown */}
+                                        <AnimatePresence>
+                                            {showNotifications && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="notification-dropdown absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+                                                >
+                                                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                                                        <div className="flex items-center justify-between">
+                                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                                                Notifications
+                                                            </h3>
+                                                            {unreadCount > 0 && (
+                                                                <button
+                                                                    onClick={handleMarkAllAsRead}
+                                                                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                                                                >
+                                                                    Mark all as read
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="max-h-96 overflow-y-auto">
+                                                        {notifications.length > 0 ? (
+                                                            notifications.map((notification) => (
+                                                                <motion.div
+                                                                    key={notification._id}
+                                                                    initial={{ opacity: 0, x: -20 }}
+                                                                    animate={{ opacity: 1, x: 0 }}
+                                                                    className={`
+                                                                        p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700
+                                                                        ${!notification.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
+                                                                    `}
+                                                                    onClick={() => handleNotificationClick(notification)}
+                                                                >
+                                                                    <div className="flex items-start space-x-3">
+                                                                        <div className="flex-shrink-0">
+                                                                            <span className="text-lg">
+                                                                                {getNotificationIcon(notification.notification_type)}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <p className={`
+                                                                                    text-sm font-medium
+                                                                                    ${!notification.read 
+                                                                                        ? 'text-gray-900 dark:text-white' 
+                                                                                        : 'text-gray-600 dark:text-gray-400'
+                                                                                    }
+                                                                                `}>
+                                                                                    {getNotificationTypeDisplayName(notification.notification_type)}
+                                                                                </p>
+                                                                                <div className="flex items-center space-x-2">
+                                                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                                        {formatNotificationTime(notification.timestamp)}
+                                                                                    </span>
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            handleDeleteNotification(notification._id);
+                                                                                        }}
+                                                                                        className="text-gray-400 hover:text-red-500 transition-colors"
+                                                                                    >
+                                                                                        <X className="h-4 w-4" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                            <p className={`
+                                                                                text-sm mt-1
+                                                                                ${!notification.read 
+                                                                                    ? 'text-gray-800 dark:text-gray-200' 
+                                                                                    : 'text-gray-600 dark:text-gray-400'
+                                                                                }
+                                                                            `}>
+                                                                                {notification.message}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </motion.div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="p-8 text-center">
+                                                                <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                                                <p className="text-gray-500 dark:text-gray-400">
+                                                                    No notifications yet
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+
+                                    <UserProfileDropdown user={user} onLogout={handleLogout} />
+                                </>
                             ) : (
                                 <Link 
                                     to="/signup"

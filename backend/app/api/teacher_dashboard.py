@@ -290,6 +290,23 @@ async def add_student_to_batch(batch_id: str, student_id: str, teacher: dict = D
                 {"_id": ObjectId(batch_id)},
                 {"$addToSet": {"student_ids": student_id}}
             )
+            
+            # Create notification for the student
+            teacher_name = teacher.get("name", "A Teacher")
+            batch_name = batch.get("name", "a batch")
+            notification_message = f"You have been added to the batch '{batch_name}' by {teacher_name}."
+            
+            notification_data = {
+                "user_id": ObjectId(student_id),
+                "message": notification_message,
+                "read": False,
+                "timestamp": datetime.utcnow(),
+                "notification_type": "batch_added",
+                "related_id": ObjectId(batch_id)
+            }
+            
+            await db.notifications.insert_one(notification_data)
+            print(f"[SUCCESS] [NOTIFICATIONS] Created notification for student {student_id}: {notification_message}")
         
         return BatchStudentResponse(
             batch_id=batch_id,
@@ -353,6 +370,23 @@ async def add_student_to_batch_by_email_or_name(
             {"_id": ObjectId(batch_id)},
             {"$addToSet": {"student_ids": student_id}}
         )
+        
+        # Create notification for the student
+        teacher_name = teacher.get("name", "A Teacher")
+        batch_name = batch.get("name", "a batch")
+        notification_message = f"You have been added to the batch '{batch_name}' by {teacher_name}."
+        
+        notification_data = {
+            "user_id": ObjectId(student_id),
+            "message": notification_message,
+            "read": False,
+            "timestamp": datetime.utcnow(),
+            "notification_type": "batch_added",
+            "related_id": ObjectId(batch_id)
+        }
+        
+        await db.notifications.insert_one(notification_data)
+        print(f"[SUCCESS] [NOTIFICATIONS] Created notification for student {student_id}: {notification_message}")
         
         return AddStudentToBatchResponse(
             success=True,

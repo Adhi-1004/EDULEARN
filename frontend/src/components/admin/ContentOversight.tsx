@@ -1,395 +1,569 @@
+/**
+ * Content Oversight Component
+ * Global content library management and curation
+ */
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
-import Input from '../ui/Input';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import { 
+  BookOpen, 
+  Search, 
+  Filter, 
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  Eye, 
+  Download,
+  Star,
+  AlertTriangle,
+  ThumbsUp,
+  ThumbsDown,
+  Edit,
+  Trash2
+} from 'lucide-react';
+import { useToast } from '../../contexts/ToastContext';
 import api from '../../utils/api';
 
-interface Assessment {
+interface ContentItem {
   id: string;
   title: string;
-  topic: string;
-  difficulty: string;
   type: string;
-  created_by: string;
+  subject: string;
+  difficulty: string;
+  creator: string;
+  status: string;
   created_at: string;
-  completion_count: number;
-  is_published: boolean;
+  views: number;
+  downloads: number;
 }
 
-interface CodingProblem {
-  id: string;
+interface ContentCuration {
+  content_id: string;
   title: string;
-  topic: string;
-  difficulty: string;
-  created_by: string;
+  type: string;
+  creator: string;
+  status: string;
+  review_notes?: string;
+  quality_score: number;
+  difficulty_level: string;
+  subject: string;
   created_at: string;
-  submission_count: number;
-  success_rate: number;
-  average_time: number | null;
+  reviewed_at?: string;
 }
 
 const ContentOversight: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'assessments' | 'coding'>('assessments');
-  const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [codingProblems, setCodingProblems] = useState<CodingProblem[]>([]);
+  const { success, error } = useToast();
+  const [content, setContent] = useState<ContentItem[]>([]);
+  const [curation, setCuration] = useState<ContentCuration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'library' | 'curation'>('library');
   const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [typeFilter, setTypeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [selectedContent, setSelectedContent] = useState<ContentCuration | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewNotes, setReviewNotes] = useState('');
+
+  // Fetch content library
+  const fetchContentLibrary = async () => {
+    try {
+      const response = await api.get('/admin/content/library', {
+        params: {
+          content_type: typeFilter || undefined,
+          status: statusFilter || undefined
+        }
+      });
+      setContent(response.data.content);
+    } catch (err: any) {
+      error('Failed to fetch content library', err.response?.data?.detail || 'Unknown error');
+    }
+  };
+
+  // Fetch content curation
+  const fetchContentCuration = async () => {
+    try {
+      const response = await api.get('/admin/content/curation', {
+        params: {
+          status: statusFilter || undefined
+        }
+      });
+      setCuration(response.data);
+    } catch (err: any) {
+      error('Failed to fetch content curation', err.response?.data?.detail || 'Unknown error');
+    }
+  };
+
+  // Approve content
+  const approveContent = async (contentId: string) => {
+    try {
+      await api.post(`/admin/content/${contentId}/approve`, {
+        review_notes: reviewNotes
+      });
+      success('Content approved', 'The content has been approved for publication');
+      setShowReviewModal(false);
+      setReviewNotes('');
+      fetchContentCuration();
+    } catch (err: any) {
+      error('Failed to approve content', err.response?.data?.detail || 'Unknown error');
+    }
+  };
+
+  // Reject content
+  const rejectContent = async (contentId: string) => {
+    if (!reviewNotes.trim()) {
+      error('Review notes required', 'Please provide feedback for rejection');
+      return;
+    }
+
+    try {
+      await api.post(`/admin/content/${contentId}/reject`, {
+        review_notes: reviewNotes
+      });
+      success('Content rejected', 'The content has been rejected with feedback');
+      setShowReviewModal(false);
+      setReviewNotes('');
+      fetchContentCuration();
+    } catch (err: any) {
+      error('Failed to reject content', err.response?.data?.detail || 'Unknown error');
+    }
+  };
 
   useEffect(() => {
-    if (activeTab === 'assessments') {
-      fetchAssessments();
-    } else {
-      fetchCodingProblems();
-    }
-  }, [activeTab, page, searchTerm]);
-
-  const fetchAssessments = async () => {
-    try {
+    const fetchData = async () => {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '20'
-      });
-
-      if (searchTerm) params.append('search', searchTerm);
-
-      const response = await api.get(`/api/admin/content/assessments?${params}`);
-      
-      if (response.data.success) {
-        setAssessments(response.data.assessments);
-        setTotalPages(response.data.pagination.pages);
+      if (activeTab === 'library') {
+        await fetchContentLibrary();
+      } else {
+        await fetchContentCuration();
       }
-    } catch (error: any) {
-      console.error('Error fetching assessments:', error);
-      setError(error.response?.data?.detail || 'Failed to fetch assessments');
-    } finally {
       setLoading(false);
+    };
+
+    fetchData();
+  }, [activeTab, typeFilter, statusFilter]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'rejected': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+      case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     }
   };
 
-  const fetchCodingProblems = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '20'
-      });
-
-      if (searchTerm) params.append('search', searchTerm);
-
-      const response = await api.get(`/api/admin/content/coding-problems?${params}`);
-      
-      if (response.data.success) {
-        setCodingProblems(response.data.problems);
-        setTotalPages(response.data.pagination.pages);
-      }
-    } catch (error: any) {
-      console.error('Error fetching coding problems:', error);
-      setError(error.response?.data?.detail || 'Failed to fetch coding problems');
-    } finally {
-      setLoading(false);
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'approved': return <CheckCircle className="h-4 w-4" />;
+      case 'rejected': return <XCircle className="h-4 w-4" />;
+      case 'pending': return <Clock className="h-4 w-4" />;
+      default: return <AlertTriangle className="h-4 w-4" />;
     }
-  };
-
-  const deleteAssessment = async (assessmentId: string) => {
-    if (!confirm('Are you sure you want to delete this assessment?')) {
-      return;
-    }
-
-    try {
-      const response = await api.delete(`/api/assessments/${assessmentId}`);
-      if (response.data.success) {
-        fetchAssessments();
-      }
-    } catch (error: any) {
-      console.error('Error deleting assessment:', error);
-      setError('Failed to delete assessment');
-    }
-  };
-
-  const deleteCodingProblem = async (problemId: string) => {
-    if (!confirm('Are you sure you want to delete this coding problem?')) {
-      return;
-    }
-
-    try {
-      const response = await api.delete(`/api/coding/problems/${problemId}`);
-      if (response.data.success) {
-        fetchCodingProblems();
-      }
-    } catch (error: any) {
-      console.error('Error deleting coding problem:', error);
-      setError('Failed to delete coding problem');
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
   };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
-      case 'easy':
-        return 'text-green-400 bg-green-900/20';
-      case 'medium':
-        return 'text-yellow-400 bg-yellow-900/20';
-      case 'hard':
-        return 'text-red-400 bg-red-900/20';
-      default:
-        return 'text-gray-400 bg-gray-900/20';
+      case 'easy': return 'text-green-600 dark:text-green-400';
+      case 'medium': return 'text-yellow-600 dark:text-yellow-400';
+      case 'hard': return 'text-red-600 dark:text-red-400';
+      default: return 'text-gray-600 dark:text-gray-400';
     }
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'mcq':
-        return '📝';
-      case 'coding':
-        return '💻';
-      default:
-        return '📊';
-    }
-  };
-
-  if (loading && assessments.length === 0 && codingProblems.length === 0) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
+  const filteredContent = activeTab === 'library' 
+    ? content.filter(item => 
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.creator.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : curation.filter(item => 
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.creator.toLowerCase().includes(searchTerm.toLowerCase())
+      );
 
   return (
     <div className="space-y-6">
-      {/* Header and Tabs */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <h2 className="text-2xl font-bold text-purple-200">Content & Course Oversight</h2>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setActiveTab('assessments')}
-            className={`px-4 py-2 rounded-lg ${
-              activeTab === 'assessments'
-                ? 'bg-purple-600 text-white'
-                : 'bg-purple-900/50 text-purple-300 hover:bg-purple-800/50'
-            }`}
-          >
-            📝 Assessments
-          </button>
-          <button
-            onClick={() => setActiveTab('coding')}
-            className={`px-4 py-2 rounded-lg ${
-              activeTab === 'coding'
-                ? 'bg-purple-600 text-white'
-                : 'bg-purple-900/50 text-purple-300 hover:bg-purple-800/50'
-            }`}
-          >
-            💻 Coding Problems
-          </button>
-        </div>
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Content Oversight</h2>
+        <p className="text-gray-600 dark:text-gray-400">Manage global content library and curation</p>
       </div>
 
-      {/* Search */}
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex space-x-8">
+          {[
+            { id: 'library', label: 'Content Library', icon: BookOpen },
+            { id: 'curation', label: 'Content Curation', icon: Star }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === tab.id
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
-        <Input
-          type="text"
-          placeholder={`Search ${activeTab}...`}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full sm:w-64"
-        />
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search content..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+        </div>
+        
+        {activeTab === 'library' && (
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+          >
+            <option value="">All Types</option>
+            <option value="assessment">Assessment</option>
+            <option value="question">Question</option>
+            <option value="course">Course</option>
+            <option value="material">Material</option>
+          </select>
+        )}
+        
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+        >
+          <option value="">All Status</option>
+          <option value="approved">Approved</option>
+          <option value="pending">Pending</option>
+          <option value="rejected">Rejected</option>
+        </select>
       </div>
 
-      {/* Content Tables */}
-      {activeTab === 'assessments' && (
-        <Card className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-purple-500/30">
-                <th className="text-left p-4 text-purple-300">Assessment</th>
-                <th className="text-left p-4 text-purple-300">Topic</th>
-                <th className="text-left p-4 text-purple-300">Difficulty</th>
-                <th className="text-left p-4 text-purple-300">Type</th>
-                <th className="text-left p-4 text-purple-300">Created By</th>
-                <th className="text-left p-4 text-purple-300">Completions</th>
-                <th className="text-left p-4 text-purple-300">Status</th>
-                <th className="text-left p-4 text-purple-300">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assessments.map((assessment, index) => (
-                <motion.tr
-                  key={assessment.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="border-b border-purple-500/20 hover:bg-purple-900/20"
-                >
-                  <td className="p-4">
-                    <div>
-                      <p className="text-purple-200 font-medium">{assessment.title}</p>
-                      <p className="text-purple-400 text-sm">{formatDate(assessment.created_at)}</p>
-                    </div>
-                  </td>
-                  <td className="p-4 text-purple-300">{assessment.topic}</td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-sm ${getDifficultyColor(assessment.difficulty)}`}>
-                      {assessment.difficulty}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <span className="flex items-center space-x-2">
-                      <span>{getTypeIcon(assessment.type)}</span>
-                      <span className="text-purple-300">{assessment.type.toUpperCase()}</span>
-                    </span>
-                  </td>
-                  <td className="p-4 text-purple-300">{assessment.created_by}</td>
-                  <td className="p-4 text-purple-300">{assessment.completion_count}</td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-sm ${
-                      assessment.is_published 
-                        ? 'text-green-400 bg-green-900/20' 
-                        : 'text-yellow-400 bg-yellow-900/20'
-                    }`}>
-                      {assessment.is_published ? 'Published' : 'Draft'}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex space-x-2">
-                      <Button
-                        onClick={() => deleteAssessment(assessment.id)}
-                        className="bg-red-600 hover:bg-red-700 text-sm px-3 py-1"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-
-          {assessments.length === 0 && !loading && (
-            <div className="text-center py-8">
-              <p className="text-purple-400">No assessments found</p>
+      {/* Content Library Tab */}
+      {activeTab === 'library' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Global Content Library</h3>
+          </div>
+          
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">Loading content...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Content
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Subject
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Difficulty
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Creator
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Metrics
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredContent.map((item) => (
+                    <motion.tr
+                      key={item.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <td className="px-6 py-4">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {item.title}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            Created {new Date(item.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                          {item.type}
+                        </span>
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {item.subject}
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`text-sm font-medium ${getDifficultyColor(item.difficulty)}`}>
+                          {item.difficulty}
+                        </span>
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {item.creator}
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(item.status)}`}>
+                          {getStatusIcon(item.status)}
+                          <span className="ml-1">{item.status}</span>
+                        </span>
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          <div className="flex items-center">
+                            <Eye className="h-4 w-4 text-gray-400 mr-1" />
+                            {item.views.toLocaleString()}
+                          </div>
+                          <div className="flex items-center">
+                            <Download className="h-4 w-4 text-gray-400 mr-1" />
+                            {item.downloads.toLocaleString()}
+                          </div>
+                        </div>
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center space-x-2">
+                          <button className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button className="text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-        </Card>
-      )}
-
-      {activeTab === 'coding' && (
-        <Card className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-purple-500/30">
-                <th className="text-left p-4 text-purple-300">Problem</th>
-                <th className="text-left p-4 text-purple-300">Topic</th>
-                <th className="text-left p-4 text-purple-300">Difficulty</th>
-                <th className="text-left p-4 text-purple-300">Created By</th>
-                <th className="text-left p-4 text-purple-300">Submissions</th>
-                <th className="text-left p-4 text-purple-300">Success Rate</th>
-                <th className="text-left p-4 text-purple-300">Avg Time</th>
-                <th className="text-left p-4 text-purple-300">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {codingProblems.map((problem, index) => (
-                <motion.tr
-                  key={problem.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="border-b border-purple-500/20 hover:bg-purple-900/20"
-                >
-                  <td className="p-4">
-                    <div>
-                      <p className="text-purple-200 font-medium">{problem.title}</p>
-                      <p className="text-purple-400 text-sm">{formatDate(problem.created_at)}</p>
-                    </div>
-                  </td>
-                  <td className="p-4 text-purple-300">{problem.topic}</td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-sm ${getDifficultyColor(problem.difficulty)}`}>
-                      {problem.difficulty}
-                    </span>
-                  </td>
-                  <td className="p-4 text-purple-300">{problem.created_by}</td>
-                  <td className="p-4 text-purple-300">{problem.submission_count}</td>
-                  <td className="p-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-16 bg-purple-900/50 rounded-full h-2">
-                        <div 
-                          className="bg-purple-500 h-2 rounded-full" 
-                          style={{ width: `${problem.success_rate * 100}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-purple-300 text-sm">
-                        {(problem.success_rate * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="p-4 text-purple-300">
-                    {problem.average_time ? `${problem.average_time}s` : 'N/A'}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex space-x-2">
-                      <Button
-                        onClick={() => deleteCodingProblem(problem.id)}
-                        className="bg-red-600 hover:bg-red-700 text-sm px-3 py-1"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-
-          {codingProblems.length === 0 && !loading && (
-            <div className="text-center py-8">
-              <p className="text-purple-400">No coding problems found</p>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center space-x-2">
-          <Button
-            onClick={() => setPage(page - 1)}
-            disabled={page === 1}
-            className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
-          >
-            Previous
-          </Button>
-          <span className="flex items-center px-4 py-2 text-purple-200">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            onClick={() => setPage(page + 1)}
-            disabled={page === totalPages}
-            className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
-          >
-            Next
-          </Button>
         </div>
       )}
 
-      {error && (
-        <div className="text-center py-4">
-          <p className="text-red-400">Error: {error}</p>
-          <Button 
-            onClick={() => activeTab === 'assessments' ? fetchAssessments() : fetchCodingProblems()} 
-            className="mt-2"
-          >
-            Retry
-          </Button>
+      {/* Content Curation Tab */}
+      {activeTab === 'curation' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Content Curation</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Review and approve content for publication</p>
+          </div>
+          
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">Loading curation queue...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Content
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Creator
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Quality
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Difficulty
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredContent.map((item) => (
+                    <motion.tr
+                      key={item.content_id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <td className="px-6 py-4">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {item.title}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {item.type} • {item.subject}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            Submitted {new Date(item.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {item.creator}
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min(item.quality_score, 100)}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {item.quality_score.toFixed(1)}%
+                          </span>
+                        </div>
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`text-sm font-medium ${getDifficultyColor(item.difficulty_level)}`}>
+                          {item.difficulty_level}
+                        </span>
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(item.status)}`}>
+                          {getStatusIcon(item.status)}
+                          <span className="ml-1">{item.status}</span>
+                        </span>
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center space-x-2">
+                          {item.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setSelectedContent(item);
+                                  setShowReviewModal(true);
+                                }}
+                                className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                                title="Approve"
+                              >
+                                <ThumbsUp className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedContent(item);
+                                  setShowReviewModal(true);
+                                }}
+                                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                title="Reject"
+                              >
+                                <ThumbsDown className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                          <button className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Review Modal */}
+      {showReviewModal && selectedContent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Review Content
+              </h3>
+              <button
+                onClick={() => setShowReviewModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                {selectedContent.title}
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                by {selectedContent.creator}
+              </p>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Review Notes
+              </label>
+              <textarea
+                value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
+                placeholder="Add your feedback..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                rows={3}
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowReviewModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => rejectContent(selectedContent.content_id)}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              >
+                Reject
+              </button>
+              <button
+                onClick={() => approveContent(selectedContent.content_id)}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+              >
+                Approve
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

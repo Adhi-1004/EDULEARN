@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useToast } from '../contexts/ToastContext';
 import api from '../utils/api';
-import { mockGamificationData, mockBadgesData } from '../services/mockDataService';
 
 interface GamificationData {
   xp: number;
@@ -29,6 +28,30 @@ interface GamificationPanelProps {
   className?: string;
 }
 
+// Default gamification data
+const defaultGamificationData: GamificationData = {
+  xp: 0,
+  level: 1,
+  streak: 0,
+  longest_streak: 0,
+  badges: [],
+  next_level_xp: 100,
+  progress_to_next_level: 0
+};
+
+// Default badges data
+const defaultBadgesData: BadgeData[] = [
+  {
+    name: "Welcome!",
+    description: "You've joined the learning platform",
+    icon: "🎉",
+    xp_reward: 10,
+    category: "milestone",
+    rarity: "common",
+    earned_at: new Date().toISOString()
+  }
+];
+
 const GamificationPanel: React.FC<GamificationPanelProps> = ({ user, className = "" }) => {
   const [gamificationData, setGamificationData] = useState<GamificationData | null>(null);
   const [badges, setBadges] = useState<BadgeData[]>([]);
@@ -42,9 +65,9 @@ const GamificationPanel: React.FC<GamificationPanelProps> = ({ user, className =
       fetchGamificationData();
       fetchBadges();
     } else {
-      console.log('🎮 GamificationPanel: No user found, using mock data');
-      setGamificationData(mockGamificationData);
-      setBadges(mockBadgesData);
+      console.log('🎮 GamificationPanel: No user found, using default data');
+      setGamificationData(defaultGamificationData);
+      setBadges(defaultBadgesData);
       setLoading(false);
     }
   }, [user]);
@@ -67,9 +90,9 @@ const GamificationPanel: React.FC<GamificationPanelProps> = ({ user, className =
       }
     } catch (err) {
       console.error('Failed to fetch gamification data:', err);
-      console.log('Using mock data for gamification');
-      // Use mock data as fallback
-      setGamificationData(mockGamificationData);
+      console.log('Using default data for gamification');
+      // Use default data as fallback
+      setGamificationData(defaultGamificationData);
     } finally {
       setLoading(false);
     }
@@ -84,9 +107,9 @@ const GamificationPanel: React.FC<GamificationPanelProps> = ({ user, className =
       }
     } catch (err) {
       console.error('Failed to fetch badges:', err);
-      console.log('Using mock data for badges');
-      // Use mock data as fallback
-      setBadges(mockBadgesData);
+      console.log('Using default data for badges');
+      // Use default data as fallback
+      setBadges(defaultBadgesData);
     }
   };
 
@@ -97,9 +120,9 @@ const GamificationPanel: React.FC<GamificationPanelProps> = ({ user, className =
       await fetchGamificationData();
       success("Activity Updated", "Your streak has been updated!");
     } catch (err) {
-      console.log('Update activity failed, using mock data');
-      // Silently fail and use mock data
-      setGamificationData(mockGamificationData);
+      console.log('Update activity failed, using default data');
+      // Silently fail and use default data
+      setGamificationData(defaultGamificationData);
       success("Activity Updated", "Your streak has been updated!");
     }
   };
@@ -114,9 +137,9 @@ const GamificationPanel: React.FC<GamificationPanelProps> = ({ user, className =
         await fetchGamificationData();
       }
     } catch (err) {
-      console.log('Check badges failed, using mock data');
-      // Silently fail and use mock data
-      setBadges(mockBadgesData);
+      console.log('Check badges failed, using default data');
+      // Silently fail and use default data
+      setBadges(defaultBadgesData);
       success("Badges Checked", "Your badges are up to date!");
     }
   };

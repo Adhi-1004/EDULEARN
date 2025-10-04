@@ -23,7 +23,7 @@ import CodingPlatform from "./pages/CodingPlatform";
 import CodingProblemPage from "./pages/CodingProblem";
 import AssessmentChoice from "./pages/AssessmentChoice";
 import TeacherDashboard from "./pages/TeacherDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
+import EnhancedAdminDashboard from "./components/admin/EnhancedAdminDashboard";
 import TestInterface from "./components/TestInterface";
 import AssessmentResults from "./components/AssessmentResults";
 import TestPage from "./pages/TestPage";
@@ -88,7 +88,7 @@ const AppContent: React.FC = () => {
                             path="/admin-dashboard" 
                             element={
                                 <ProtectedRoute allowedRoles={["admin"]}>
-                                    <AdminDashboard />
+                                    <EnhancedAdminDashboard />
                                 </ProtectedRoute>
                             } 
                         />

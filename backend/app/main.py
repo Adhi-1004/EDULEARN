@@ -10,8 +10,9 @@ from datetime import datetime
 from .core.config import settings
 from .db import init_db, get_db
 from .api.endpoints import auth, assessments
-from .api import users, questions, results, coding, code_execution, teacher_dashboard, admin_dashboard, admin
+from .api import users, questions, results, coding, code_execution, teacher_dashboard, admin_dashboard, admin, notifications
 from .api import enhanced_users, enhanced_teacher_dashboard, enhanced_admin_dashboard, reset_admin
+from .api import enhanced_admin_dashboard as enhanced_admin
 from .schemas import AssessmentConfig
 
 @asynccontextmanager
@@ -64,11 +65,13 @@ app.include_router(teacher_dashboard.router, prefix="/api/teacher", tags=["Teach
 app.include_router(admin_dashboard.router, prefix="/api/admin", tags=["Admin Dashboard"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin Management"])
 app.include_router(assessments.router, prefix="/api/assessments", tags=["Assessments"])
+app.include_router(notifications.router, prefix="/api", tags=["Notifications"])
 
 # Enhanced routers with AI features
 app.include_router(enhanced_users.router, tags=["Enhanced Users"])
 app.include_router(enhanced_teacher_dashboard.router, tags=["Enhanced Teacher Dashboard"])
 app.include_router(enhanced_admin_dashboard.router, tags=["Enhanced Admin Dashboard"])
+app.include_router(enhanced_admin.router, tags=["Enhanced Admin Management"])
 
 # Admin reset endpoint
 app.include_router(reset_admin.router, prefix="/api", tags=["Admin Reset"])

@@ -446,4 +446,19 @@ class TeacherPerformanceModel(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
         json_encoders={ObjectId: str}
+    )
+
+# Notification Model
+class NotificationModel(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    user_id: PyObjectId = Field(...)
+    message: str = Field(...)
+    read: bool = Field(default=False)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    notification_type: str = Field(default="general")  # general, batch_added, assessment_created, etc.
+    related_id: Optional[PyObjectId] = None  # ID of related batch, assessment, etc.
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_encoders={ObjectId: str}
     ) 

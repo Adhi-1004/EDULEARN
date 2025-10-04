@@ -1,5 +1,0 @@
-@echo off
-echo Starting modLRN Backend...
-cd backend
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 5001
-pause
