@@ -6,52 +6,77 @@ A comprehensive full-stack educational platform that combines modern web technol
 
 ```
 edulearn/
-├── frontend/                 # React frontend application
-│   ├── public/             # Static assets
-│   ├── src/
-│   │   ├── api/           # Centralized API services
+├── backend/                 # FastAPI backend application
+│   ├── app/                # Main application package
+│   │   ├── api/           # API endpoints (routers)
+│   │   │   ├── admin.py
+│   │   │   ├── assessments.py
+│   │   │   ├── auth.py
+│   │   │   ├── coding.py
+│   │   │   ├── notifications.py
+│   │   │   ├── results.py
+│   │   │   ├── teacher.py
+│   │   │   ├── topics.py
+│   │   │   └── users.py
+│   │   ├── core/          # Configuration and security
+│   │   │   ├── config.py
+│   │   │   └── security.py
+│   │   ├── db/            # Database session management
+│   │   │   ├── mock_db.py
+│   │   │   └── session.py
+│   │   ├── models/        # Database ORM models
+│   │   │   └── models.py
+│   │   ├── schemas/       # Pydantic schemas for validation
+│   │   │   └── schemas.py
+│   │   ├── services/      # Business logic
+│   │   │   ├── code_execution_service.py
+│   │   │   ├── gemini_coding_service.py
+│   │   │   └── judge0_execution_service.py
+│   │   ├── utils/         # Utility functions
+│   │   │   ├── auth_utils.py
+│   │   │   └── validators.py
+│   │   ├── dependencies.py # FastAPI dependencies
+│   │   └── main.py        # FastAPI app instance
+│   ├── main.py           # Application entry point
+│   ├── requirements.txt  # Python dependencies
+│   ├── env.example       # Environment configuration template
+│   └── venv/             # Python virtual environment
+│
+├── frontend/             # React frontend application
+│   ├── src/              # Source code
+│   │   ├── api/          # Centralized API services
 │   │   │   ├── authService.ts
 │   │   │   ├── assessmentService.ts
 │   │   │   ├── codingService.ts
 │   │   │   └── index.ts
-│   │   ├── assets/        # Images, fonts, etc.
-│   │   ├── components/    # Reusable UI components
-│   │   ├── contexts/      # React contexts
-│   │   ├── hooks/         # Custom React hooks
+│   │   ├── components/   # Reusable UI components
+│   │   │   ├── admin/    # Admin-specific components
+│   │   │   ├── teacher/  # Teacher-specific components
+│   │   │   └── ui/       # Basic UI components
+│   │   ├── contexts/     # React contexts
+│   │   ├── hooks/        # Custom React hooks
 │   │   ├── pages/         # Page components
+│   │   ├── services/      # Business logic services
 │   │   ├── types/         # TypeScript type definitions
 │   │   └── utils/         # Utility functions
-│   ├── .eslintrc.cjs      # ESLint configuration
-│   ├── .gitignore        # Frontend-specific gitignore
-│   ├── index.html        # HTML entry point
 │   ├── package.json      # Frontend dependencies
+│   ├── package-lock.json  # Dependency lock file
 │   ├── tsconfig.json     # TypeScript configuration
-│   └── vite.config.js    # Vite configuration
+│   ├── vite.config.js    # Vite configuration
+│   ├── tailwind.config.js # Tailwind CSS configuration
+│   ├── eslint.config.js  # ESLint configuration
+│   ├── postcss.config.cjs # PostCSS configuration
+│   └── index.html        # HTML entry point
 │
-├── backend/               # FastAPI backend application
-│   ├── app/              # Main application package
-│   │   ├── api/          # API endpoints (routers)
-│   │   │   ├── endpoints/
-│   │   │   │   ├── auth.py
-│   │   │   │   ├── assessments.py
-│   │   │   │   └── coding.py
-│   │   │   └── ...
-│   │   ├── core/         # Configuration and security
-│   │   │   ├── config.py
-│   │   │   └── security.py
-│   │   ├── db/           # Database session management
-│   │   │   └── session.py
-│   │   ├── models/       # Database ORM models
-│   │   ├── schemas/      # Pydantic schemas for validation
-│   │   ├── services/     # Business logic
-│   │   ├── tests/        # Backend tests
-│   │   ├── utils/        # Utility functions
-│   │   └── main.py       # FastAPI app instance
-│   ├── .gitignore       # Backend-specific gitignore
-│   └── requirements.txt  # Backend dependencies
+├── docs/                 # Documentation
+│   ├── PROJECT_STRUCTURE.md
+│   ├── QUICK_START.md
+│   ├── README.md
+│   └── setup_mongodb.md
 │
-├── .gitignore            # Root gitignore
-└── README.md            # Project-wide README
+├── scripts/              # Utility scripts (cleaned)
+├── PROJECT_STRUCTURE.md  # Project structure overview
+└── README.md            # Main project documentation
 ```
 
 ## 🚀 Quick Start
@@ -72,11 +97,11 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Set up environment variables
-cp .env.example .env
+cp env.example .env
 # Edit .env with your configuration
 
 # Run the backend
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 5001
+python main.py
 ```
 
 ### Frontend Setup
@@ -156,13 +181,14 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 The backend provides a comprehensive REST API:
 
-- **Authentication**: `/auth/*`
-- **User Management**: `/db/*`
-- **Assessments**: `/api/assessments/*`
-- **Coding Platform**: `/api/coding/*`
-- **Code Execution**: `/api/execute/*`
-- **Teacher Dashboard**: `/api/teacher/*`
-- **Admin Dashboard**: `/api/admin/*`
+- **Authentication**: `/auth/*` and `/api/auth/*`
+- **User Management**: `/users/*` and `/api/users/*`
+- **Assessments**: `/assessments/*` and `/api/assessments/*`
+- **Coding Platform**: `/coding/*` and `/api/coding/*`
+- **Teacher Dashboard**: `/teacher/*` and `/api/teacher/*`
+- **Admin Dashboard**: `/admin/*` and `/api/admin/*`
+- **Topics**: `/topics/*` and `/api/topics/*`
+- **Results**: `/results/*` and `/api/results/*`
 
 ## 🧪 Testing
 

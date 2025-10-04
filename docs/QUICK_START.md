@@ -10,34 +10,19 @@
 
 ### 1. Initial Setup (First Time Only)
 
-**Windows (Batch):**
+**Backend Setup:**
 ```bash
-scripts\setup-project.bat
-```
-
-**Windows (PowerShell):**
-```powershell
-# Backend setup
 cd backend
 python -m venv venv
-venv\Scripts\Activate.ps1
+venv\Scripts\activate  # On Windows
+# or
+source venv/bin/activate  # On Linux/Mac
 pip install -r requirements.txt
-
-# Frontend setup
-cd ..\frontend
-npm install
 ```
 
-**Linux/Mac:**
+**Frontend Setup:**
 ```bash
-# Backend setup
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Frontend setup
-cd ../frontend
+cd frontend
 npm install
 ```
 
@@ -56,38 +41,27 @@ cp env.example backend/.env
 ### 3. Start the Application
 
 #### Option A: Start Both Servers (Recommended)
+
+**Backend (Terminal 1):**
 ```bash
-scripts\start-full-stack.bat
+cd backend
+venv\Scripts\activate
+python main.py
 ```
 
-#### Option B: Start Servers Separately
-
-**Backend:**
+**Frontend (Terminal 2):**
 ```bash
-scripts\start-backend.bat
+cd frontend
+npm run dev
 ```
 
-**Frontend (in new terminal):**
-```bash
-scripts\start-frontend.bat
-```
-
-#### Option C: PowerShell Scripts
-```powershell
-# Backend
-scripts\start-backend.ps1
-
-# Frontend (in new terminal)
-scripts\start-frontend.ps1
-```
-
-#### Option D: Manual Commands
+#### Option B: Manual Commands
 
 **Backend:**
 ```bash
 cd backend
 venv\Scripts\activate
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 5001
+python main.py
 ```
 
 **Frontend:**
@@ -110,22 +84,22 @@ npm run dev
 # CORRECT WAY - Run from backend directory
 cd backend
 venv\Scripts\activate
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 5001
+python main.py
 
-# WRONG WAY - Don't do this:
-# cd backend\app
-# python main.py  # This will cause import errors
+# The server will start on http://localhost:5001
 ```
 
 ### Frontend Development
 ```bash
 cd frontend
 npm run dev
+
+# The server will start on http://localhost:5173
 ```
 
 ### Running Tests
 ```bash
-# Backend tests
+# Backend tests (if available)
 cd backend
 python -m pytest app/tests/
 
@@ -142,7 +116,7 @@ npm run build
 
 # Backend (no build needed, just run)
 cd backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port 5001
+python main.py
 ```
 
 ## 🆘 Troubleshooting
@@ -182,10 +156,16 @@ GEMINI_API_KEY=your-google-ai-api-key
 ```
 edulearn/
 ├── backend/           # FastAPI backend
+│   ├── app/          # Main application
+│   ├── main.py       # Entry point
+│   ├── requirements.txt
+│   └── venv/         # Virtual environment
 ├── frontend/         # React frontend  
-├── scripts/          # Startup scripts
+│   ├── src/          # Source code
+│   ├── package.json
+│   └── node_modules/ # (after npm install)
 ├── docs/            # Documentation
-├── tests/           # Integration tests
+├── scripts/         # Utility scripts (cleaned)
 └── README.md        # Main documentation
 ```
 
@@ -193,8 +173,8 @@ edulearn/
 
 1. **Configure Environment**: Set up your `.env` file
 2. **Start MongoDB**: Ensure MongoDB is running
-3. **Run Setup**: Execute the setup script
-4. **Start Application**: Use the startup scripts
+3. **Install Dependencies**: Run setup commands
+4. **Start Application**: Run both servers
 5. **Access Application**: Open http://localhost:5173
 
 ## 📞 Support
@@ -202,3 +182,14 @@ edulearn/
 - Check the main README.md for detailed documentation
 - Review API documentation at http://localhost:5001/docs
 - Check logs in the terminal for error messages
+
+## 🧹 Recent Cleanup
+
+The project has been cleaned up and now features:
+- ✅ **Clean structure** with no unnecessary files
+- ✅ **No cache files** or build artifacts
+- ✅ **Streamlined documentation**
+- ✅ **Easy setup process**
+- ✅ **Professional organization**
+
+Your development environment is now ready for efficient coding!
