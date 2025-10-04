@@ -1,23 +1,7 @@
 """
-API Routers Package
-Contains all API endpoint routers
+API package initialization
+Contains all API endpoint routers and configurations
 """
-from . import users, questions, results, code_execution, teacher_dashboard, admin_dashboard, admin
-from . import enhanced_users, enhanced_teacher_dashboard, enhanced_admin_dashboard
-from .endpoints import auth, assessments, coding
+from .v1 import api_router
 
-__all__ = [
-    "users",
-    "questions", 
-    "results",
-    "code_execution",
-    "teacher_dashboard",
-    "admin_dashboard",
-    "admin",
-    "enhanced_users",
-    "enhanced_teacher_dashboard", 
-    "enhanced_admin_dashboard",
-    "auth",
-    "assessments",
-    "coding"
-] 
+__all__ = ["api_router"]

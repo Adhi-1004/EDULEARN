@@ -1,25 +1,28 @@
 """
 Database session management
+Handles MongoDB connection, initialization, and session management
 """
 from motor.motor_asyncio import AsyncIOMotorClient
+from typing import Optional
 import asyncio
 from datetime import datetime
 
 from ..core.config import settings
 
-# Database connection
-client = None
+# Global database connection
+client: Optional[AsyncIOMotorClient] = None
 db = None
 
 async def init_db():
-    """Initialize database connection"""
+    """Initialize database connection and create indexes"""
     global client, db
+    
     try:
         print(f"[DB] Connecting to MongoDB...")
         print(f"   - URI: {settings.mongo_uri[:50]}..." if len(settings.mongo_uri) > 50 else f"   - URI: {settings.mongo_uri}")
         print(f"   - Database: {settings.db_name}")
         
-        # Add connection pooling and timeout settings
+        # Create client with connection pooling
         client = AsyncIOMotorClient(
             settings.mongo_uri,
             maxPoolSize=10,
@@ -31,220 +34,121 @@ async def init_db():
         )
         db = client[settings.db_name]
         
-        # Test the connection
+        # Test connection
         print(f"[DB] Testing connection...")
         await client.admin.command('ping')
         
-        # Create indexes for new collections
-        print(f"[DB] Creating indexes for new collections...")
-        try:
-            # Batches collection indexes
-            await db.batches.create_index([("teacher_id", 1)])
-            await db.batches.create_index([("name", 1)])
-            
-            # Assessments collection indexes
-            await db.assessments.create_index([("created_by", 1)])
-            await db.assessments.create_index([("topic", 1)])
-            
-            # Coding problems collection indexes
-            await db.coding_problems.create_index([("topic", 1)])
-            await db.coding_problems.create_index([("difficulty", 1)])
-            await db.coding_problems.create_index([("created_at", -1)])
-            
-            print(f"[DB] Database indexes created successfully")
-        except Exception as index_error:
-            print(f"[DB] Warning: Failed to create indexes: {str(index_error)}")
-        
-        # Seed database with sample coding problems if none exist
-        await seed_sample_coding_problems(db)
+        # Create indexes
+        print(f"[DB] Creating indexes...")
+        await create_indexes()
         
         print(f"[DB] MongoDB Connected Successfully")
-        return db
+        
     except Exception as e:
-        print(f"[DB] MongoDB Connection Error: {str(e)}")
-        print(f"[DB] Error type: {type(e).__name__}")
-        import traceback
-        print(f"[DB] Connection traceback: {traceback.format_exc()}")
+        print(f"[ERROR] Database connection failed: {str(e)}")
         raise e
 
-async def get_db():
-    """Get database instance with retry logic and fallback to mock database"""
-    global db, client
-    max_retries = 3
-    retry_delay = 1  # seconds
-    
-    for attempt in range(max_retries):
-        try:
-            if db is None:
-                print(f"[DB] Initializing database connection (attempt {attempt + 1}/{max_retries})")
-                await init_db()
-            else:
-                print(f"[DB] Testing existing database connection (attempt {attempt + 1}/{max_retries})")
-            
-            # Test connection before returning
-            try:
-                await client.admin.command('ping')
-                print(f"[DB] Database connection test successful")
-                return db
-            except Exception as ping_error:
-                print(f"[DB] Database ping failed (attempt {attempt + 1}/{max_retries}): {str(ping_error)}")
-                if attempt < max_retries - 1:
-                    print(f"[DB] Retrying in {retry_delay} seconds...")
-                    await asyncio.sleep(retry_delay)
-                    retry_delay *= 2  # Exponential backoff
-                    continue
-                else:
-                    print(f"[DB] All retry attempts failed, reinitializing connection")
-                    # Force reinitialization on final attempt
-                    db = None
-                    client = None
-                    await init_db()
-                    return db
-                    
-        except Exception as e:
-            print(f"[DB] Database connection attempt {attempt + 1} failed: {str(e)}")
-            if attempt < max_retries - 1:
-                print(f"[DB] Retrying in {retry_delay} seconds...")
-                await asyncio.sleep(retry_delay)
-                retry_delay *= 2  # Exponential backoff
-                continue
-            else:
-                print(f"[DB] All retry attempts failed")
-                # Fallback to mock database
-                print(f"[DB] Falling back to mock database for development")
-                from .mock_db import get_mock_db
-                return await get_mock_db()
-    
-    # This should never be reached, but just in case
-    print(f"[DB] Unexpected error, falling back to mock database")
-    from .mock_db import get_mock_db
-    return await get_mock_db()
-
-async def seed_sample_coding_problems(db):
-    """Seed database with sample coding problems if none exist"""
+async def create_indexes():
+    """Create database indexes for optimal performance"""
     try:
-        # Check if any coding problems exist
-        existing_count = await db.coding_problems.count_documents({})
-        if existing_count > 0:
-            print(f"[SEED] Coding problems already exist ({existing_count} problems), skipping seed")
-            return
+        # Users collection indexes
+        await db.users.create_index([("email", 1)], unique=True)
+        await db.users.create_index([("username", 1)])
+        await db.users.create_index([("role", 1)])
+        await db.users.create_index([("created_at", 1)])
         
-        print(f"[SEED] No coding problems found, seeding sample problems...")
+        # Assessments collection indexes
+        await db.assessments.create_index([("created_by", 1)])
+        await db.assessments.create_index([("subject", 1)])
+        await db.assessments.create_index([("difficulty", 1)])
+        await db.assessments.create_index([("is_active", 1)])
         
-        sample_problems = [
-            {
-                "title": "Two Sum",
-                "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
-                "topic": "Arrays",
-                "difficulty": "easy",
-                "constraints": ["2 <= nums.length <= 10^4", "-10^9 <= nums[i] <= 10^9", "-10^9 <= target <= 10^9"],
-                "examples": [
-                    {
-                        "input": {"nums": [2, 7, 11, 15], "target": 9},
-                        "output": [0, 1],
-                        "explanation": "Because nums[0] + nums[1] == 9, we return [0, 1]."
-                    }
-                ],
-                "test_cases": [
-                    {"input": {"nums": [2, 7, 11, 15], "target": 9}, "output": [0, 1]},
-                    {"input": {"nums": [3, 2, 4], "target": 6}, "output": [1, 2]},
-                    {"input": {"nums": [3, 3], "target": 6}, "output": [0, 1]}
-                ],
-                "hidden_test_cases": [
-                    {"input": {"nums": [1, 2, 3, 4, 5], "target": 8}, "output": [2, 4]},
-                    {"input": {"nums": [-1, -2, -3, -4, -5], "target": -8}, "output": [2, 4]}
-                ],
-                "expected_complexity": {"time": "O(n)", "space": "O(n)"},
-                "hints": [
-                    "Use a hash map to store numbers and their indices",
-                    "For each number, check if target - number exists in the map"
-                ],
-                "tags": ["arrays", "hash-table", "easy"],
-                "created_by": "AI",
-                "created_at": datetime.utcnow(),
-                "success_rate": 0.0,
-                "average_time": None
-            },
-            {
-                "title": "Maximum Subarray Sum (Kadane's Algorithm)",
-                "description": "Given an integer array nums, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.",
-                "topic": "Arrays",
-                "difficulty": "medium",
-                "constraints": ["1 <= nums.length <= 10^5", "-10^4 <= nums[i] <= 10^4"],
-                "examples": [
-                    {
-                        "input": {"nums": [-2, 1, -3, 4, -1, 2, 1, -5, 4]},
-                        "output": 6,
-                        "explanation": "The subarray [4,-1,2,1] has the largest sum 6."
-                    }
-                ],
-                "test_cases": [
-                    {"input": {"nums": [-2, 1, -3, 4, -1, 2, 1, -5, 4]}, "output": 6},
-                    {"input": {"nums": [1]}, "output": 1},
-                    {"input": {"nums": [5, 4, -1, 7, 8]}, "output": 23}
-                ],
-                "hidden_test_cases": [
-                    {"input": {"nums": [-1, -2, -3, -4]}, "output": -1},
-                    {"input": {"nums": [1, 2, 3, 4, 5]}, "output": 15}
-                ],
-                "expected_complexity": {"time": "O(n)", "space": "O(1)"},
-                "hints": [
-                    "Use Kadane's algorithm",
-                    "Keep track of the maximum sum ending at each position",
-                    "If the current sum becomes negative, reset it to 0"
-                ],
-                "tags": ["arrays", "dynamic-programming", "medium"],
-                "created_by": "AI",
-                "created_at": datetime.utcnow(),
-                "success_rate": 0.0,
-                "average_time": None
-            },
-            {
-                "title": "Binary Search",
-                "description": "Given an array of integers nums which is sorted in ascending order, and an integer target, write a function to search target in nums. If target exists, then return its index. Otherwise, return -1.",
-                "topic": "Arrays",
-                "difficulty": "easy",
-                "constraints": ["1 <= nums.length <= 10^4", "-10^4 < nums[i], target < 10^4", "All integers in nums are unique", "nums is sorted in ascending order"],
-                "examples": [
-                    {
-                        "input": {"nums": [-1, 0, 3, 5, 9, 12], "target": 9},
-                        "output": 4,
-                        "explanation": "9 exists in nums and its index is 4"
-                    }
-                ],
-                "test_cases": [
-                    {"input": {"nums": [-1, 0, 3, 5, 9, 12], "target": 9}, "output": 4},
-                    {"input": {"nums": [-1, 0, 3, 5, 9, 12], "target": 2}, "output": -1},
-                    {"input": {"nums": [5], "target": 5}, "output": 0}
-                ],
-                "hidden_test_cases": [
-                    {"input": {"nums": [1, 2, 3, 4, 5], "target": 3}, "output": 2},
-                    {"input": {"nums": [1, 2, 3, 4, 5], "target": 6}, "output": -1}
-                ],
-                "expected_complexity": {"time": "O(log n)", "space": "O(1)"},
-                "hints": [
-                    "Use binary search algorithm",
-                    "Compare target with middle element",
-                    "Eliminate half of the search space in each iteration"
-                ],
-                "tags": ["arrays", "binary-search", "easy"],
-                "created_by": "AI",
-                "created_at": datetime.utcnow(),
-                "success_rate": 0.0,
-                "average_time": None
-            }
-        ]
+        # Coding problems collection indexes
+        await db.coding_problems.create_index([("created_by", 1)])
+        await db.coding_problems.create_index([("language", 1)])
+        await db.coding_problems.create_index([("difficulty", 1)])
+        await db.coding_problems.create_index([("is_active", 1)])
         
-        # Insert sample problems
-        result = await db.coding_problems.insert_many(sample_problems)
-        print(f"[SEED] Successfully seeded {len(result.inserted_ids)} sample coding problems")
+        # Notifications collection indexes
+        await db.notifications.create_index([("user_id", 1)])
+        await db.notifications.create_index([("is_read", 1)])
+        await db.notifications.create_index([("created_at", 1)])
+        
+        # Assessment submissions indexes
+        await db.assessment_submissions.create_index([("assessment_id", 1)])
+        await db.assessment_submissions.create_index([("student_id", 1)])
+        await db.assessment_submissions.create_index([("submitted_at", 1)])
+        
+        # Code submissions indexes
+        await db.code_submissions.create_index([("problem_id", 1)])
+        await db.code_submissions.create_index([("student_id", 1)])
+        await db.code_submissions.create_index([("submitted_at", 1)])
+        
+        print(f"[DB] Database indexes created successfully")
         
     except Exception as e:
-        print(f"[SEED] Error seeding sample coding problems: {str(e)}")
+        print(f"[WARNING] Failed to create some indexes: {str(e)}")
+
+async def get_db():
+    """Get database instance"""
+    if db is None:
+        raise Exception("Database not initialized. Call init_db() first.")
+    return db
 
 async def close_db():
     """Close database connection"""
     global client
     if client:
         client.close()
-        print("[CLOSE] MongoDB Connection Closed")
+        print(f"[DB] Database connection closed")
+
+async def get_collection(collection_name: str):
+    """Get a specific collection"""
+    database = await get_db()
+    return database[collection_name]
+
+async def health_check():
+    """Check database health"""
+    try:
+        if client is None:
+            return {"status": "disconnected", "message": "Database not initialized"}
+        
+        await client.admin.command('ping')
+        return {"status": "healthy", "message": "Database connection successful"}
+    except Exception as e:
+        return {"status": "unhealthy", "message": f"Database connection failed: {str(e)}"}
+
+# Database utility functions
+async def get_user_by_email(email: str):
+    """Get user by email"""
+    database = await get_db()
+    return await database.users.find_one({"email": email})
+
+async def get_user_by_id(user_id: str):
+    """Get user by ID"""
+    database = await get_db()
+    return await database.users.find_one({"_id": user_id})
+
+async def create_user(user_data: dict):
+    """Create a new user"""
+    database = await get_db()
+    result = await database.users.insert_one(user_data)
+    return result.inserted_id
+
+async def update_user(user_id: str, update_data: dict):
+    """Update user data"""
+    database = await get_db()
+    result = await database.users.update_one(
+        {"_id": user_id},
+        {"$set": update_data}
+    )
+    return result.modified_count > 0
+
+async def delete_user(user_id: str):
+    """Soft delete user"""
+    database = await get_db()
+    result = await database.users.update_one(
+        {"_id": user_id},
+        {"$set": {"is_active": False, "deleted_at": datetime.utcnow()}}
+    )
+    return result.modified_count > 0

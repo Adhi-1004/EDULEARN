@@ -1,154 +1,123 @@
 """
-Role-Based Access Control Dependencies
-Provides security middleware for protecting API endpoints based on user roles
+FastAPI dependencies for authentication and authorization
+Provides role-based access control and user management
 """
 from fastapi import Depends, HTTPException, status
-from typing import Dict, Any, List
-from .api.endpoints.auth import get_current_user
-from .models.models import UserRole
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional, List
+from datetime import datetime
 
-# Role hierarchy: admin > teacher > student
-ROLE_HIERARCHY = {
-    "student": 1,
-    "teacher": 2,
-    "admin": 3
-}
+from .core.security import security_manager
+from .db import get_db
+from .models.models import UserModel
+from .schemas.schemas import UserResponse
 
-def has_role_or_higher(user_role: str, required_role: str) -> bool:
-    """Check if user has required role or higher in hierarchy"""
-    return ROLE_HIERARCHY.get(user_role, 0) >= ROLE_HIERARCHY.get(required_role, 0)
+security = HTTPBearer()
 
-def require_role(required_role: str):
-    """Create a dependency that requires a specific role or higher"""
-    async def role_dependency(current_user: Dict[str, Any] = Depends(get_current_user)):
-        user_role = current_user.get("role", "student")
-        
-        if not has_role_or_higher(user_role, required_role):
+async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[str]:
+    """Get current user ID from JWT token"""
+    try:
+        return security_manager.get_current_user_id(credentials)
+    except:
+        return None
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> UserModel:
+    """Get current authenticated user"""
+    try:
+        user_id = security_manager.get_current_user_id(credentials)
+        if not user_id:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"This action requires {required_role} privileges or higher. Your role: {user_role}"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials"
             )
         
-        return current_user
-    
-    return role_dependency
-
-# Specific role dependencies
-require_student = require_role("student")
-require_teacher = require_role("teacher")
-require_admin = require_role("admin")
-
-# Multiple role dependencies
-def require_any_role(allowed_roles: List[str]):
-    """Create a dependency that requires any of the specified roles"""
-    async def role_dependency(current_user: Dict[str, Any] = Depends(get_current_user)):
-        user_role = current_user.get("role", "student")
-        
-        if user_role not in allowed_roles:
+        db = await get_db()
+        user_doc = await db.users.find_one({"_id": user_id})
+        if not user_doc:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"This action requires one of the following roles: {', '.join(allowed_roles)}. Your role: {user_role}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
             )
         
+        return UserModel(**user_doc)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
+
+def require_role(required_roles: List[str]):
+    """Dependency factory for role-based access control"""
+    async def role_checker(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+        if current_user.role not in required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required roles: {required_roles}"
+            )
         return current_user
-    
-    return role_dependency
+    return role_checker
 
-# Common role combinations
-require_teacher_or_admin = require_any_role(["teacher", "admin"])
-require_admin_only = require_any_role(["admin"])
-
-# Utility functions for role checking
-def is_admin(user: Dict[str, Any]) -> bool:
-    """Check if user is admin"""
-    return user.get("role") == "admin"
-
-def is_teacher_or_admin(user: Dict[str, Any]) -> bool:
-    """Check if user is teacher or admin"""
-    role = user.get("role")
-    return role in ["teacher", "admin"]
-
-def is_student(user: Dict[str, Any]) -> bool:
-    """Check if user is student"""
-    return user.get("role") == "student"
-
-def can_manage_users(user: Dict[str, Any]) -> bool:
-    """Check if user can manage other users (admin only)"""
-    return is_admin(user)
-
-def can_create_assessments(user: Dict[str, Any]) -> bool:
-    """Check if user can create assessments (teacher or admin)"""
-    return is_teacher_or_admin(user)
-
-def can_view_analytics(user: Dict[str, Any]) -> bool:
-    """Check if user can view analytics (teacher or admin)"""
-    return is_teacher_or_admin(user)
-
-def can_access_coding_platform(user: Dict[str, Any]) -> bool:
-    """Check if user can access coding platform (all roles)"""
-    return True  # All authenticated users can access coding platform
-
-def can_submit_solutions(user: Dict[str, Any]) -> bool:
-    """Check if user can submit coding solutions (all roles)"""
-    return True  # All authenticated users can submit solutions
-
-# Specific action-based dependencies
-async def require_batch_management(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """Require teacher or admin role for batch management"""
-    user_role = current_user.get("role", "student")
-    if user_role not in ["teacher", "admin"]:
+def require_admin(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+    """Require admin role"""
+    if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Batch management requires teacher or admin privileges"
+            detail="Admin access required"
         )
     return current_user
 
-async def require_user_management(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """Require admin role for user management"""
-    user_role = current_user.get("role", "student")
-    if user_role != "admin":
+def require_teacher_or_admin(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+    """Require teacher or admin role"""
+    if current_user.role not in ["teacher", "admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User management requires admin privileges"
+            detail="Teacher or admin access required"
         )
     return current_user
 
-async def require_assessment_creation(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """Require teacher or admin role for assessment creation"""
-    user_role = current_user.get("role", "student")
-    if user_role not in ["teacher", "admin"]:
+def require_student_or_above(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+    """Require student, teacher, or admin role"""
+    if current_user.role not in ["student", "teacher", "admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Assessment creation requires teacher or admin privileges"
+            detail="Student, teacher, or admin access required"
         )
     return current_user
 
-async def require_analytics_access(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """Require teacher or admin role for analytics access"""
-    user_role = current_user.get("role", "student")
-    if user_role not in ["teacher", "admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Analytics access requires teacher or admin privileges"
-        )
+# Specific permission dependencies
+def require_user_management(current_user: UserModel = Depends(require_admin)) -> UserModel:
+    """Require user management permissions (Admin only)"""
     return current_user
 
-async def require_platform_management(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """Require admin role for platform management"""
-    user_role = current_user.get("role", "student")
-    if user_role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Platform management requires admin privileges"
-        )
+def require_content_management(current_user: UserModel = Depends(require_teacher_or_admin)) -> UserModel:
+    """Require content management permissions (Teacher/Admin)"""
     return current_user
 
-async def require_content_management(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """Require teacher or admin role for content management"""
-    user_role = current_user.get("role", "student")
-    if user_role not in ["teacher", "admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Content management requires teacher or admin privileges"
-        )
+def require_analytics_access(current_user: UserModel = Depends(require_teacher_or_admin)) -> UserModel:
+    """Require analytics access (Teacher/Admin)"""
     return current_user
+
+def require_assessment_creation(current_user: UserModel = Depends(require_teacher_or_admin)) -> UserModel:
+    """Require assessment creation permissions (Teacher/Admin)"""
+    return current_user
+
+def require_batch_management(current_user: UserModel = Depends(require_teacher_or_admin)) -> UserModel:
+    """Require batch management permissions (Teacher/Admin)"""
+    return current_user
+
+def require_platform_management(current_user: UserModel = Depends(require_admin)) -> UserModel:
+    """Require platform management permissions (Admin only)"""
+    return current_user
+
+# Optional authentication (for endpoints that work with or without auth)
+async def get_optional_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[UserModel]:
+    """Get current user if authenticated, None otherwise"""
+    try:
+        if not credentials:
+            return None
+        return await get_current_user(credentials)
+    except:
+        return None

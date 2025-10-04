@@ -1,22 +1,7 @@
 """
-Database models package
+Models package initialization
+Contains database models and schemas
 """
-from .models import (
-    UserModel,
-    QuestionModel,
-    CodingProblemModel,
-    CodingSolutionModel,
-    CodingSessionModel,
-    CodingAnalyticsModel,
-    ResultModel
-)
+from .models import UserModel, AssessmentModel, CodingProblemModel, NotificationModel
 
-__all__ = [
-    "UserModel",
-    "QuestionModel", 
-    "CodingProblemModel",
-    "CodingSolutionModel",
-    "CodingSessionModel",
-    "CodingAnalyticsModel",
-    "ResultModel"
-] 
+__all__ = ["UserModel", "AssessmentModel", "CodingProblemModel", "NotificationModel"]

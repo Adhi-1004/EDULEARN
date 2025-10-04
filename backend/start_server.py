@@ -1,7 +1,6 @@
 """
-FastAPI Application Entry Point
-This is the main entry point for the FastAPI application.
-Run this from the backend directory to start the server.
+FastAPI Server Startup Script
+Run this from the backend directory to start the server
 """
 import uvicorn
 from app.main import app

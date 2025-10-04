@@ -1,11 +1,15 @@
+"""
+Database models and schemas
+Contains all MongoDB document models and Pydantic schemas
+"""
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from bson import ObjectId
-import bcrypt
 from enum import Enum
 
 class PyObjectId(ObjectId):
+    """Custom ObjectId type for Pydantic"""
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
@@ -20,133 +24,84 @@ class PyObjectId(ObjectId):
     def __get_pydantic_json_schema__(cls, field_schema):
         field_schema.update(type="string")
 
-# Define the available roles
+# Enums
 class UserRole(str, Enum):
     student = "student"
     teacher = "teacher"
     admin = "admin"
 
+class DifficultyLevel(str, Enum):
+    easy = "easy"
+    medium = "medium"
+    hard = "hard"
+
+class NotificationType(str, Enum):
+    info = "info"
+    warning = "warning"
+    success = "success"
+    error = "error"
+
+class NotificationPriority(str, Enum):
+    low = "low"
+    normal = "normal"
+    high = "high"
+    urgent = "urgent"
+
 # User Model
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    username: Optional[str] = None
+    username: str
     email: EmailStr
-    password: Optional[str] = None
-    is_admin: bool = False
-    role: UserRole = UserRole.student  # Use enum for role validation
-    google_id: Optional[str] = None
-    name: Optional[str] = None
-    profile_picture: Optional[str] = None
-    face_descriptor: Optional[List[float]] = None
+    password: str
+    role: UserRole = UserRole.student
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+    last_login: Optional[datetime] = None
     
     # Gamification fields
-    xp: int = 0  # Experience points
-    level: int = 1  # User level
-    streak: int = 0  # Current streak
-    longest_streak: int = 0  # Longest streak achieved
-    badges: List[str] = []  # List of earned badges
-    last_activity: Optional[datetime] = None  # Last activity timestamp
-    total_questions_answered: int = 0  # Total questions answered
-    correct_answers: int = 0  # Total correct answers
-    perfect_scores: int = 0  # Number of perfect scores (100%)
-    consecutive_days: int = 0  # Consecutive days of activity
-
+    xp: int = 0
+    level: int = 1
+    streak: int = 0
+    longest_streak: int = 0
+    badges: List[str] = []
+    last_activity: Optional[datetime] = None
+    
+    # Learning analytics
+    total_questions_answered: int = 0
+    correct_answers: int = 0
+    average_score: float = 0.0
+    
+    # Profile information
+    profile_picture: Optional[str] = None
+    bio: Optional[str] = None
+    preferences: Dict[str, Any] = {}
+    
     model_config = ConfigDict(
         populate_by_name=True,
-        json_encoders={ObjectId: str},
-        json_schema_extra={
-            "example": {
-                "username": "john_doe",
-                "email": "john@example.com",
-                "password": "hashed_password",
-                "is_admin": False,
-                "google_id": "google_oauth_id",
-                "name": "John Doe",
-                "profile_picture": "https://example.com/picture.jpg",
-                "face_descriptor": [0.1, 0.2, 0.3],
-                "xp": 150,
-                "level": 3,
-                "streak": 5,
-                "longest_streak": 10,
-                "badges": ["first_quiz", "perfect_score"],
-                "total_questions_answered": 50,
-                "correct_answers": 45,
-                "perfect_scores": 2,
-                "consecutive_days": 5
-            }
-        }
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
     )
 
-    @classmethod
-    def hash_password(cls, password: str) -> str:
-        """Hash password using bcrypt"""
-        try:
-            salt = bcrypt.gensalt()
-            hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-            return hashed.decode('utf-8')
-        except Exception as e:
-            print(f"❌ [PASSWORD] Hashing failed: {str(e)}")
-            raise Exception(f"Password hashing failed: {str(e)}")
-
-    @classmethod
-    def verify_password(cls, password: str, hashed: str) -> bool:
-        """Verify password against hash"""
-        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
-    
-    def is_admin_role(self) -> bool:
-        """Check if user has admin role"""
-        return self.role == UserRole.admin
-    
-    def is_teacher_role(self) -> bool:
-        """Check if user has teacher role"""
-        return self.role == UserRole.teacher
-    
-    def is_student_role(self) -> bool:
-        """Check if user has student role"""
-        return self.role == UserRole.student
-    
-    def has_role_or_higher(self, required_role: UserRole) -> bool:
-        """Check if user has required role or higher in hierarchy"""
-        role_hierarchy = {
-            UserRole.student: 1,
-            UserRole.teacher: 2,
-            UserRole.admin: 3
-        }
-        return role_hierarchy.get(self.role, 0) >= role_hierarchy.get(required_role, 0)
-    
-    def can_manage_users(self) -> bool:
-        """Check if user can manage other users (admin only)"""
-        return self.is_admin_role()
-    
-    def can_create_assessments(self) -> bool:
-        """Check if user can create assessments (teacher or admin)"""
-        return self.role in [UserRole.teacher, UserRole.admin]
-    
-    def can_view_analytics(self) -> bool:
-        """Check if user can view analytics (teacher or admin)"""
-        return self.role in [UserRole.teacher, UserRole.admin]
-
-# Question Model
-class QuestionModel(BaseModel):
+# Assessment Model
+class AssessmentModel(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    topic: str
-    difficulty: str
-    question: str
-    answer: str
-    options: List[str]
-
+    title: str
+    description: str
+    subject: str
+    difficulty: DifficultyLevel
+    time_limit: int  # minutes
+    questions: List[Dict[str, Any]]
+    created_by: str  # User ID
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+    total_questions: int
+    
     model_config = ConfigDict(
         populate_by_name=True,
-        json_encoders={ObjectId: str},
-        json_schema_extra={
-            "example": {
-                "topic": "JavaScript",
-                "difficulty": "medium",
-                "question": "What is the output of console.log(typeof null)?",
-                "answer": "object",
-                "options": ["null", "object", "undefined", "number"]
-            }
-        }
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
     )
 
 # Coding Problem Model
@@ -154,311 +109,76 @@ class CodingProblemModel(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
     title: str
     description: str
-    topic: str
-    difficulty: str
-    constraints: List[str]
-    examples: List[Dict[str, Any]]
-    test_cases: List[Dict[str, Any]]
-    hidden_test_cases: List[Dict[str, Any]]
-    expected_complexity: Dict[str, str]  # time and space complexity
-    hints: List[str]
-    created_by: str  # "AI" or user_id
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    tags: List[str]
-    success_rate: float = 0.0
-    average_time: Optional[int] = None  # in seconds
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str},
-        json_schema_extra={
-            "example": {
-                "title": "Two Sum",
-                "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
-                "topic": "Arrays",
-                "difficulty": "easy",
-                "constraints": ["2 <= nums.length <= 10^4", "-10^9 <= nums[i] <= 10^9"],
-                "examples": [
-                    {
-                        "input": "nums = [2,7,11,15], target = 9",
-                        "output": "[0,1]",
-                        "explanation": "Because nums[0] + nums[1] == 9, we return [0, 1]."
-                    }
-                ],
-                "test_cases": [
-                    {"input": {"nums": [2, 7, 11, 15], "target": 9}, "output": [0, 1]},
-                    {"input": {"nums": [3, 2, 4], "target": 6}, "output": [1, 2]}
-                ],
-                "expected_complexity": {"time": "O(n)", "space": "O(n)"},
-                "hints": ["Use a hash map to store numbers and their indices"],
-                "tags": ["hash-table", "array"]
-            }
-        }
-    )
-
-# Coding Solution Model
-class CodingSolutionModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    user_id: PyObjectId
-    problem_id: PyObjectId
-    code: str
+    difficulty: DifficultyLevel
     language: str
-    status: str  # "accepted", "wrong_answer", "time_limit_exceeded", "runtime_error", "compilation_error"
-    execution_time: Optional[int] = None  # in milliseconds
-    memory_used: Optional[int] = None  # in KB
-    test_results: List[Dict[str, Any]]
-    ai_feedback: Optional[Dict[str, Any]] = None
-    code_quality_score: Optional[float] = None
-    submitted_at: datetime = Field(default_factory=datetime.utcnow)
-    attempts: int = 1
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str}
-    )
-
-# Coding Session Model
-class CodingSessionModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    user_id: PyObjectId
-    problem_id: PyObjectId
-    start_time: datetime = Field(default_factory=datetime.utcnow)
-    end_time: Optional[datetime] = None
-    total_time: Optional[int] = None  # in seconds
-    keystrokes: Optional[int] = None
-    lines_of_code: Optional[int] = None
-    compilation_attempts: int = 0
-    test_runs: int = 0
-    hints_used: int = 0
-    final_status: Optional[str] = None
-    session_data: Optional[Dict[str, Any]] = None  # for storing additional session info
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str}
-    )
-
-# Coding Analytics Model
-class CodingAnalyticsModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    user_id: PyObjectId
-    total_problems_solved: int = 0
-    total_problems_attempted: int = 0
-    success_rate: float = 0.0
-    average_time_per_problem: float = 0.0
-    preferred_language: Optional[str] = None
-    skill_level: str = "beginner"  # beginner, intermediate, advanced, expert
-    strong_topics: List[str] = []
-    weak_topics: List[str] = []
-    improvement_areas: List[str] = []
-    learning_path: List[Dict[str, Any]] = []
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
-    coding_streak: int = 0
-    longest_streak: int = 0
-    problems_by_difficulty: Dict[str, int] = {"easy": 0, "medium": 0, "hard": 0}
-    problems_by_topic: Dict[str, int] = {}
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str}
-    )
-
-# Result Model
-class ResultModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    user_id: PyObjectId
-    score: int
-    total_questions: int
-    questions: List[Dict[str, Any]]
-    user_answers: List[str]
-    date: datetime = Field(default_factory=datetime.utcnow)
-    topic: str
-    difficulty: str
-    time_taken: Optional[int] = None  # Time taken in seconds
-    explanations: Optional[List[Dict[str, Any]]] = None  # AI explanations for questions
-    correct_answers: Optional[int] = None
-    incorrect_answers: Optional[int] = None
-    percentage: Optional[float] = None
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str},
-        json_schema_extra={
-            "example": {
-                "user_id": "507f1f77bcf86cd799439011",
-                "score": 8,
-                "total_questions": 10,
-                "questions": [
-                    {
-                        "question": "What is JavaScript?",
-                        "options": ["Programming language", "Markup language", "Style sheet", "Database"],
-                        "answer": "Programming language"
-                    }
-                ],
-                "user_answers": ["Programming language"],
-                "topic": "JavaScript",
-                "difficulty": "easy",
-                "time_taken": 540,
-                "explanations": [
-                    {
-                        "questionIndex": 0,
-                        "explanation": "JavaScript is a programming language used for web development."
-                    }
-                ],
-                "correct_answers": 8,
-                "incorrect_answers": 2,
-                "percentage": 80.0
-            }
-        }
-    )
-
-# Badge Model
-class BadgeModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    name: str
-    description: str
-    icon: str
-    xp_reward: int
-    criteria: Dict[str, Any]  # Conditions to earn the badge
-    category: str  # "achievement", "streak", "performance", "participation"
-    rarity: str = "common"  # "common", "rare", "epic", "legendary"
+    test_cases: List[Dict[str, Any]]
+    starter_code: str
+    hints: List[str] = []
+    created_by: str  # User ID
     created_at: datetime = Field(default_factory=datetime.utcnow)
-
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
+    
     model_config = ConfigDict(
         populate_by_name=True,
-        json_encoders={ObjectId: str}
-    )
-
-# Learning Path Model
-class LearningPathModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    user_id: PyObjectId
-    current_skill_assessment: Dict[str, Any]
-    learning_objectives: List[Dict[str, Any]]
-    recommended_topics: List[Dict[str, Any]]
-    practice_schedule: Dict[str, Any]
-    improvement_areas: List[Dict[str, Any]]
-    milestone_tracking: List[Dict[str, Any]]
-    ai_generated: bool = True
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str}
-    )
-
-# Batch Model
-class BatchModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    name: str
-    description: Optional[str] = None
-    teacher_id: PyObjectId
-    student_ids: List[str] = []
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    settings: Dict[str, Any] = {}
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str}
-    )
-
-# Batch Analytics Model
-class BatchAnalyticsModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    batch_id: PyObjectId
-    total_students: int
-    average_score: float
-    completion_rate: float
-    struggling_students: List[Dict[str, Any]]
-    top_performers: List[Dict[str, Any]]
-    recent_activities: List[Dict[str, Any]]
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str}
-    )
-
-# AI Student Report Model
-class AIStudentReportModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    student_id: PyObjectId
-    teacher_id: PyObjectId
-    report_content: str
-    strengths: List[str]
-    weaknesses: List[str]
-    recommendations: List[str]
-    performance_summary: Dict[str, Any]
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str}
-    )
-
-# Platform Metrics Model
-class PlatformMetricsModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    date: datetime = Field(default_factory=datetime.utcnow)
-    daily_active_users: int
-    monthly_active_users: int
-    user_engagement_ratio: float
-    assessment_completion_rate: float
-    feature_adoption: Dict[str, Any]
-    content_quality_score: float
-    system_health_score: float
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str}
-    )
-
-# Content Quality Model
-class ContentQualityModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    content_id: str  # ID of question or coding problem
-    content_type: str  # "question" or "coding_problem"
-    success_rate: float
-    failure_rate: float
-    flagged_reason: Optional[str] = None
-    ai_audit_score: Optional[float] = None
-    ai_audit_feedback: Optional[str] = None
-    last_audited: datetime = Field(default_factory=datetime.utcnow)
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={ObjectId: str}
-    )
-
-# Teacher Performance Model
-class TeacherPerformanceModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    teacher_id: PyObjectId
-    student_performance_score: float
-    content_contribution_score: float
-    engagement_score: float
-    total_assessments_created: int
-    total_questions_created: int
-    average_student_score: float
-    student_satisfaction_score: float
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
-
-    model_config = ConfigDict(
-        populate_by_name=True,
+        arbitrary_types_allowed=True,
         json_encoders={ObjectId: str}
     )
 
 # Notification Model
 class NotificationModel(BaseModel):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    user_id: PyObjectId = Field(...)
-    message: str = Field(...)
-    read: bool = Field(default=False)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    notification_type: str = Field(default="general")  # general, batch_added, assessment_created, etc.
-    related_id: Optional[PyObjectId] = None  # ID of related batch, assessment, etc.
-
+    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+    user_id: str
+    title: str
+    message: str
+    type: NotificationType
+    priority: NotificationPriority = NotificationPriority.normal
+    is_read: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    read_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    
     model_config = ConfigDict(
         populate_by_name=True,
+        arbitrary_types_allowed=True,
         json_encoders={ObjectId: str}
-    ) 
+    )
+
+# Assessment Submission Model
+class AssessmentSubmissionModel(BaseModel):
+    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+    assessment_id: str
+    student_id: str
+    answers: List[Dict[str, Any]]
+    score: float
+    total_questions: int
+    correct_answers: int
+    time_taken: int  # seconds
+    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
+    )
+
+# Code Submission Model
+class CodeSubmissionModel(BaseModel):
+    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+    problem_id: str
+    student_id: str
+    code: str
+    language: str
+    test_results: List[Dict[str, Any]]
+    passed_tests: int
+    total_tests: int
+    execution_time: float
+    memory_usage: float
+    status: str
+    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
+    )

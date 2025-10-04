@@ -1,15 +1,32 @@
-from jose import JWTError, jwt
+"""
+Authentication utilities
+Contains password hashing, JWT token management, and authentication helpers
+"""
+import bcrypt
+import jwt
 from datetime import datetime, timedelta
-import os
-import numpy as np
 from typing import Optional, Dict, Any
+import os
 
 # JWT settings
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None):
+def get_password_hash(password: str) -> str:
+    """Hash password using bcrypt"""
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify password against hash"""
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception:
+        return False
+
+def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """Create JWT access token"""
     to_encode = data.copy()
     if expires_delta:
@@ -26,46 +43,46 @@ def verify_token(token: str) -> Dict[str, Any]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError:
+    except jwt.ExpiredSignatureError:
+        raise ValueError("Token has expired")
+    except jwt.JWTError:
         raise ValueError("Invalid token")
 
-def euclidean_distance(descriptor1: list, descriptor2: list) -> float:
-    """Calculate Euclidean distance between two face descriptors"""
-    try:
-        # Validate inputs
-        if not isinstance(descriptor1, list) or not isinstance(descriptor2, list):
-            print(f"[ERROR] Invalid descriptor types")
-            return float('inf')
-        
-        if len(descriptor1) != len(descriptor2):
-            print(f"[ERROR] Descriptor length mismatch")
-            return float('inf')
-        
-        # Convert to numpy arrays for efficient calculation
-        desc1 = np.array(descriptor1, dtype=np.float32)
-        desc2 = np.array(descriptor2, dtype=np.float32)
-        
-        # Calculate Euclidean distance
-        distance = np.linalg.norm(desc1 - desc2)
-        result = float(distance)
-        return result
-    except Exception as e:
-        print(f"[ERROR] Error calculating Euclidean distance")
-        return float('inf')
+def create_refresh_token(data: Dict[str, Any]) -> str:
+    """Create refresh token with longer expiration"""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=7)  # 7 days for refresh token
+    to_encode.update({"exp": expire, "type": "refresh"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
-def validate_face_descriptor(descriptor: list) -> bool:
-    """Validate face descriptor format"""
+def verify_refresh_token(token: str) -> Dict[str, Any]:
+    """Verify refresh token"""
     try:
-        if not isinstance(descriptor, list):
-            return False
-        
-        if len(descriptor) != 128:  # Standard face descriptor length
-            return False
-        
-        # Check if all values are numeric
-        if not all(isinstance(x, (int, float)) for x in descriptor):
-            return False
-        
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise ValueError("Invalid token type")
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise ValueError("Refresh token has expired")
+    except jwt.JWTError:
+        raise ValueError("Invalid refresh token")
+
+def get_user_id_from_token(token: str) -> Optional[str]:
+    """Extract user ID from token"""
+    try:
+        payload = verify_token(token)
+        return payload.get("sub")
+    except ValueError:
+        return None
+
+def is_token_expired(token: str) -> bool:
+    """Check if token is expired"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
+        exp = payload.get("exp")
+        if exp:
+            return datetime.utcnow().timestamp() > exp
         return True
-    except Exception:
-        return False 
+    except jwt.JWTError:
+        return True

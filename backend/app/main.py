@@ -1,5 +1,6 @@
 """
 FastAPI application entry point
+Main application configuration and startup
 """
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,12 +9,9 @@ import uvicorn
 from datetime import datetime
 
 from .core.config import settings
+from .core.security import security_manager
 from .db import init_db, get_db
-from .api.endpoints import auth, assessments
-from .api import users, questions, results, coding, code_execution, teacher_dashboard, admin_dashboard, admin, notifications
-from .api import enhanced_users, enhanced_teacher_dashboard, enhanced_admin_dashboard, reset_admin
-from .api import enhanced_admin_dashboard as enhanced_admin
-from .schemas import AssessmentConfig
+from .api.v1 import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,11 +35,14 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("[SHUTDOWN] FastAPI Backend Shutdown")
 
+# Create FastAPI application
 app = FastAPI(
     title=settings.app_name,
     description=settings.app_description,
     version=settings.app_version,
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
 # CORS middleware
@@ -54,84 +55,20 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-# Include routers
-app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-app.include_router(users.router, prefix="/db", tags=["Users"])
-app.include_router(questions.router, prefix="/db", tags=["Questions"])
-app.include_router(results.router, prefix="/api", tags=["Results"])
-app.include_router(coding.router, prefix="/api/coding", tags=["Coding Platform"])
-app.include_router(code_execution.router, prefix="/api/execute", tags=["Code Execution"])
-app.include_router(teacher_dashboard.router, prefix="/api/teacher", tags=["Teacher Dashboard"])
-app.include_router(admin_dashboard.router, prefix="/api/admin", tags=["Admin Dashboard"])
-app.include_router(admin.router, prefix="/api/admin", tags=["Admin Management"])
-app.include_router(assessments.router, prefix="/api/assessments", tags=["Assessments"])
-app.include_router(notifications.router, prefix="/api", tags=["Notifications"])
+# Include API router
+app.include_router(api_router)
 
-# Enhanced routers with AI features
-app.include_router(enhanced_users.router, tags=["Enhanced Users"])
-app.include_router(enhanced_teacher_dashboard.router, tags=["Enhanced Teacher Dashboard"])
-app.include_router(enhanced_admin_dashboard.router, tags=["Enhanced Admin Dashboard"])
-app.include_router(enhanced_admin.router, tags=["Enhanced Admin Management"])
-
-# Admin reset endpoint
-app.include_router(reset_admin.router, prefix="/api", tags=["Admin Reset"])
-
-# Session storage for assessment configuration
-assessment_sessions = {}
-
-@app.post("/api/topic")
-async def set_assessment_config(config: AssessmentConfig, user_id: str = Depends(auth.get_current_user_id)):
-    """Set assessment configuration in session"""
-    try:
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
-        
-        session_key = f"assessment_{user_id}"
-        assessment_sessions[session_key] = {
-            "userId": user_id,
-            "topic": config.topic,
-            "qnCount": config.qnCount,
-            "difficulty": config.difficulty
-        }
-        
-        return {
-            "success": True,
-            "userId": user_id,
-            "topic": config.topic,
-            "qnCount": config.qnCount,
-            "difficulty": config.difficulty
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/topic")
-async def get_assessment_config(user_id: str = Depends(auth.get_current_user_id)):
-    """Get assessment configuration from session"""
-    try:
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
-        
-        session_key = f"assessment_{user_id}"
-        config = assessment_sessions.get(session_key)
-        
-        if not config:
-            raise HTTPException(status_code=404, detail="No assessment configuration found")
-        
-        return {
-            "success": True,
-            "userId": user_id,
-            "topic": config["topic"],
-            "qnCount": config["qnCount"],
-            "difficulty": config["difficulty"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+# Health check endpoints
 @app.get("/")
 async def root():
-    return {"message": "modLRN API is running"}
+    """Root endpoint"""
+    return {
+        "message": "modLRN API is running",
+        "version": settings.app_version,
+        "status": "healthy"
+    }
 
-@app.get("/api/health")
+@app.get("/health")
 async def health_check():
     """Health check endpoint for backend status"""
     try:
@@ -146,6 +83,17 @@ async def health_check():
         "status": "healthy",
         "message": "Backend is running",
         "database": db_status,
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": settings.app_version
+    }
+
+@app.get("/api/health")
+async def api_health():
+    """API health check"""
+    return {
+        "success": True,
+        "status": "healthy",
+        "message": "API is running",
         "timestamp": datetime.utcnow().isoformat()
     }
 
@@ -169,7 +117,7 @@ async def test_database():
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app",
+        "app.main:app",
         host="0.0.0.0",
         port=5001,
         reload=True
