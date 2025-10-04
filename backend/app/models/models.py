@@ -7,6 +7,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from bson import ObjectId
 from enum import Enum
+import bcrypt
 
 class PyObjectId(ObjectId):
     """Custom ObjectId type for Pydantic"""
@@ -49,76 +50,49 @@ class NotificationPriority(str, Enum):
 
 # User Model
 class UserModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
     username: str
     email: EmailStr
-    password: str
+    password_hash: str
     role: UserRole = UserRole.student
+    profile_picture: Optional[str] = None
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
-    
-    # Gamification fields
-    xp: int = 0
-    level: int = 1
-    streak: int = 0
-    longest_streak: int = 0
-    badges: List[str] = []
-    last_activity: Optional[datetime] = None
-    
-    # Learning analytics
-    total_questions_answered: int = 0
-    correct_answers: int = 0
-    average_score: float = 0.0
-    
-    # Profile information
-    profile_picture: Optional[str] = None
-    bio: Optional[str] = None
-    preferences: Dict[str, Any] = {}
-    
+    settings: Optional[Dict[str, Any]] = None
+
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str}
     )
+    
+    @staticmethod
+    def hash_password(password: str) -> str:
+        """Hash a password using bcrypt"""
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        return hashed.decode('utf-8')
+    
+    @staticmethod
+    def verify_password(password: str, hashed_password: str) -> bool:
+        """Verify a password against its hash"""
+        return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 # Assessment Model
 class AssessmentModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
     title: str
     description: str
     subject: str
     difficulty: DifficultyLevel
-    time_limit: int  # minutes
+    time_limit: int
     questions: List[Dict[str, Any]]
-    created_by: str  # User ID
+    created_by: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = None
     is_active: bool = True
     total_questions: int
-    
-    model_config = ConfigDict(
-        populate_by_name=True,
-        arbitrary_types_allowed=True,
-        json_encoders={ObjectId: str}
-    )
 
-# Coding Problem Model
-class CodingProblemModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    title: str
-    description: str
-    difficulty: DifficultyLevel
-    language: str
-    test_cases: List[Dict[str, Any]]
-    starter_code: str
-    hints: List[str] = []
-    created_by: str  # User ID
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = None
-    is_active: bool = True
-    
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,
@@ -127,56 +101,89 @@ class CodingProblemModel(BaseModel):
 
 # Notification Model
 class NotificationModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
     user_id: str
+    type: NotificationType
     title: str
     message: str
-    type: NotificationType
     priority: NotificationPriority = NotificationPriority.normal
     is_read: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     read_at: Optional[datetime] = None
-    created_by: Optional[str] = None
-    
+
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str}
     )
 
-# Assessment Submission Model
-class AssessmentSubmissionModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    assessment_id: str
-    student_id: str
-    answers: List[Dict[str, Any]]
-    score: float
-    total_questions: int
-    correct_answers: int
-    time_taken: int  # seconds
-    submitted_at: datetime = Field(default_factory=datetime.utcnow)
-    
+# Coding Models
+class CodingProblemModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    title: str
+    description: str
+    difficulty: DifficultyLevel
+    language: str
+    test_cases: List[Dict[str, Any]]
+    starter_code: str
+    hints: Optional[List[str]] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str
+    is_active: bool = True
+
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,
         json_encoders={ObjectId: str}
     )
 
-# Code Submission Model
-class CodeSubmissionModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+class CodingSolutionModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
     problem_id: str
     student_id: str
     code: str
     language: str
-    test_results: List[Dict[str, Any]]
-    passed_tests: int
-    total_tests: int
-    execution_time: float
-    memory_usage: float
     status: str
+    execution_time: int
+    memory_used: int
+    test_results: List[Dict[str, Any]]
+    score: int
+    max_score: int
     submitted_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
+    )
+
+class CodingSessionModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    problem_id: str
+    student_id: str
+    language: str
+    code: str
+    cursor_position: int = 0
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    last_activity: datetime = Field(default_factory=datetime.utcnow)
+    is_active: bool = True
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
+    )
+
+class CodingAnalyticsModel(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    student_id: str
+    total_problems: int = 0
+    solved_problems: int = 0
+    average_time: float = 0.0
+    success_rate: float = 0.0
+    language_stats: Dict[str, int] = {}
+    last_updated: datetime = Field(default_factory=datetime.utcnow)
+
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,

@@ -7,11 +7,11 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 
-from ...core.security import security_manager
-from ...db import get_db
-from ...schemas.schemas import UserResponse
-from ...models.models import UserModel
-from ...dependencies import require_teacher_or_admin, require_batch_management, require_analytics_access
+from ..core.security import security_manager
+from ..db import get_db
+from ..schemas.schemas import UserResponse
+from ..models.models import UserModel
+from ..dependencies import require_teacher_or_admin, require_batch_management, require_analytics_access
 
 router = APIRouter()
 

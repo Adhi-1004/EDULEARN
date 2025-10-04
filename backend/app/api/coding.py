@@ -8,19 +8,19 @@ from datetime import datetime, timedelta
 from bson import ObjectId
 import asyncio
 
-from ...db import get_db
-from ...schemas import (
+from ..db import get_db
+from ..schemas.schemas import (
     CodingProblemCreate, CodingProblemResponse, CodingSolutionSubmit, 
     CodingSolutionResponse, CodeExecutionRequest, CodeExecutionResponse,
     CodingSessionStart, CodingSessionUpdate, CodingAnalyticsResponse,
     AIFeedbackRequest, ProblemGenerationRequest
 )
-from ...models import (
+from ..models.models import (
     CodingProblemModel, CodingSolutionModel, CodingSessionModel, CodingAnalyticsModel
 )
 from .auth import get_current_user_id, get_current_user
-from ...dependencies import require_student, require_teacher, require_admin
-from ...services.gemini_coding_service import gemini_coding_service
+from ..dependencies import require_student, require_teacher, require_admin
+from ..services.gemini_coding_service import gemini_coding_service
 
 router = APIRouter()
 

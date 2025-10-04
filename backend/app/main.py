@@ -11,7 +11,7 @@ from datetime import datetime
 from .core.config import settings
 from .core.security import security_manager
 from .db import init_db, get_db
-from .api.v1 import api_router
+from .api import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -57,6 +57,55 @@ app.add_middleware(
 
 # Include API router
 app.include_router(api_router)
+
+# Backward compatibility routes (for frontend)
+from .api.auth import router as auth_router
+from .api.users import router as users_router
+from .api.admin import router as admin_router
+from .api.teacher import router as teacher_router
+from .api.assessments import router as assessments_router
+from .api.coding import router as coding_router
+from .api.notifications import router as notifications_router
+from .api.results import router as results_router
+from .api.topics import router as topics_router
+
+# Include backward compatibility routes (without /api prefix)
+app.include_router(auth_router, prefix="/auth", tags=["Authentication (Legacy)"])
+app.include_router(users_router, prefix="/users", tags=["Users (Legacy)"])
+app.include_router(admin_router, prefix="/admin", tags=["Admin (Legacy)"])
+app.include_router(teacher_router, prefix="/teacher", tags=["Teacher (Legacy)"])
+app.include_router(assessments_router, prefix="/assessments", tags=["Assessments (Legacy)"])
+app.include_router(coding_router, prefix="/coding", tags=["Coding (Legacy)"])
+app.include_router(notifications_router, prefix="/notifications", tags=["Notifications (Legacy)"])
+app.include_router(results_router, prefix="/results", tags=["Results (Legacy)"])
+app.include_router(topics_router, prefix="/topics", tags=["Topics (Legacy)"])
+
+# Add /db/questions endpoint for backward compatibility
+@app.get("/db/questions")
+async def get_questions_from_db(
+    topic: str = "Python Programming",
+    difficulty: str = "medium", 
+    count: int = 10
+):
+    """Backward compatibility endpoint for /db/questions"""
+    try:
+        # For now, return mock data
+        # In a real implementation, this would query the database or call AI
+        mock_questions = [
+            {
+                "id": f"q{i+1}",
+                "question": f"Sample question {i+1} about {topic}",
+                "options": ["Option A", "Option B", "Option C", "Option D"],
+                "correct_answer": i % 4,
+                "explanation": f"This is the explanation for question {i+1}",
+                "difficulty": difficulty,
+                "topic": topic
+            }
+            for i in range(count)
+        ]
+        return mock_questions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get questions: {str(e)}")
 
 # Health check endpoints
 @app.get("/")

@@ -121,3 +121,31 @@ async def get_optional_current_user(credentials: Optional[HTTPAuthorizationCrede
         return await get_current_user(credentials)
     except:
         return None
+
+# Role-based access control dependencies
+async def require_teacher(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+    """Require teacher role"""
+    if current_user.role != "teacher":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Teacher access required"
+        )
+    return current_user
+
+async def require_student(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+    """Require student role"""
+    if current_user.role != "student":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student access required"
+        )
+    return current_user
+
+async def require_assessment_creation(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+    """Require permission to create assessments"""
+    if current_user.role not in ["teacher", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Assessment creation requires teacher or admin role"
+        )
+    return current_user

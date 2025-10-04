@@ -9,11 +9,11 @@ from pydantic import BaseModel
 import csv
 import io
 
-from ...core.security import security_manager
-from ...db import get_db
-from ...schemas.schemas import UserCreate, UserResponse, UserUpdate
-from ...models.models import UserModel
-from ...dependencies import require_admin, require_user_management, require_platform_management
+from ..core.security import security_manager
+from ..db import get_db
+from ..schemas.schemas import UserCreate, UserResponse, UserUpdate
+from ..models.models import UserModel
+from ..dependencies import require_admin, require_user_management, require_platform_management
 
 router = APIRouter()
 

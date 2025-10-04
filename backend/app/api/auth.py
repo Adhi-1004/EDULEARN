@@ -5,13 +5,14 @@ import httpx
 import os
 from typing import Optional, Dict, Any
 import numpy as np
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from datetime import datetime, timedelta
 
-from ...db import get_db
-from ...schemas import UserCreate, UserLogin, UserResponse, FaceLoginRequest
-from ...models import UserModel
-from ...utils.auth_utils import create_access_token, verify_token, euclidean_distance
+from ..db import get_db
+from ..schemas.schemas import UserCreate, UserLogin, UserResponse, FaceLoginRequest
+from ..models.models import UserModel
+from ..utils.auth_utils import create_access_token, verify_token, euclidean_distance
 
 router = APIRouter()
 security = HTTPBearer()
@@ -41,7 +42,7 @@ async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depend
             raise HTTPException(status_code=401, detail="Invalid token")
         print(f"[SUCCESS] Token verified for user: {user_id}")
         return str(user_id)  # Ensure it's a string
-    except JWTError as e:
+    except jwt.InvalidTokenError as e:
         print(f"[ERROR] JWT verification failed")
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
@@ -67,7 +68,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "email": email,
             "role": role
         }
-    except JWTError as e:
+    except jwt.InvalidTokenError as e:
         print(f"[ERROR] JWT verification failed")
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
@@ -116,7 +117,7 @@ async def register_user(user_data: UserCreate):
         user_doc = {
             "username": user_data.username,
             "email": user_data.email,
-            "password": hashed_password,
+            "password_hash": hashed_password,
             "is_admin": user_data.role == "admin",
             "role": user_data.role or "student",
             "google_id": user_data.google_id,
@@ -195,7 +196,7 @@ async def login_user(user_data: UserLogin):
             raise HTTPException(status_code=401, detail="No account found with this email. Please check your email or create an account.")
         
         # Verify password
-        if not UserModel.verify_password(user_data.password, user["password"]):
+        if not UserModel.verify_password(user_data.password, user["password_hash"]):
             print(f"[ERROR] [LOGIN] Invalid password for user: {user_data.email}")
             raise HTTPException(status_code=401, detail="Incorrect password. Please try again.")
         

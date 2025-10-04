@@ -2,10 +2,7 @@
 Security utilities and JWT token management
 """
 import os
-try:
-    import jwt
-except ImportError:
-    import PyJWT as jwt
+import jwt
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, status

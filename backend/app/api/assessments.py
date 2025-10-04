@@ -4,14 +4,14 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from bson import ObjectId
 from pydantic import BaseModel
-from ...db import get_db
-from ...schemas import (
+from ..db import get_db
+from ..schemas.schemas import (
     AssessmentCreate, AssessmentResponse, QuestionCreate, QuestionResponse,
     CodingQuestionCreate, CodingQuestionResponse, CodingSubmission, CodingSubmissionResponse,
     AssessmentSubmission, AssessmentResult, LeaderboardEntry, AssessmentLeaderboard,
     StudentNotification
 )
-from ...dependencies import require_teacher, require_admin, require_teacher_or_admin, require_student
+from ..dependencies import require_teacher, require_admin, require_teacher_or_admin, require_student
 from .auth import get_current_user
 import os
 
@@ -542,7 +542,7 @@ ALGORITHM = "HS256"
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Get current user from JWT token"""
     try:
-        from jose import jwt
+        import jwt
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("sub")
         if user_id is None:

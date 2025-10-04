@@ -86,3 +86,12 @@ def is_token_expired(token: str) -> bool:
         return True
     except jwt.JWTError:
         return True
+
+def euclidean_distance(face1: list, face2: list) -> float:
+    """Calculate Euclidean distance between two face embeddings"""
+    if len(face1) != len(face2):
+        return float('inf')
+    
+    import math
+    distance = math.sqrt(sum((a - b) ** 2 for a, b in zip(face1, face2)))
+    return distance
