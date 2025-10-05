@@ -654,17 +654,17 @@ async def create_assessment(assessment_data: AssessmentCreate, user: dict = Depe
         
         assessment_doc = {
             "title": assessment_data.title,
-            "topic": assessment_data.topic,
+            "subject": assessment_data.subject,
             "difficulty": assessment_data.difficulty,
             "description": assessment_data.description,
             "time_limit": assessment_data.time_limit,
             "max_attempts": assessment_data.max_attempts,
-            "type": getattr(assessment_data, 'type', 'mcq'),  # Default to 'mcq' if not specified
+            "type": assessment_data.type,
             "created_by": str(user["_id"]),
             "created_at": datetime.utcnow(),
             "status": "draft",
-            "question_count": 0,
-            "questions": [],
+            "question_count": len(assessment_data.questions),
+            "questions": assessment_data.questions,
             "assigned_batches": []
         }
         
@@ -673,16 +673,18 @@ async def create_assessment(assessment_data: AssessmentCreate, user: dict = Depe
         return AssessmentResponse(
             id=str(result.inserted_id),
             title=assessment_data.title,
-            topic=assessment_data.topic,
+            subject=assessment_data.subject,
             difficulty=assessment_data.difficulty,
             description=assessment_data.description,
             time_limit=assessment_data.time_limit,
             max_attempts=assessment_data.max_attempts,
-            question_count=0,
+            question_count=len(assessment_data.questions),
             created_by=str(user["_id"]),
             created_at=assessment_doc["created_at"].isoformat(),
             status="draft",
-            type=assessment_doc["type"]
+            type=assessment_doc["type"],
+            is_active=False,
+            total_questions=len(assessment_data.questions)
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

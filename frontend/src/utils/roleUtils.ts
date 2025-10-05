@@ -170,16 +170,10 @@ export const getNavigationItems = (user: User | null) => {
   if (role === "teacher") {
     return [
       { path: "/teacher-dashboard", label: "Dashboard", icon: "📚" },
-      { path: "/coding", label: "Coding", icon: "💻" },
-      { path: "/assessment-choice", label: "Assessments", icon: "📝" },
-      { path: "/settings", label: "Settings", icon: "⚙️" },
     ]
   }
   // student
   return [
     { path: "/dashboard", label: "Dashboard", icon: "🏠" },
-    { path: "/assessment-choice", label: "Assessments", icon: "📝" },
-    { path: "/coding", label: "Coding", icon: "💻" },
-    { path: "/settings", label: "Settings", icon: "⚙️" },
   ]
 }

@@ -108,7 +108,9 @@ class AssessmentCreate(BaseModel):
     subject: str
     difficulty: DifficultyLevel
     time_limit: int = Field(..., ge=1, le=300)
-    questions: List[QuestionCreate]
+    questions: List[QuestionCreate] = []
+    max_attempts: int = Field(default=1, ge=1, le=10)
+    type: str = Field(default="mcq")
 
 class AssessmentResponse(BaseModel):
     id: str
@@ -117,8 +119,12 @@ class AssessmentResponse(BaseModel):
     subject: str
     difficulty: DifficultyLevel
     time_limit: int
+    max_attempts: int
+    question_count: int
     created_by: str
-    created_at: datetime
+    created_at: str
+    status: str
+    type: str
     is_active: bool
     total_questions: int
 

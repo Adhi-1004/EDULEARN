@@ -607,8 +607,14 @@ async def remove_student_from_batch(
             )
         
         # Check if teacher owns this batch
-        if batch.get("teacher_id") != current_user.id:
-            print(f"[ERROR] [TEACHER] Teacher {current_user.id} does not own batch {student_data.batch_id}")
+        batch_teacher_id = batch.get("teacher_id")
+        if batch_teacher_id:
+            # Convert to string for comparison if it's an ObjectId
+            if hasattr(batch_teacher_id, '__str__'):
+                batch_teacher_id = str(batch_teacher_id)
+        
+        if batch_teacher_id != str(current_user.id):
+            print(f"[ERROR] [TEACHER] Teacher {current_user.id} does not own batch {student_data.batch_id}. Batch owner: {batch_teacher_id}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to modify this batch"
@@ -624,8 +630,14 @@ async def remove_student_from_batch(
             )
         
         # Check if student is actually in this batch
-        if student.get("batch_id") != student_data.batch_id:
-            print(f"[ERROR] [TEACHER] Student {student_data.student_id} is not in batch {student_data.batch_id}")
+        student_batch_id = student.get("batch_id")
+        if student_batch_id:
+            # Convert to string for comparison if it's an ObjectId
+            if hasattr(student_batch_id, '__str__'):
+                student_batch_id = str(student_batch_id)
+        
+        if student_batch_id != student_data.batch_id:
+            print(f"[ERROR] [TEACHER] Student {student_data.student_id} is not in batch {student_data.batch_id}. Student is in batch: {student_batch_id}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Student is not in this batch"

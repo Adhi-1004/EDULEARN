@@ -317,7 +317,15 @@ const TeacherDashboard: React.FC = () => {
   }
 
   const handleCreateAssessment = async (type: "mcq" | "challenge" | "ai") => {
+    console.log("🔍 [ASSESSMENT] Form validation check:", {
+      title: assessmentTitle,
+      topic: assessmentTopic,
+      titleTrimmed: assessmentTitle.trim(),
+      topicTrimmed: assessmentTopic.trim()
+    })
+    
     if (!assessmentTitle.trim() || !assessmentTopic.trim()) {
+      console.log("❌ [ASSESSMENT] Validation failed - missing required fields")
       showError("Error", "Please fill in all required fields")
       return
     }
@@ -652,7 +660,7 @@ const TeacherDashboard: React.FC = () => {
                     Organize students into batches, create new batches, and manage batch assignments.
                   </p>
                   <Button 
-                    variant="secondary" 
+                    variant="primary" 
                     className="w-full"
                     onClick={handleManageBatches}
                   >
@@ -680,7 +688,7 @@ const TeacherDashboard: React.FC = () => {
                     Create custom assessments and coding challenges for your students.
                   </p>
                   <Button 
-                    variant="outline" 
+                    variant="primary" 
                     className="w-full"
                     onClick={handleToggleAssessmentCreation}
                   >
@@ -744,7 +752,7 @@ const TeacherDashboard: React.FC = () => {
                     Generate AI-powered student performance reports with personalized insights.
                   </p>
                   <Button 
-                    variant="secondary" 
+                    variant="primary" 
                     className="w-full"
                     onClick={() => setShowAIReports(!showAIReports)}
                   >
@@ -772,7 +780,7 @@ const TeacherDashboard: React.FC = () => {
                     Create AI-powered assessments tailored to your students' weaknesses.
                   </p>
                   <Button 
-                    variant="outline" 
+                    variant="primary" 
                     className="w-full"
                     onClick={() => setShowSmartAssessment(!showSmartAssessment)}
                   >
@@ -859,7 +867,7 @@ const TeacherDashboard: React.FC = () => {
                             setShowCreateBatch(false);
                             setNewBatchName("");
                           }} 
-                          variant="outline"
+                          variant="primary"
                         >
                           Cancel
                         </Button>
@@ -892,7 +900,7 @@ const TeacherDashboard: React.FC = () => {
                       {/* Add Student Button */}
                       <div className="mt-3">
                         <Button
-                          variant="outline"
+                          variant="primary"
                           size="sm"
                           onClick={() => setShowAddStudent(showAddStudent === batch.id ? null : batch.id)}
                           className="w-full"
@@ -936,7 +944,7 @@ const TeacherDashboard: React.FC = () => {
                                   setStudentEmail("");
                                   setStudentName("");
                                 }}
-                                variant="outline"
+                                variant="primary"
                                 size="sm"
                               >
                                 Cancel
@@ -1014,7 +1022,7 @@ const TeacherDashboard: React.FC = () => {
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
                               <Button 
-                                variant="outline" 
+                                variant="primary" 
                                 size="sm"
                                 onClick={() => handleViewStudentDetails(student)}
                               >
@@ -1022,7 +1030,7 @@ const TeacherDashboard: React.FC = () => {
                               </Button>
                               {student.batch && student.batchId && (
                                 <Button 
-                                  variant="outline" 
+                                  variant="primary" 
                                   size="sm"
                                   onClick={() => student.batchId && handleRemoveStudentFromBatch(student.id, student.batchId, student.name)}
                                 >
@@ -1068,14 +1076,14 @@ const TeacherDashboard: React.FC = () => {
                     <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
                       <h3 className="text-lg font-semibold text-purple-200 mb-2">Bulk Actions</h3>
                       <p className="text-purple-300 text-sm mb-4">Perform bulk operations on multiple students</p>
-                      <Button variant="secondary" size="sm" className="w-full">
+                      <Button variant="primary" size="sm" className="w-full">
                         Bulk Actions
                       </Button>
                     </div>
                     <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
                       <h3 className="text-lg font-semibold text-purple-200 mb-2">Export Data</h3>
                       <p className="text-purple-300 text-sm mb-4">Export student data and progress reports</p>
-                      <Button variant="outline" size="sm" className="w-full">
+                      <Button variant="primary" size="sm" className="w-full">
                         Export Data
                       </Button>
                     </div>
@@ -1107,14 +1115,14 @@ const TeacherDashboard: React.FC = () => {
                     <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
                       <h3 className="text-lg font-semibold text-purple-200 mb-2">Batch Settings</h3>
                       <p className="text-purple-300 text-sm mb-4">Configure batch settings and permissions</p>
-                      <Button variant="secondary" size="sm" className="w-full">
+                      <Button variant="primary" size="sm" className="w-full">
                         Configure
                       </Button>
                     </div>
                     <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
                       <h3 className="text-lg font-semibold text-purple-200 mb-2">Import Students</h3>
                       <p className="text-purple-300 text-sm mb-4">Import students from CSV or Excel files</p>
-                      <Button variant="outline" size="sm" className="w-full">
+                      <Button variant="primary" size="sm" className="w-full">
                         Import Students
                       </Button>
                     </div>
@@ -1152,7 +1160,7 @@ const TeacherDashboard: React.FC = () => {
                       <h3 className="text-lg font-semibold text-purple-200 mb-2">Coding Challenges</h3>
                       <p className="text-purple-300 text-sm mb-4">Create programming challenges and exercises</p>
                       <Button 
-                        variant="secondary" 
+                        variant="primary" 
                         size="sm" 
                         className="w-full"
                         onClick={handleCreateChallenge}
@@ -1164,7 +1172,7 @@ const TeacherDashboard: React.FC = () => {
                       <h3 className="text-lg font-semibold text-purple-200 mb-2">AI-Generated</h3>
                       <p className="text-purple-300 text-sm mb-4">Use AI to generate custom assessments</p>
                       <Button 
-                        variant="outline" 
+                        variant="primary" 
                         size="sm" 
                         className="w-full"
                         onClick={handleAIGenerate}
@@ -1183,14 +1191,14 @@ const TeacherDashboard: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                 onClick={handleCloseStudentDetails}
               >
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-purple-900 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+                  className="bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center mb-6">
@@ -1198,7 +1206,7 @@ const TeacherDashboard: React.FC = () => {
                       Student Details: {selectedStudent.name}
                     </h2>
                     <Button 
-                      variant="outline" 
+                      variant="primary" 
                       size="sm"
                       onClick={handleCloseStudentDetails}
                     >
@@ -1242,10 +1250,10 @@ const TeacherDashboard: React.FC = () => {
                     <Button variant="primary" size="sm">
                       View Full Profile
                     </Button>
-                    <Button variant="secondary" size="sm">
+                    <Button variant="primary" size="sm">
                       Send Message
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="primary" size="sm">
                       View Progress
                     </Button>
                   </div>
@@ -1259,14 +1267,14 @@ const TeacherDashboard: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                 onClick={handleCloseAssessmentForm}
               >
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-purple-900 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+                  className="bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center mb-6">
@@ -1276,7 +1284,7 @@ const TeacherDashboard: React.FC = () => {
                       {showAIGenerateForm && "AI-Generate Assessment"}
                     </h2>
                     <Button 
-                      variant="outline" 
+                      variant="primary" 
                       size="sm"
                       onClick={handleCloseAssessmentForm}
                     >
@@ -1319,11 +1327,11 @@ const TeacherDashboard: React.FC = () => {
                         <select
                           value={assessmentDifficulty}
                           onChange={(e) => setAssessmentDifficulty(e.target.value)}
-                          className="w-full px-3 py-2 bg-purple-800 border border-purple-500 rounded-lg text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400"
                         >
-                          <option value="easy">Easy</option>
-                          <option value="medium">Medium</option>
-                          <option value="hard">Hard</option>
+                          <option value="easy" className="bg-black text-purple-200">Easy</option>
+                          <option value="medium" className="bg-black text-purple-200">Medium</option>
+                          <option value="hard" className="bg-black text-purple-200">Hard</option>
                         </select>
                       </div>
                       
@@ -1441,9 +1449,26 @@ const TeacherDashboard: React.FC = () => {
                       variant="primary" 
                       size="sm"
                       onClick={() => {
-                        if (showMCQForm) handleCreateAssessment('mcq');
-                        if (showChallengeForm) handleCreateAssessment('challenge');
-                        if (showAIGenerateForm) handleCreateAssessment('ai');
+                        console.log("🔍 [BUTTON] Create Assessment button clicked")
+                        console.log("🔍 [BUTTON] Form states:", {
+                          showMCQForm,
+                          showChallengeForm,
+                          showAIGenerateForm,
+                          assessmentTitle,
+                          assessmentTopic
+                        })
+                        if (showMCQForm) {
+                          console.log("🔍 [BUTTON] Calling handleCreateAssessment('mcq')")
+                          handleCreateAssessment('mcq');
+                        }
+                        if (showChallengeForm) {
+                          console.log("🔍 [BUTTON] Calling handleCreateAssessment('challenge')")
+                          handleCreateAssessment('challenge');
+                        }
+                        if (showAIGenerateForm) {
+                          console.log("🔍 [BUTTON] Calling handleCreateAssessment('ai')")
+                          handleCreateAssessment('ai');
+                        }
                       }}
                       disabled={creatingAssessment}
                       className="flex-1"
@@ -1451,7 +1476,7 @@ const TeacherDashboard: React.FC = () => {
                       {creatingAssessment ? "Creating..." : "Create Assessment"}
                     </Button>
                     <Button 
-                      variant="outline" 
+                      variant="primary" 
                       size="sm"
                       onClick={handleCloseAssessmentForm}
                     >
@@ -1461,7 +1486,7 @@ const TeacherDashboard: React.FC = () => {
                   
                   <div className="mt-4">
                     <Button 
-                      variant="outline" 
+                      variant="primary" 
                       size="sm"
                       onClick={() => setShowLeaderboard(true)}
                       className="w-full"
@@ -1479,14 +1504,14 @@ const TeacherDashboard: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                 onClick={() => setShowQuestionForm(false)}
               >
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-purple-900 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                  className="bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center mb-6">
@@ -1499,7 +1524,7 @@ const TeacherDashboard: React.FC = () => {
                       </p>
                     </div>
                     <Button 
-                      variant="outline" 
+                      variant="primary" 
                       size="sm"
                       onClick={() => setShowQuestionForm(false)}
                     >
@@ -1521,7 +1546,7 @@ const TeacherDashboard: React.FC = () => {
                             value={currentQuestion.question}
                             onChange={(e) => setCurrentQuestion({...currentQuestion, question: e.target.value})}
                             placeholder="Enter your question here..."
-                            className="w-full px-3 py-2 bg-purple-800 border border-purple-500 rounded-lg text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 h-24 resize-none"
+                            className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 h-24 resize-none"
                           />
                         </div>
                       
@@ -1561,7 +1586,7 @@ const TeacherDashboard: React.FC = () => {
                           value={currentQuestion.explanation}
                           onChange={(e) => setCurrentQuestion({...currentQuestion, explanation: e.target.value})}
                           placeholder="Explain why this is the correct answer..."
-                          className="w-full px-3 py-2 bg-purple-800 border border-purple-500 rounded-lg text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 h-20 resize-none"
+                          className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 h-20 resize-none"
                         />
                       </div>
                       
@@ -1582,7 +1607,7 @@ const TeacherDashboard: React.FC = () => {
                       
                       <div className="max-h-96 overflow-y-auto space-y-3">
                         {questions.map((q, index) => (
-                          <div key={q.id} className="p-3 bg-purple-800/30 rounded-lg border border-purple-500/30">
+                          <div key={q.id} className="p-3 bg-black/20 backdrop-blur-md rounded-lg border border-purple-500/30">
                             <p className="text-purple-200 font-medium mb-2">
                               Q{index + 1}: {q.question}
                             </p>
@@ -1618,7 +1643,7 @@ const TeacherDashboard: React.FC = () => {
                         <p className="text-purple-300">Add coding questions with problem statements, test cases, and constraints.</p>
                         
                         <Button 
-                          variant="outline" 
+                          variant="primary" 
                           onClick={handleAddCodingQuestion}
                           className="w-full"
                         >
@@ -1649,14 +1674,14 @@ const TeacherDashboard: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                 onClick={() => setShowBatchAssignment(false)}
               >
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-purple-900 rounded-lg p-6 max-w-2xl w-full"
+                  className="bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg p-6 max-w-2xl w-full"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center mb-6">
@@ -1664,7 +1689,7 @@ const TeacherDashboard: React.FC = () => {
                       Assign to Batches
                     </h2>
                     <Button 
-                      variant="outline" 
+                      variant="primary" 
                       size="sm"
                       onClick={() => setShowBatchAssignment(false)}
                     >
@@ -1679,7 +1704,7 @@ const TeacherDashboard: React.FC = () => {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {batches.filter(batch => batch.id !== "all").map((batch) => (
-                        <label key={batch.id} className="flex items-center p-3 bg-purple-800/30 rounded-lg border border-purple-500/30 cursor-pointer hover:bg-purple-800/50">
+                        <label key={batch.id} className="flex items-center p-3 bg-black/20 backdrop-blur-md rounded-lg border border-purple-500/30 cursor-pointer hover:bg-black/30">
                           <input
                             type="checkbox"
                             checked={selectedBatches.includes(batch.id)}
@@ -1709,7 +1734,7 @@ const TeacherDashboard: React.FC = () => {
                         Assign Assessment
                       </Button>
                       <Button 
-                        variant="outline" 
+                        variant="primary" 
                         onClick={() => setShowBatchAssignment(false)}
                       >
                         Cancel
@@ -1746,14 +1771,14 @@ const TeacherDashboard: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                 onClick={() => setShowAIGeneratedQuestions(false)}
               >
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-purple-900 rounded-lg p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+                  className="bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center mb-6">
@@ -1766,7 +1791,7 @@ const TeacherDashboard: React.FC = () => {
                       </p>
                     </div>
                     <Button 
-                      variant="outline" 
+                      variant="primary" 
                       size="sm"
                       onClick={() => setShowAIGeneratedQuestions(false)}
                     >
@@ -1776,7 +1801,7 @@ const TeacherDashboard: React.FC = () => {
 
                   <div className="space-y-6">
                     {aiGeneratedQuestions.map((question, index) => (
-                      <div key={index} className="bg-purple-800/30 rounded-lg p-4 border border-purple-500/30">
+                      <div key={index} className="bg-black/20 backdrop-blur-md rounded-lg p-4 border border-purple-500/30">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-lg font-semibold text-purple-200">
                             Question {index + 1}
@@ -1804,7 +1829,7 @@ const TeacherDashboard: React.FC = () => {
                                   <div key={optIndex} className={`p-2 rounded ${
                                     optIndex === question.correct_answer
                                       ? 'bg-green-600/20 border border-green-500 text-green-300'
-                                      : 'bg-purple-700/30 text-purple-300'
+                                      : 'bg-black/20 backdrop-blur-md text-purple-300'
                                   }`}>
                                     <span className="font-medium">
                                       {String.fromCharCode(65 + optIndex)}. 
@@ -1862,7 +1887,7 @@ const TeacherDashboard: React.FC = () => {
                                 <h4 className="text-purple-200 font-medium mb-2">Examples:</h4>
                                 <div className="space-y-2">
                                   {question.examples.map((example: any, idx: number) => (
-                                    <div key={idx} className="bg-purple-700/30 rounded p-3">
+                                    <div key={idx} className="bg-black/20 backdrop-blur-md rounded p-3">
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
                                           <span className="text-purple-200 font-medium">Input:</span>
@@ -1898,7 +1923,7 @@ const TeacherDashboard: React.FC = () => {
 
                   <div className="flex justify-end space-x-3 mt-6">
                     <Button
-                      variant="outline"
+                      variant="primary"
                       onClick={() => setShowAIGeneratedQuestions(false)}
                     >
                       Cancel
@@ -1906,7 +1931,6 @@ const TeacherDashboard: React.FC = () => {
                     <Button
                       variant="primary"
                       onClick={handlePostTest}
-                      className="bg-green-600 hover:bg-green-700"
                     >
                       Post the Test
                     </Button>

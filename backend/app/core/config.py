@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # Database
-    mongo_uri: str = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-    db_name: str = os.getenv("DB_NAME", "edulearn")
+    mongo_uri: str = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017/quizdb")
+    db_name: str = os.getenv("DB_NAME", "quizdb")
     
     # Security
     secret_key: str = os.getenv("SECRET_KEY", "your-secret-key-here")
@@ -36,11 +36,11 @@ class Settings(BaseSettings):
     ]
     
     # AI Services
-    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "your-google-ai-api-key")
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "AIzaSyCeT9KMPDDZwHFabO_57mx12SM27pDurh0")
     
     # Google OAuth
-    google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
-    google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "390673176588-srmffm0pi2t4u4qs4o7kdelh72vj47fq.apps.googleusercontent.com")
+    google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "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")
     
     # Code Execution
     code_execution_timeout: int = 5
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     judge0_api_host: str = os.getenv("JUDGE0_API_HOST", "judge0-ce.p.rapidapi.com")
     
     # Session
-    session_secret: str = os.getenv("SESSION_SECRET", "your-session-secret-here")
+    session_secret: str = os.getenv("SESSION_SECRET", "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")
     
     class Config:
         env_file = ".env"
