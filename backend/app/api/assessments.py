@@ -9,7 +9,7 @@ from ..schemas.schemas import (
     AssessmentCreate, AssessmentResponse, QuestionCreate, QuestionResponse,
     CodingQuestionCreate, CodingQuestionResponse, CodingSubmission, CodingSubmissionResponse,
     AssessmentSubmission, AssessmentResult, LeaderboardEntry, AssessmentLeaderboard,
-    StudentNotification
+    StudentNotification, UserResponse, AssessmentSubmissionResponse, StudentAssessment
 )
 from ..dependencies import require_teacher, require_admin, require_teacher_or_admin, require_student
 from .auth import get_current_user
@@ -647,7 +647,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 # Assessment Management Endpoints
 
 @router.post("/", response_model=AssessmentResponse)
-async def create_assessment(assessment_data: AssessmentCreate, user: dict = Depends(require_teacher)):
+async def create_assessment(assessment_data: AssessmentCreate, user: UserResponse = Depends(require_teacher)):
     """Create a new assessment - Teacher/Admin only"""
     try:
         db = await get_db()
@@ -660,18 +660,51 @@ async def create_assessment(assessment_data: AssessmentCreate, user: dict = Depe
             "time_limit": assessment_data.time_limit,
             "max_attempts": assessment_data.max_attempts,
             "type": assessment_data.type,
-            "created_by": str(user["_id"]),
+            "created_by": str(user.id),
             "created_at": datetime.utcnow(),
             "status": "draft",
             "question_count": len(assessment_data.questions),
             "questions": assessment_data.questions,
-            "assigned_batches": []
+            "assigned_batches": assessment_data.batches,
+            "is_active": False
         }
         
         result = await db.assessments.insert_one(assessment_doc)
+        assessment_id = str(result.inserted_id)
+        
+        # Generate questions if assessment type is AI-generated
+        if assessment_data.type == "ai" and len(assessment_data.questions) == 0:
+            try:
+                from app.services.gemini_coding_service import GeminiCodingService
+                gemini_service = GeminiCodingService()
+                
+                # Generate questions based on topic and difficulty
+                generated_questions = await gemini_service.generate_mcq_questions(
+                    topic=assessment_data.subject,
+                    difficulty=assessment_data.difficulty,
+                    count=10  # Default count, can be made configurable
+                )
+                
+                # Update assessment with generated questions
+                await db.assessments.update_one(
+                    {"_id": result.inserted_id},
+                    {"$set": {
+                        "questions": generated_questions,
+                        "question_count": len(generated_questions),
+                        "is_active": True,
+                        "status": "active"
+                    }}
+                )
+                
+                # Send notifications to students in selected batches
+                await send_assessment_notifications(db, assessment_id, assessment_data.batches, assessment_data.title)
+                
+            except Exception as e:
+                print(f"❌ [ASSESSMENT] Error generating questions: {str(e)}")
+                # Continue with empty questions if generation fails
         
         return AssessmentResponse(
-            id=str(result.inserted_id),
+            id=assessment_id,
             title=assessment_data.title,
             subject=assessment_data.subject,
             difficulty=assessment_data.difficulty,
@@ -679,26 +712,26 @@ async def create_assessment(assessment_data: AssessmentCreate, user: dict = Depe
             time_limit=assessment_data.time_limit,
             max_attempts=assessment_data.max_attempts,
             question_count=len(assessment_data.questions),
-            created_by=str(user["_id"]),
+            created_by=str(user.id),
             created_at=assessment_doc["created_at"].isoformat(),
-            status="draft",
+            status="active" if assessment_data.type == "ai" else "draft",
             type=assessment_doc["type"],
-            is_active=False,
+            is_active=True if assessment_data.type == "ai" else False,
             total_questions=len(assessment_data.questions)
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/", response_model=List[AssessmentResponse])
-async def get_teacher_assessments(user: dict = Depends(get_current_user)):
+async def get_teacher_assessments(user: UserResponse = Depends(get_current_user)):
     """Get all assessments created by the teacher"""
     try:
         db = await get_db()
         
-        if user.get("role") != "teacher":
+        if user.role != "teacher":
             raise HTTPException(status_code=403, detail="Only teachers can view assessments")
         
-        assessments_cursor = await db.assessments.find({"created_by": str(user["_id"])}).to_list(None)
+        assessments_cursor = await db.assessments.find({"created_by": str(user.id)}).to_list(None)
         assessments = []
         
         for assessment in assessments_cursor:
@@ -726,7 +759,7 @@ async def get_teacher_assessments(user: dict = Depends(get_current_user)):
 async def add_question_to_assessment(
     assessment_id: str, 
     question_data: QuestionCreate, 
-    user: dict = Depends(require_teacher)
+    user: UserResponse = Depends(require_teacher)
 ):
     """Add a question to an assessment"""
     try:
@@ -739,7 +772,7 @@ async def add_question_to_assessment(
         # Check if assessment exists and belongs to teacher
         assessment = await db.assessments.find_one({
             "_id": ObjectId(assessment_id), 
-            "created_by": str(user["_id"])
+            "created_by": str(user.id)
         })
         if not assessment:
             raise HTTPException(status_code=404, detail="Assessment not found")
@@ -781,7 +814,7 @@ async def add_question_to_assessment(
 async def add_coding_question_to_assessment(
     assessment_id: str, 
     question_data: CodingQuestionCreate, 
-    user: dict = Depends(get_current_user)
+    user: UserResponse = Depends(get_current_user)
 ):
     """Add a coding question to an assessment"""
     try:
@@ -791,7 +824,7 @@ async def add_coding_question_to_assessment(
         
         db = await get_db()
         
-        if user.get("role") != "teacher":
+        if user.role != "teacher":
             raise HTTPException(status_code=403, detail="Only teachers can add coding questions")
         
         if not ObjectId.is_valid(assessment_id):
@@ -801,7 +834,7 @@ async def add_coding_question_to_assessment(
         if not assessment:
             raise HTTPException(status_code=404, detail="Assessment not found")
         
-        if assessment.get("created_by") != str(user["_id"]):
+        if assessment.get("created_by") != str(user.id):
             raise HTTPException(status_code=403, detail="You can only add questions to your own assessments")
         
         coding_question_doc = {
@@ -857,7 +890,7 @@ async def add_coding_question_to_assessment(
 async def ai_generate_questions(
     assessment_id: str,
     generation_data: dict,
-    user: dict = Depends(get_current_user)
+    user: UserResponse = Depends(get_current_user)
 ):
     """Generate questions using AI for an assessment"""
     try:
@@ -866,7 +899,7 @@ async def ai_generate_questions(
         
         db = await get_db()
         
-        if user.get("role") != "teacher":
+        if user.role != "teacher":
             raise HTTPException(status_code=403, detail="Only teachers can generate AI questions")
         
         if not ObjectId.is_valid(assessment_id):
@@ -876,7 +909,7 @@ async def ai_generate_questions(
         if not assessment:
             raise HTTPException(status_code=404, detail="Assessment not found")
         
-        if assessment.get("created_by") != str(user["_id"]):
+        if assessment.get("created_by") != str(user.id):
             raise HTTPException(status_code=403, detail="You can only generate questions for your own assessments")
         
         question_type = generation_data.get("question_type", "mcq")
@@ -932,12 +965,12 @@ async def ai_generate_questions(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{assessment_id}/publish")
-async def publish_assessment(assessment_id: str, user: dict = Depends(get_current_user)):
+async def publish_assessment(assessment_id: str, user: UserResponse = Depends(get_current_user)):
     """Publish an assessment and assign to batches"""
     try:
         db = await get_db()
         
-        if user.get("role") != "teacher":
+        if user.role != "teacher":
             raise HTTPException(status_code=403, detail="Only teachers can publish assessments")
         
         if not ObjectId.is_valid(assessment_id):
@@ -946,7 +979,7 @@ async def publish_assessment(assessment_id: str, user: dict = Depends(get_curren
         # Check if assessment exists and belongs to teacher
         assessment = await db.assessments.find_one({
             "_id": ObjectId(assessment_id), 
-            "created_by": str(user["_id"])
+            "created_by": str(user.id)
         })
         if not assessment:
             raise HTTPException(status_code=404, detail="Assessment not found")
@@ -995,13 +1028,13 @@ async def publish_assessment(assessment_id: str, user: dict = Depends(get_curren
 async def assign_assessment_to_batches(
     assessment_id: str, 
     batch_ids: List[str], 
-    user: dict = Depends(get_current_user)
+    user: UserResponse = Depends(get_current_user)
 ):
     """Assign assessment to specific batches"""
     try:
         db = await get_db()
         
-        if user.get("role") != "teacher":
+        if user.role != "teacher":
             raise HTTPException(status_code=403, detail="Only teachers can assign assessments")
         
         if not ObjectId.is_valid(assessment_id):
@@ -1013,7 +1046,7 @@ async def assign_assessment_to_batches(
             if ObjectId.is_valid(batch_id):
                 batch = await db.batches.find_one({
                     "_id": ObjectId(batch_id), 
-                    "teacher_id": str(user["_id"])
+                    "teacher_id": str(user.id)
                 })
                 if batch:
                     valid_batch_ids.append(batch_id)
@@ -1031,16 +1064,16 @@ async def assign_assessment_to_batches(
 # Student Assessment Endpoints
 
 @router.get("/student/available", response_model=List[AssessmentResponse])
-async def get_available_assessments(user: dict = Depends(get_current_user)):
+async def get_available_assessments(user: UserResponse = Depends(get_current_user)):
     """Get assessments available to the student"""
     try:
         db = await get_db()
         
-        if user.get("role") != "student":
+        if user.role != "student":
             raise HTTPException(status_code=403, detail="Only students can view available assessments")
         
         # Get student's batch
-        student_batches = await db.batches.find({"student_ids": str(user["_id"])}).to_list(None)
+        student_batches = await db.batches.find({"student_ids": str(user.id)}).to_list(None)
         batch_ids = [str(batch["_id"]) for batch in student_batches]
         
         # Get published assessments assigned to these batches
@@ -1054,7 +1087,7 @@ async def get_available_assessments(user: dict = Depends(get_current_user)):
             # Check if student has already taken this assessment
             existing_result = await db.assessment_results.find_one({
                 "assessment_id": str(assessment["_id"]),
-                "student_id": str(user["_id"])
+                "student_id": str(user.id)
             })
             
             if not existing_result or existing_result.get("attempt_number", 0) < assessment.get("max_attempts", 1):
@@ -1079,7 +1112,7 @@ async def get_available_assessments(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{assessment_id}/questions", response_model=List[QuestionResponse])
-async def get_assessment_questions(assessment_id: str, user: dict = Depends(get_current_user)):
+async def get_assessment_questions(assessment_id: str, user: UserResponse = Depends(get_current_user)):
     """Get questions for an assessment (for taking the test)"""
     try:
         db = await get_db()
@@ -1092,8 +1125,8 @@ async def get_assessment_questions(assessment_id: str, user: dict = Depends(get_
             raise HTTPException(status_code=404, detail="Assessment not found")
         
         # Check if student has access to this assessment
-        if user.get("role") == "student":
-            student_batches = await db.batches.find({"student_ids": str(user["_id"])}).to_list(None)
+        if user.role == "student":
+            student_batches = await db.batches.find({"student_ids": str(user.id)}).to_list(None)
             batch_ids = [str(batch["_id"]) for batch in student_batches]
             
             if not any(batch_id in assessment.get("assigned_batches", []) for batch_id in batch_ids):
@@ -1102,7 +1135,7 @@ async def get_assessment_questions(assessment_id: str, user: dict = Depends(get_
         questions = []
         for i, question in enumerate(assessment.get("questions", [])):
             # For students, don't include correct answers
-            if user.get("role") == "student":
+            if user.role == "student":
                 question_response = QuestionResponse(
                     id=str(i + 1),
                     question=question["question"],
@@ -1130,13 +1163,13 @@ async def get_assessment_questions(assessment_id: str, user: dict = Depends(get_
 async def submit_assessment(
     assessment_id: str, 
     submission: AssessmentSubmission, 
-    user: dict = Depends(get_current_user)
+    user: UserResponse = Depends(get_current_user)
 ):
     """Submit an assessment"""
     try:
         db = await get_db()
         
-        if user.get("role") != "student":
+        if user.role != "student":
             raise HTTPException(status_code=403, detail="Only students can submit assessments")
         
         if not ObjectId.is_valid(assessment_id):
@@ -1147,7 +1180,7 @@ async def submit_assessment(
             raise HTTPException(status_code=404, detail="Assessment not found")
         
         # Check if student has access
-        student_batches = await db.batches.find({"student_ids": str(user["_id"])}).to_list(None)
+        student_batches = await db.batches.find({"student_ids": str(user.id)}).to_list(None)
         batch_ids = [str(batch["_id"]) for batch in student_batches]
         
         if not any(batch_id in assessment.get("assigned_batches", []) for batch_id in batch_ids):
@@ -1156,7 +1189,7 @@ async def submit_assessment(
         # Check attempt limit
         existing_results = await db.assessment_results.find({
             "assessment_id": assessment_id,
-            "student_id": str(user["_id"])
+            "student_id": str(user.id)
         }).to_list(None)
         
         if len(existing_results) >= assessment.get("max_attempts", 1):
@@ -1189,7 +1222,7 @@ async def submit_assessment(
         # Create result
         result_doc = {
             "assessment_id": assessment_id,
-            "student_id": str(user["_id"]),
+            "student_id": str(user.id),
             "student_name": user.get("name") or user.get("username") or user.get("email"),
             "score": score,
             "total_questions": total_questions,
@@ -1204,7 +1237,7 @@ async def submit_assessment(
         
         # Create notification for student about result
         notification = {
-            "student_id": str(user["_id"]),
+            "student_id": str(user.id),
             "type": "result_available",
             "title": f"Assessment Result: {assessment['title']}",
             "message": f"Your assessment result is available. Score: {score}/{sum(q.get('points', 1) for q in questions)} ({percentage:.1f}%)",
@@ -1215,12 +1248,12 @@ async def submit_assessment(
         await db.notifications.insert_one(notification)
         
         # Update user gamification data
-        await update_user_progress(db, str(user["_id"]), score, percentage, total_questions)
+        await update_user_progress(db, str(user.id), score, percentage, total_questions)
         
         return AssessmentResult(
             id=str(result.inserted_id),
             assessment_id=assessment_id,
-            student_id=str(user["_id"]),
+            student_id=str(user.id),
             student_name=result_doc["student_name"],
             score=score,
             total_questions=total_questions,
@@ -1233,7 +1266,7 @@ async def submit_assessment(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{assessment_id}/leaderboard", response_model=AssessmentLeaderboard)
-async def get_assessment_leaderboard(assessment_id: str, user: dict = Depends(get_current_user)):
+async def get_assessment_leaderboard(assessment_id: str, user: UserResponse = Depends(get_current_user)):
     """Get leaderboard for an assessment"""
     try:
         db = await get_db()
@@ -1246,8 +1279,8 @@ async def get_assessment_leaderboard(assessment_id: str, user: dict = Depends(ge
             raise HTTPException(status_code=404, detail="Assessment not found")
         
         # Check if user has access to this assessment
-        if user.get("role") == "student":
-            student_batches = await db.batches.find({"student_ids": str(user["_id"])}).to_list(None)
+        if user.role == "student":
+            student_batches = await db.batches.find({"student_ids": str(user.id)}).to_list(None)
             batch_ids = [str(batch["_id"]) for batch in student_batches]
             
             if not any(batch_id in assessment.get("assigned_batches", []) for batch_id in batch_ids):
@@ -1282,16 +1315,16 @@ async def get_assessment_leaderboard(assessment_id: str, user: dict = Depends(ge
 # Notification Endpoints
 
 @router.get("/notifications", response_model=List[StudentNotification])
-async def get_student_notifications(user: dict = Depends(get_current_user)):
+async def get_student_notifications(user: UserResponse = Depends(get_current_user)):
     """Get notifications for a student"""
     try:
         db = await get_db()
         
-        if user.get("role") != "student":
+        if user.role != "student":
             raise HTTPException(status_code=403, detail="Only students can view notifications")
         
         notifications_cursor = await db.notifications.find({
-            "student_id": str(user["_id"])
+            "student_id": str(user.id)
         }).sort("created_at", -1).to_list(None)
         
         notifications = []
@@ -1313,19 +1346,19 @@ async def get_student_notifications(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/notifications/{notification_id}/read")
-async def mark_notification_read(notification_id: str, user: dict = Depends(get_current_user)):
+async def mark_notification_read(notification_id: str, user: UserResponse = Depends(get_current_user)):
     """Mark a notification as read"""
     try:
         db = await get_db()
         
-        if user.get("role") != "student":
+        if user.role != "student":
             raise HTTPException(status_code=403, detail="Only students can mark notifications as read")
         
         if not ObjectId.is_valid(notification_id):
             raise HTTPException(status_code=400, detail="Invalid notification ID")
         
         await db.notifications.update_one(
-            {"_id": ObjectId(notification_id), "student_id": str(user["_id"])},
+            {"_id": ObjectId(notification_id), "student_id": str(user.id)},
             {"$set": {"is_read": True}}
         )
         
@@ -1337,13 +1370,13 @@ async def mark_notification_read(notification_id: str, user: dict = Depends(get_
 async def submit_coding_solution(
     assessment_id: str,
     submission_data: CodingSubmission,
-    user: dict = Depends(get_current_user)
+    user: UserResponse = Depends(get_current_user)
 ):
     """Submit a coding solution for a coding question"""
     try:
         db = await get_db()
         
-        if user.get("role") != "student":
+        if user.role != "student":
             raise HTTPException(status_code=403, detail="Only students can submit coding solutions")
         
         if not ObjectId.is_valid(assessment_id):
@@ -1388,7 +1421,7 @@ async def submit_coding_solution(
         submission_doc = {
             "assessment_id": assessment_id,
             "question_id": submission_data.question_id,
-            "student_id": str(user["_id"]),
+            "student_id": str(user.id),
             "code": submission_data.code,
             "language": submission_data.language,
             "status": status,
@@ -1418,7 +1451,7 @@ async def submit_coding_solution(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{assessment_id}/details")
-async def get_assessment_details(assessment_id: str, user: dict = Depends(get_current_user)):
+async def get_assessment_details(assessment_id: str, user: UserResponse = Depends(get_current_user)):
     """Get detailed assessment information including questions"""
     try:
         db = await get_db()
@@ -1431,7 +1464,7 @@ async def get_assessment_details(assessment_id: str, user: dict = Depends(get_cu
             raise HTTPException(status_code=404, detail="Assessment not found")
         
         # Check if user has access to this assessment
-        if user.get("role") == "teacher" and assessment.get("created_by") != str(user["_id"]):
+        if user.role == "teacher" and assessment.get("created_by") != str(user.id):
             raise HTTPException(status_code=403, detail="You can only view your own assessments")
         
         return {
@@ -1450,5 +1483,411 @@ async def get_assessment_details(assessment_id: str, user: dict = Depends(get_cu
             "questions": assessment.get("questions", [])  # Include questions in response
         }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def send_assessment_notifications(db, assessment_id: str, batch_ids: List[str], assessment_title: str):
+    """Send notifications to students when a new assessment is created"""
+    try:
+        print(f"📢 [NOTIFICATION] Sending assessment notifications for: {assessment_title}")
+        
+        # Get all students from the selected batches
+        students = []
+        for batch_id in batch_ids:
+            batch_students = await db.users.find({
+                "batch_id": batch_id,
+                "role": "student",
+                "is_active": True
+            }).to_list(length=None)
+            students.extend(batch_students)
+        
+        # Create notifications for each student
+        notifications = []
+        for student in students:
+            notification = {
+                "student_id": str(student["_id"]),
+                "type": "assessment_assigned",
+                "title": "New Assessment Available",
+                "message": f"A new assessment '{assessment_title}' has been assigned to you.",
+                "assessment_id": assessment_id,
+                "created_at": datetime.utcnow(),
+                "is_read": False
+            }
+            notifications.append(notification)
+        
+        # Insert notifications in bulk
+        if notifications:
+            await db.notifications.insert_many(notifications)
+            print(f"✅ [NOTIFICATION] Sent {len(notifications)} notifications to students")
+        
+    except Exception as e:
+        print(f"❌ [NOTIFICATION] Error sending notifications: {str(e)}")
+
+@router.get("/upcoming", response_model=List[AssessmentResponse])
+async def get_upcoming_assessments(user: UserResponse = Depends(get_current_user)):
+    """Get upcoming assessments for a student"""
+    try:
+        db = await get_db()
+        
+        # Get student's batch_id
+        student = await db.users.find_one({"_id": ObjectId(user.id)})
+        if not student or not student.get("batch_id"):
+            return []
+        
+        batch_id = student["batch_id"]
+        
+        # Find assessments assigned to this batch that are active
+        assessments = await db.assessments.find({
+            "assigned_batches": batch_id,
+            "is_active": True,
+            "status": "active"
+        }).to_list(length=None)
+        
+        # Check if student has already submitted these assessments
+        submitted_assessments = await db.assessment_submissions.find({
+            "student_id": user.id
+        }).to_list(length=None)
+        
+        submitted_ids = [sub["assessment_id"] for sub in submitted_assessments]
+        
+        # Filter out already submitted assessments
+        upcoming_assessments = [
+            assessment for assessment in assessments 
+            if str(assessment["_id"]) not in submitted_ids
+        ]
+        
+        return [
+            AssessmentResponse(
+                id=str(assessment["_id"]),
+                title=assessment["title"],
+                subject=assessment["subject"],
+                difficulty=assessment["difficulty"],
+                description=assessment["description"],
+                time_limit=assessment["time_limit"],
+                max_attempts=assessment["max_attempts"],
+                question_count=assessment["question_count"],
+                created_by=assessment["created_by"],
+                created_at=assessment["created_at"].isoformat(),
+                status=assessment["status"],
+                type=assessment.get("type", "mcq"),
+                is_active=assessment["is_active"],
+                total_questions=assessment["question_count"]
+            )
+            for assessment in upcoming_assessments
+        ]
+        
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error fetching upcoming assessments: {str(e)}")
+        return []
+
+@router.post("/submit")
+async def submit_assessment(submission_data: dict, user: UserResponse = Depends(get_current_user)):
+    """Submit an assessment"""
+    try:
+        db = await get_db()
+        
+        # Create submission record
+        submission_doc = {
+            "assessment_id": submission_data["assessment_id"],
+            "student_id": submission_data["student_id"],
+            "answers": submission_data["answers"],
+            "score": submission_data["score"],
+            "percentage": submission_data["percentage"],
+            "time_taken": submission_data["time_taken"],
+            "submitted_at": datetime.utcnow(),
+            "created_at": datetime.utcnow()
+        }
+        
+        result = await db.assessment_submissions.insert_one(submission_doc)
+        
+        # Update student's progress
+        await db.users.update_one(
+            {"_id": ObjectId(user.id)},
+            {
+                "$inc": {
+                    "completed_assessments": 1,
+                    "total_score": submission_data["score"]
+                },
+                "$set": {
+                    "last_assessment_date": datetime.utcnow()
+                }
+            }
+        )
+        
+        return {
+            "success": True,
+            "submission_id": str(result.inserted_id),
+            "score": submission_data["score"],
+            "percentage": submission_data["percentage"]
+        }
+        
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error submitting assessment: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{assessment_id}/results")
+async def get_assessment_results(assessment_id: str, user: UserResponse = Depends(require_teacher)):
+    """Get results for a specific assessment - Teacher only"""
+    try:
+        db = await get_db()
+        
+        # Get all submissions for this assessment
+        submissions = await db.assessment_submissions.find({
+            "assessment_id": assessment_id
+        }).to_list(length=None)
+        
+        # Get student details for each submission
+        results = []
+        for submission in submissions:
+            student = await db.users.find_one({"_id": ObjectId(submission["student_id"])})
+            if student:
+                results.append({
+                    "student_id": str(student["_id"]),
+                    "student_name": student.get("name", "Unknown"),
+                    "student_email": student.get("email", ""),
+                    "score": submission["score"],
+                    "percentage": submission["percentage"],
+                    "time_taken": submission["time_taken"],
+                    "submitted_at": submission["submitted_at"].isoformat(),
+                    "total_questions": len(submission["answers"])
+                })
+        
+        return results
+        
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error fetching assessment results: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# New endpoints for comprehensive assessment system
+
+@router.get("/student/upcoming", response_model=List[StudentAssessment])
+async def get_student_upcoming_assessments(user: UserResponse = Depends(get_current_user)):
+    """Get upcoming assessments for a student"""
+    try:
+        db = await get_db()
+        
+        # Get student's batch_id
+        student = await db.users.find_one({"_id": ObjectId(user.id)})
+        if not student or not student.get("batch_id"):
+            return []
+        
+        batch_id = student["batch_id"]
+        
+        # Find assessments assigned to this batch that are active
+        assessments = await db.assessments.find({
+            "assigned_batches": batch_id,
+            "is_active": True,
+            "status": "active"
+        }).to_list(length=None)
+        
+        # Check if student has already submitted these assessments
+        submitted_assessments = await db.assessment_submissions.find({
+            "student_id": user.id
+        }).to_list(length=None)
+        
+        submitted_ids = [str(sub["assessment_id"]) for sub in submitted_assessments]
+        
+        # Filter out already submitted assessments
+        upcoming_assessments = [
+            assessment for assessment in assessments 
+            if str(assessment["_id"]) not in submitted_ids
+        ]
+        
+        # Get teacher names for each assessment
+        result = []
+        for assessment in upcoming_assessments:
+            teacher = await db.users.find_one({"_id": ObjectId(assessment["created_by"])})
+            teacher_name = teacher.get("name", "Unknown Teacher") if teacher else "Unknown Teacher"
+            
+            result.append(StudentAssessment(
+                id=str(assessment["_id"]),
+                title=assessment["title"],
+                subject=assessment["subject"],
+                difficulty=assessment["difficulty"],
+                description=assessment["description"],
+                time_limit=assessment["time_limit"],
+                question_count=assessment["question_count"],
+                type=assessment.get("type", "mcq"),
+                is_active=assessment["is_active"],
+                created_at=assessment["created_at"].isoformat(),
+                teacher_name=teacher_name
+            ))
+        
+        return result
+        
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error fetching upcoming assessments: {str(e)}")
+        return []
+
+@router.get("/{assessment_id}/questions")
+async def get_assessment_questions(assessment_id: str, user: UserResponse = Depends(get_current_user)):
+    """Get questions for a specific assessment"""
+    try:
+        db = await get_db()
+        
+        # Get assessment details
+        assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        # Check if student has access to this assessment
+        student = await db.users.find_one({"_id": ObjectId(user.id)})
+        if not student or not student.get("batch_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        batch_id = student["batch_id"]
+        if batch_id not in assessment.get("assigned_batches", []):
+            raise HTTPException(status_code=403, detail="Assessment not assigned to your batch")
+        
+        # Check if assessment is active
+        if not assessment.get("is_active", False):
+            raise HTTPException(status_code=400, detail="Assessment is not active")
+        
+        # Check if student has already submitted
+        existing_submission = await db.assessment_submissions.find_one({
+            "assessment_id": assessment_id,
+            "student_id": user.id
+        })
+        
+        if existing_submission:
+            raise HTTPException(status_code=400, detail="Assessment already submitted")
+        
+        # Return assessment with questions
+        return {
+            "id": str(assessment["_id"]),
+            "title": assessment["title"],
+            "subject": assessment["subject"],
+            "difficulty": assessment["difficulty"],
+            "description": assessment["description"],
+            "time_limit": assessment["time_limit"],
+            "question_count": assessment["question_count"],
+            "questions": assessment.get("questions", [])
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error fetching assessment questions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{assessment_id}/submit")
+async def submit_assessment_answers(
+    assessment_id: str, 
+    submission_data: dict, 
+    user: UserResponse = Depends(get_current_user)
+):
+    """Submit answers for a teacher-created assessment"""
+    try:
+        db = await get_db()
+        
+        # Get assessment details
+        assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        # Check if student has access
+        student = await db.users.find_one({"_id": ObjectId(user.id)})
+        if not student or not student.get("batch_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        batch_id = student["batch_id"]
+        if batch_id not in assessment.get("assigned_batches", []):
+            raise HTTPException(status_code=403, detail="Assessment not assigned to your batch")
+        
+        # Check if already submitted
+        existing_submission = await db.assessment_submissions.find_one({
+            "assessment_id": assessment_id,
+            "student_id": user.id
+        })
+        
+        if existing_submission:
+            raise HTTPException(status_code=400, detail="Assessment already submitted")
+        
+        # Calculate score
+        questions = assessment.get("questions", [])
+        answers = submission_data.get("answers", [])
+        score = 0
+        
+        for i, question in enumerate(questions):
+            if i < len(answers) and answers[i] == question.get("correct_answer", -1):
+                score += 1
+        
+        percentage = (score / len(questions)) * 100 if questions else 0
+        time_taken = submission_data.get("time_taken", 0)
+        
+        # Create submission record
+        submission_doc = {
+            "assessment_id": assessment_id,
+            "student_id": user.id,
+            "answers": answers,
+            "score": score,
+            "percentage": round(percentage, 2),
+            "time_taken": time_taken,
+            "submitted_at": datetime.utcnow(),
+            "is_completed": True
+        }
+        
+        result = await db.assessment_submissions.insert_one(submission_doc)
+        
+        # Update student's progress
+        await db.users.update_one(
+            {"_id": ObjectId(user.id)},
+            {
+                "$inc": {
+                    "completed_assessments": 1,
+                    "total_score": score
+                },
+                "$set": {
+                    "last_assessment_date": datetime.utcnow()
+                }
+            }
+        )
+        
+        return {
+            "success": True,
+            "submission_id": str(result.inserted_id),
+            "score": score,
+            "percentage": round(percentage, 2),
+            "total_questions": len(questions)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error submitting assessment: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/student/history")
+async def get_student_assessment_history(user: UserResponse = Depends(get_current_user)):
+    """Get student's assessment submission history"""
+    try:
+        db = await get_db()
+        
+        # Get all submissions by this student
+        submissions = await db.assessment_submissions.find({
+            "student_id": user.id
+        }).sort("submitted_at", -1).to_list(length=None)
+        
+        # Get assessment details for each submission
+        history = []
+        for submission in submissions:
+            assessment = await db.assessments.find_one({"_id": ObjectId(submission["assessment_id"])})
+            if assessment:
+                history.append({
+                    "submission_id": str(submission["_id"]),
+                    "assessment_id": str(assessment["_id"]),
+                    "title": assessment["title"],
+                    "subject": assessment["subject"],
+                    "difficulty": assessment["difficulty"],
+                    "score": submission["score"],
+                    "percentage": submission["percentage"],
+                    "time_taken": submission["time_taken"],
+                    "submitted_at": submission["submitted_at"].isoformat(),
+                    "total_questions": assessment["question_count"]
+                })
+        
+        return history
+        
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error fetching assessment history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 

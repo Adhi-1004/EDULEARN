@@ -22,7 +22,6 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [role, setRole] = useState<"student" | "teacher" | "admin">("student")
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -88,36 +87,6 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
             </motion.div>
 
             <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">I am a:</label>
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  <Button
-                    type="button"
-                    variant={role === "student" ? "primary" : "outline"}
-                    onClick={() => setRole("student")}
-                    className="py-2"
-                  >
-                    Student
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={role === "teacher" ? "primary" : "outline"}
-                    onClick={() => setRole("teacher")}
-                    className="py-2"
-                  >
-                    Teacher
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={role === "admin" ? "primary" : "outline"}
-                    onClick={() => setRole("admin")}
-                    className="py-2"
-                  >
-                    Admin
-                  </Button>
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-2">Email</label>
                 <Input

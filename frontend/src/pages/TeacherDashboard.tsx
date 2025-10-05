@@ -32,6 +32,7 @@ interface Batch {
   name: string
   studentCount: number
   createdAt: string
+  students?: Student[]
 }
 
 const TeacherDashboard: React.FC = () => {
@@ -73,14 +74,20 @@ const TeacherDashboard: React.FC = () => {
     correct_answer: 0,
     explanation: ""
   })
-  const [showBatchAssignment, setShowBatchAssignment] = useState(false)
   const [selectedBatches, setSelectedBatches] = useState<string[]>([])
+  const [batchSelectionSearchTerm, setBatchSelectionSearchTerm] = useState("")
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [selectedAssessmentForLeaderboard, setSelectedAssessmentForLeaderboard] = useState<string | null>(null)
+  const [showAssessmentResults, setShowAssessmentResults] = useState(false)
+  const [assessmentResults, setAssessmentResults] = useState<any[]>([])
   const [showCodingQuestionForm, setShowCodingQuestionForm] = useState(false)
   const [aiQuestionType, setAiQuestionType] = useState<'mcq' | 'coding' | 'both'>('mcq')
   const [showAIGeneratedQuestions, setShowAIGeneratedQuestions] = useState(false)
   const [aiGeneratedQuestions, setAiGeneratedQuestions] = useState<any[]>([])
+  const [showBatchAssignmentModal, setShowBatchAssignmentModal] = useState(false)
+  const [selectedStudentsForBatch, setSelectedStudentsForBatch] = useState<string[]>([])
+  const [targetBatchId, setTargetBatchId] = useState<string>("")
+  const [batchAssignmentSearchTerm, setBatchAssignmentSearchTerm] = useState("")
 
   // Early return if user is not available
   if (!user) {
@@ -162,6 +169,19 @@ const TeacherDashboard: React.FC = () => {
       }])
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Function to fetch assessment results for a specific assessment
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const fetchAssessmentResults = async (assessmentId: string) => {
+    try {
+      const response = await api.get(`/api/assessments/${assessmentId}/results`)
+      setAssessmentResults(response.data || [])
+      setShowAssessmentResults(true)
+    } catch (err: any) {
+      console.error("❌ [TEACHER] Error fetching assessment results:", err)
+      showError("Error", "Failed to fetch assessment results")
     }
   }
 
@@ -330,6 +350,12 @@ const TeacherDashboard: React.FC = () => {
       return
     }
 
+    if (selectedBatches.length === 0) {
+      console.log("❌ [ASSESSMENT] Validation failed - no batches selected")
+      showError("Error", "Please select at least one batch for this assessment")
+      return
+    }
+
     try {
       setCreatingAssessment(true)
 
@@ -351,6 +377,8 @@ const TeacherDashboard: React.FC = () => {
         time_limit: type === "challenge" ? 60 : 30, // 60 minutes for coding, 30 for MCQ
         max_attempts: 1,
         type: type, // Send the assessment type to backend
+        batches: selectedBatches, // Include selected batches
+        questions: [] // Empty questions array for now
       })
 
       if (response.data) {
@@ -374,6 +402,8 @@ const TeacherDashboard: React.FC = () => {
         setAssessmentTopic("")
         setAssessmentDifficulty("medium")
         setQuestionCount(10)
+        setSelectedBatches([])
+        setBatchSelectionSearchTerm("")
         setShowMCQForm(false)
         setShowChallengeForm(false)
         setShowAIGenerateForm(false)
@@ -411,6 +441,80 @@ const TeacherDashboard: React.FC = () => {
     setAssessmentTopic("")
     setAssessmentDifficulty("medium")
     setQuestionCount(10)
+    setSelectedBatches([])
+    setBatchSelectionSearchTerm("")
+  }
+
+  // Batch Assignment Functions
+  const handleOpenBatchAssignment = () => {
+    setShowBatchAssignmentModal(true)
+    setSelectedStudentsForBatch([])
+    setTargetBatchId("")
+    setBatchAssignmentSearchTerm("")
+  }
+
+  const handleCloseBatchAssignment = () => {
+    setShowBatchAssignmentModal(false)
+    setSelectedStudentsForBatch([])
+    setTargetBatchId("")
+    setBatchAssignmentSearchTerm("")
+  }
+
+  const handleStudentSelection = (studentId: string) => {
+    setSelectedStudentsForBatch(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    )
+  }
+
+  const handleSelectAllStudents = () => {
+    const allStudentIds = students.map(student => student.id)
+    setSelectedStudentsForBatch(allStudentIds)
+  }
+
+  const handleClearAllStudents = () => {
+    setSelectedStudentsForBatch([])
+  }
+
+  const handleBulkAssignToBatch = async () => {
+    if (!targetBatchId) {
+      showError("Error", "Please select a batch")
+      return
+    }
+
+    if (selectedStudentsForBatch.length === 0) {
+      showError("Error", "Please select at least one student")
+      return
+    }
+
+    try {
+      const batch = batches.find(b => b.id === targetBatchId)
+      if (!batch) {
+        showError("Error", "Selected batch not found")
+        return
+      }
+
+      // Add students to batch
+      for (const studentId of selectedStudentsForBatch) {
+        const student = students.find(s => s.id === studentId)
+        if (student) {
+          await api.post("/api/teacher/students/add", {
+            email: student.email,
+            name: student.name,
+            batch_id: targetBatchId
+          })
+        }
+      }
+
+      success("Success", `Added ${selectedStudentsForBatch.length} students to ${batch.name}`)
+      handleCloseBatchAssignment()
+      await fetchDashboardData()
+    } catch (err: any) {
+      console.error("❌ [BATCH] Failed to assign students:", err)
+      const errorMessage = err.response?.data?.detail || err.message || "Failed to assign students to batch"
+      showError("Error", errorMessage)
+    }
   }
 
   const handleAddQuestion = async () => {
@@ -450,35 +554,9 @@ const TeacherDashboard: React.FC = () => {
       showError("Error", "Please add at least one question")
       return
     }
-    setShowBatchAssignment(true)
+    setShowBatchAssignmentModal(true)
   }
 
-  const handleAssignToBatches = async () => {
-    if (selectedBatches.length === 0) {
-      showError("Error", "Please select at least one batch")
-      return
-    }
-
-    try {
-      // Assign assessment to batches
-      await api.post(`/api/assessments/${currentAssessment.id}/assign-batches`, selectedBatches)
-
-      // Publish assessment
-      await api.post(`/api/assessments/${currentAssessment.id}/publish`)
-
-      success("Success", `Assessment assigned to ${selectedBatches.length} batch(es) and published successfully!`)
-
-      // Reset everything
-      setShowQuestionForm(false)
-      setShowBatchAssignment(false)
-      setCurrentAssessment(null)
-      setQuestions([])
-      setSelectedBatches([])
-    } catch (err: any) {
-      console.error("Failed to assign assessment:", err)
-      showError("Error", "Failed to assign assessment. Please try again.")
-    }
-  }
 
   const handleAddCodingQuestion = () => {
     if (!currentAssessment) {
@@ -511,7 +589,7 @@ const TeacherDashboard: React.FC = () => {
       return
     }
     setShowAIGeneratedQuestions(false)
-    setShowBatchAssignment(true)
+    setShowBatchAssignmentModal(true)
   }
 
   const handleAIGenerateQuestions = async (assessmentId: string, questionType: "mcq" | "coding" | "both") => {
@@ -974,6 +1052,13 @@ const TeacherDashboard: React.FC = () => {
                       placeholder="Search students..."
                       className="w-full md:w-64"
                     />
+                    <Button
+                      variant="outline"
+                      onClick={handleOpenBatchAssignment}
+                      className="w-full sm:w-auto"
+                    >
+                      Assign to Batch
+                    </Button>
                   </div>
                 </div>
 
@@ -1180,6 +1265,18 @@ const TeacherDashboard: React.FC = () => {
                         AI Generate
                       </Button>
                     </div>
+                    <div className="p-4 bg-green-900/20 rounded-lg border border-green-500/30">
+                      <h3 className="text-lg font-semibold text-green-200 mb-2">Assessment Results</h3>
+                      <p className="text-green-300 text-sm mb-4">View and analyze student performance</p>
+                      <Button 
+                        variant="primary" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => setShowAssessmentResults(true)}
+                      >
+                        View Results
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               </motion.div>
@@ -1348,6 +1445,93 @@ const TeacherDashboard: React.FC = () => {
                           className="w-full"
                         />
                       </div>
+                    </div>
+
+                    {/* Batch Selection Section */}
+                    <div className="p-4 bg-green-900/20 rounded-lg border border-green-500/30">
+                      <h3 className="text-lg font-semibold text-green-200 mb-3">Select Batches</h3>
+                      <p className="text-green-300 text-sm mb-4">Choose which batches this assessment will be assigned to</p>
+                      
+                      {/* Search and Controls */}
+                      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                        <div className="flex-1">
+                          <Input
+                            type="text"
+                            value={batchSelectionSearchTerm}
+                            onChange={(e) => setBatchSelectionSearchTerm(e.target.value)}
+                            placeholder="Search batches..."
+                            className="w-full"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => setSelectedBatches(batches.map(b => b.id))}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => setSelectedBatches([])}
+                          >
+                            Clear All
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Batch List */}
+                      <div className="max-h-48 overflow-y-auto space-y-2">
+                        {batches
+                          .filter(batch => 
+                            batch.name.toLowerCase().includes(batchSelectionSearchTerm.toLowerCase())
+                          )
+                          .map(batch => (
+                            <div
+                              key={batch.id}
+                              className={`p-3 rounded-lg border transition-colors cursor-pointer ${
+                                selectedBatches.includes(batch.id)
+                                  ? 'bg-green-600 border-green-400 text-white'
+                                  : 'bg-green-800/30 border-green-500/30 text-green-300 hover:bg-green-800/50'
+                              }`}
+                              onClick={() => {
+                                if (selectedBatches.includes(batch.id)) {
+                                  setSelectedBatches(selectedBatches.filter(id => id !== batch.id))
+                                } else {
+                                  setSelectedBatches([...selectedBatches, batch.id])
+                                }
+                              }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium">{batch.name}</div>
+                                  <div className="text-sm opacity-75">
+                                    {batch.students?.length || 0} students
+                                  </div>
+                                </div>
+                                <div className="text-sm">
+                                  {selectedBatches.includes(batch.id) ? '✓' : ''}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+
+                      {/* Selected Batches Summary */}
+                      {selectedBatches.length > 0 && (
+                        <div className="mt-4 p-3 bg-green-600/20 rounded-lg border border-green-500/30">
+                          <div className="text-green-200 font-medium mb-2">
+                            Selected Batches ({selectedBatches.length})
+                          </div>
+                          <div className="text-green-300 text-sm">
+                            Total Students: {selectedBatches.reduce((total, batchId) => {
+                              const batch = batches.find(b => b.id === batchId)
+                              return total + (batch?.students?.length || 0)
+                            }, 0)}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {showAIGenerateForm && (
@@ -1669,13 +1853,13 @@ const TeacherDashboard: React.FC = () => {
             )}
 
             {/* Batch Assignment Modal */}
-            {showBatchAssignment && (
+            {showBatchAssignmentModal && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                onClick={() => setShowBatchAssignment(false)}
+                onClick={handleCloseBatchAssignment}
               >
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
@@ -1691,7 +1875,7 @@ const TeacherDashboard: React.FC = () => {
                     <Button 
                       variant="primary" 
                       size="sm"
-                      onClick={() => setShowBatchAssignment(false)}
+                      onClick={handleCloseBatchAssignment}
                     >
                       Close
                     </Button>
@@ -1699,43 +1883,101 @@ const TeacherDashboard: React.FC = () => {
                   
                   <div className="space-y-4">
                     <p className="text-purple-300">
-                      Select which batches should receive this assessment:
+                      Select students to assign to a batch:
                     </p>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {batches.filter(batch => batch.id !== "all").map((batch) => (
-                        <label key={batch.id} className="flex items-center p-3 bg-black/20 backdrop-blur-md rounded-lg border border-purple-500/30 cursor-pointer hover:bg-black/30">
-                          <input
-                            type="checkbox"
-                            checked={selectedBatches.includes(batch.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedBatches([...selectedBatches, batch.id]);
-                              } else {
-                                setSelectedBatches(selectedBatches.filter(id => id !== batch.id));
-                              }
-                            }}
-                            className="mr-3"
-                          />
-                          <div>
-                            <div className="text-purple-200 font-medium">{batch.name}</div>
-                            <div className="text-purple-300 text-sm">{batch.studentCount} students</div>
-                          </div>
+                    {/* Batch Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-purple-200 mb-2">
+                        Select Target Batch
+                      </label>
+                      <select
+                        value={targetBatchId}
+                        onChange={(e) => setTargetBatchId(e.target.value)}
+                        className="w-full p-3 bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg text-purple-200 focus:border-purple-400 focus:outline-none"
+                      >
+                        <option value="">Choose a batch...</option>
+                        {batches.filter(batch => batch.id !== "all").map((batch) => (
+                          <option key={batch.id} value={batch.id}>
+                            {batch.name} ({batch.studentCount} students)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* Student Selection */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="block text-sm font-medium text-purple-200">
+                          Select Students ({selectedStudentsForBatch.length} selected)
                         </label>
-                      ))}
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleSelectAllStudents}
+                            className="text-xs"
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleClearAllStudents}
+                            className="text-xs"
+                          >
+                            Clear All
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <Input
+                        type="text"
+                        value={batchAssignmentSearchTerm}
+                        onChange={(e) => setBatchAssignmentSearchTerm(e.target.value)}
+                        placeholder="Search students..."
+                        className="w-full mb-3"
+                      />
+                      
+                      <div className="max-h-48 overflow-y-auto space-y-2 border border-purple-500/30 rounded-lg p-4">
+                        {students
+                          .filter(student => {
+                            const searchTerm = batchAssignmentSearchTerm.toLowerCase()
+                            return student.name.toLowerCase().includes(searchTerm) || 
+                                   student.email.toLowerCase().includes(searchTerm)
+                          })
+                          .map((student) => (
+                            <label 
+                              key={student.id}
+                              className="flex items-center p-3 bg-purple-800/30 rounded-lg border border-purple-500/30 cursor-pointer hover:bg-purple-800/50 transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedStudentsForBatch.includes(student.id)}
+                                onChange={() => handleStudentSelection(student.id)}
+                                className="mr-3 w-4 h-4 text-purple-600 bg-purple-800 border-purple-500 rounded focus:ring-purple-500"
+                              />
+                              <div className="flex-1">
+                                <div className="text-purple-200 font-medium">{student.name}</div>
+                                <div className="text-purple-300 text-sm">{student.email}</div>
+                              </div>
+                            </label>
+                          ))}
+                      </div>
                     </div>
                     
                     <div className="flex space-x-3">
                       <Button 
                         variant="primary" 
-                        onClick={handleAssignToBatches}
+                        onClick={handleBulkAssignToBatch}
                         className="flex-1"
+                        disabled={!targetBatchId || selectedStudentsForBatch.length === 0}
                       >
-                        Assign Assessment
+                        Assign to Batch
                       </Button>
                       <Button 
-                        variant="primary" 
-                        onClick={() => setShowBatchAssignment(false)}
+                        variant="outline" 
+                        onClick={handleCloseBatchAssignment}
                       >
                         Cancel
                       </Button>
@@ -1934,6 +2176,83 @@ const TeacherDashboard: React.FC = () => {
                     >
                       Post the Test
                     </Button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+
+            {/* Assessment Results Modal */}
+            {showAssessmentResults && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                onClick={() => setShowAssessmentResults(false)}
+              >
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="bg-black/20 backdrop-blur-md border border-green-500/30 rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-green-200">
+                      Assessment Results
+                    </h2>
+                    <Button 
+                      variant="primary" 
+                      size="sm"
+                      onClick={() => setShowAssessmentResults(false)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {assessmentResults.length > 0 ? (
+                      <div className="space-y-3">
+                        {assessmentResults.map((result, index) => (
+                          <div
+                            key={index}
+                            className="p-4 bg-green-900/20 rounded-lg border border-green-500/30"
+                          >
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <h3 className="text-lg font-semibold text-green-200">
+                                  {result.student_name}
+                                </h3>
+                                <p className="text-green-300 text-sm">
+                                  Score: {result.score}/{result.total_questions} ({result.percentage}%)
+                                </p>
+                                <p className="text-green-300 text-sm">
+                                  Time Taken: {Math.floor(result.time_taken / 60)}:{(result.time_taken % 60).toString().padStart(2, '0')}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <div className={`text-2xl font-bold ${
+                                  result.percentage >= 80 ? 'text-green-400' :
+                                  result.percentage >= 60 ? 'text-yellow-400' : 'text-red-400'
+                                }`}>
+                                  {result.percentage}%
+                                </div>
+                                <div className="text-green-300 text-sm">
+                                  {new Date(result.submitted_at).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-green-300">No results available yet.</p>
+                        <p className="text-green-400 text-sm mt-2">
+                          Students need to complete the assessment to see results.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               </motion.div>

@@ -10,14 +10,14 @@ class Settings(BaseSettings):
     """Application settings"""
     
     # Application
-    app_name: str = "modLRN API"
+    app_name: str = "eduLearn API"
     app_description: str = "AI-powered Adaptive Learning Platform API"
     app_version: str = "1.0.0"
     debug: bool = False
     
     # Database
-    mongo_uri: str = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017/quizdb")
-    db_name: str = os.getenv("DB_NAME", "quizdb")
+    mongo_uri: str = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017/edulearn")
+    db_name: str = os.getenv("DB_NAME", "edulearn")
     
     # Security
     secret_key: str = os.getenv("SECRET_KEY", "your-secret-key-here")

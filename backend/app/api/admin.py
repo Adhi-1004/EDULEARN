@@ -363,7 +363,7 @@ async def get_all_users(
         user_list = []
         for user in users:
             user_list.append({
-                "id": str(user["_id"]),
+                "id": str(user.id),
                 "username": user.get("username", ""),
                 "email": user.get("email", ""),
                 "role": user.get("role", ""),
@@ -482,7 +482,7 @@ async def get_users_analytics(
         user_list = []
         for user in users:
             # Get user's assessment results
-            results_cursor = db.results.find({"user_id": user["_id"]}).sort("submitted_at", -1).limit(10)
+            results_cursor = db.results.find({"user_id": user.id}).sort("submitted_at", -1).limit(10)
             results = await results_cursor.to_list(length=10)
             
             # Calculate analytics
@@ -495,7 +495,7 @@ async def get_users_analytics(
             streak_days = 5  # Placeholder
             
             user_list.append({
-                "id": str(user["_id"]),
+                "id": str(user.id),
                 "name": user.get("name", user.get("username", "Unknown")),
                 "email": user.get("email", ""),
                 "role": user.get("role", ""),

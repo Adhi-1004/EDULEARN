@@ -1,42 +1,224 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect, useRef, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
-import { motion, AnimatePresence } from "framer-motion"
-import type { Question, AssessmentConfig } from "../types"
-import { useTheme } from "../contexts/ThemeContext"
+import React, { useState, useEffect } from "react"
+import { useParams, useNavigate, useLocation } from "react-router-dom"
+import { motion } from "framer-motion"
 import { useAuth } from "../hooks/useAuth"
 import { useToast } from "../contexts/ToastContext"
 import Card from "../components/ui/Card"
 import Button from "../components/ui/Button"
 import LoadingState from "../components/LoadingState"
 import ErrorState from "../components/ErrorState"
-import PageShell from "../components/ui/PageShell"
 import api from "../utils/api"
-import { ANIMATION_VARIANTS, TRANSITION_DEFAULTS } from "../utils/constants"
 
-interface AssessmentProps {
-  // user prop is now retrieved via useAuth hook
+interface Question {
+  id: string
+  question: string
+  options: string[]
+  correct_answer: number
+  explanation?: string
+  difficulty: string
+  topic: string
 }
 
-const Assessment: React.FC<AssessmentProps> = () => {
-  const { user, isLoading: isAuthChecking } = useAuth()
-  const { mode, colorScheme } = useTheme()
-  const { success, error: showError } = useToast()
-  const [currentQuestion, setCurrentQuestion] = useState(0)
-  const [userAnswers, setUserAnswers] = useState<string[]>([])
-  const [score, setScore] = useState(0)
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [loading, setLoading] = useState(true)
-  const [progress, setProgress] = useState(0)
-  const [config, setConfig] = useState<AssessmentConfig | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false) // Add flag to prevent multiple submissions
+interface Assessment {
+  id: string
+  title: string
+  subject: string
+  difficulty: string
+  description: string
+  time_limit: number
+  question_count: number
+  questions: Question[]
+  type: string
+}
+
+const Assessment: React.FC = () => {
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const questionsFetched = useRef(false)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const location = useLocation()
+  const { user } = useAuth()
+  const { success, error: showError } = useToast()
+  
+  const [assessment, setAssessment] = useState<Assessment | null>(null)
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [answers, setAnswers] = useState<number[]>([])
+  const [timeLeft, setTimeLeft] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [testStarted, setTestStarted] = useState(false)
+  const [testCompleted, setTestCompleted] = useState(false)
+  const [assessmentType, setAssessmentType] = useState<'teacher' | 'student'>('teacher')
+
+  useEffect(() => {
+    fetchAssessment()
+  }, [id])
+
+  useEffect(() => {
+    if (testStarted && timeLeft > 0) {
+      const timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            handleSubmitTest()
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [testStarted, timeLeft])
+
+  const fetchAssessment = async () => {
+    try {
+      setLoading(true)
+      
+      // Check if configuration was passed from AssessConfig
+      const state = location.state as any
+      console.log("🔍 [ASSESSMENT] Location state:", state)
+      
+      if (state?.isStudentGenerated && state?.assessmentConfig) {
+        console.log("📋 [ASSESSMENT] Using passed configuration from AssessConfig...")
+        console.log("📋 [ASSESSMENT] Config:", state.assessmentConfig)
+        
+        const { topic, qnCount, difficulty } = state.assessmentConfig
+        const totalTime = getDifficultyTime(difficulty, qnCount)
+        
+        console.log("🤖 [ASSESSMENT] Fetching questions from Gemini AI...")
+        console.log("🤖 [ASSESSMENT] Params:", { topic, difficulty, count: qnCount })
+        
+        // Fetch questions from Gemini AI
+        const geminiResponse = await api.get("/db/questions", {
+          params: { topic, difficulty, count: qnCount }
+        })
+        
+        console.log("✅ [ASSESSMENT] Gemini response:", geminiResponse.data)
+        
+        if (!Array.isArray(geminiResponse.data) || geminiResponse.data.length === 0) {
+          throw new Error("No questions were generated. Please try again.")
+        }
+        
+        // Create assessment object for student-generated assessment
+        const studentAssessment: Assessment = {
+          id: 'student-generated',
+          title: `${topic} Assessment`,
+          subject: topic,
+          difficulty: difficulty,
+          description: `AI-generated ${difficulty} assessment on ${topic}`,
+          time_limit: Math.ceil(totalTime / 60), // Convert to minutes
+          question_count: qnCount,
+          questions: geminiResponse.data,
+          type: 'mcq'
+        }
+        
+        setAssessment(studentAssessment)
+        setTimeLeft(totalTime)
+        setAnswers(new Array(qnCount).fill(-1))
+        setAssessmentType('student')
+        console.log("✅ [ASSESSMENT] Loaded student-generated assessment from passed config")
+        return
+      }
+      
+      // If no ID is provided and no state, try to get configuration from API
+      if (!id) {
+        console.log("📋 [ASSESSMENT] No ID provided, loading student-generated assessment...")
+        
+        // Get assessment configuration
+        const configResponse = await api.get("/api/topics/")
+        if (!configResponse.data.success) {
+          throw new Error(configResponse.data.error || "Failed to get assessment configuration")
+        }
+        
+        const { topic, qnCount, difficulty } = configResponse.data
+        const totalTime = getDifficultyTime(difficulty, qnCount)
+        
+        // Fetch questions from Gemini AI
+        const geminiResponse = await api.get("/db/questions", {
+          params: { topic, difficulty, count: qnCount }
+        })
+        
+        if (!Array.isArray(geminiResponse.data) || geminiResponse.data.length === 0) {
+          throw new Error("No questions were generated. Please try again.")
+        }
+        
+        // Create assessment object for student-generated assessment
+        const studentAssessment: Assessment = {
+          id: 'student-generated',
+          title: `${topic} Assessment`,
+          subject: topic,
+          difficulty: difficulty,
+          description: `AI-generated ${difficulty} assessment on ${topic}`,
+          time_limit: Math.ceil(totalTime / 60), // Convert to minutes
+          question_count: qnCount,
+          questions: geminiResponse.data,
+          type: 'mcq'
+        }
+        
+        setAssessment(studentAssessment)
+        setTimeLeft(totalTime)
+        setAnswers(new Array(qnCount).fill(-1))
+        setAssessmentType('student')
+        console.log("✅ [ASSESSMENT] Loaded student-generated assessment")
+        return
+      }
+      
+      // If ID is provided, try to fetch as teacher-created assessment
+      try {
+        const response = await api.get(`/api/assessments/${id}/questions`)
+        setAssessment(response.data)
+        setTimeLeft(response.data.time_limit * 60) // Convert minutes to seconds
+        setAnswers(new Array(response.data.question_count).fill(-1))
+        setAssessmentType('teacher')
+        console.log("✅ [ASSESSMENT] Loaded teacher-created assessment")
+      } catch (teacherError) {
+        console.log("⚠️ [ASSESSMENT] Not a teacher-created assessment, trying student-generated...")
+        
+        // If teacher assessment fails, try student-generated assessment
+        const configResponse = await api.get("/api/topics/")
+        if (!configResponse.data.success) {
+          throw new Error(configResponse.data.error || "Failed to get assessment configuration")
+        }
+        
+        const { topic, qnCount, difficulty } = configResponse.data
+        const totalTime = getDifficultyTime(difficulty, qnCount)
+        
+        // Fetch questions from Gemini AI
+        const geminiResponse = await api.get("/db/questions", {
+          params: { topic, difficulty, count: qnCount }
+        })
+        
+        if (!Array.isArray(geminiResponse.data) || geminiResponse.data.length === 0) {
+          throw new Error("No questions were generated. Please try again.")
+        }
+        
+        // Create assessment object for student-generated assessment
+        const studentAssessment: Assessment = {
+          id: id || 'student-generated',
+          title: `${topic} Assessment`,
+          subject: topic,
+          difficulty: difficulty,
+          description: `AI-generated ${difficulty} assessment on ${topic}`,
+          time_limit: Math.ceil(totalTime / 60), // Convert to minutes
+          question_count: qnCount,
+          questions: geminiResponse.data,
+          type: 'mcq'
+        }
+        
+        setAssessment(studentAssessment)
+        setTimeLeft(totalTime)
+        setAnswers(new Array(qnCount).fill(-1))
+        setAssessmentType('student')
+        console.log("✅ [ASSESSMENT] Loaded student-generated assessment")
+      }
+      
+    } catch (err: any) {
+      console.error("❌ [ASSESSMENT] Error fetching assessment:", err)
+      showError("Error", "Failed to load assessment. Please try again.")
+      navigate("/dashboard")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getDifficultyTime = (difficulty: string, questionCount: number) => {
     const timePerQuestion = {
@@ -47,574 +229,317 @@ const Assessment: React.FC<AssessmentProps> = () => {
     return (timePerQuestion[difficulty as keyof typeof timePerQuestion] || 90) * questionCount
   }
 
-  const fetchQuestions = useCallback(async () => {
-    try {
-      console.log("📋 [ASSESSMENT] Fetching assessment configuration...")
-      const configResponse = await api.get("/api/topics/")
-
-      if (!configResponse.data.success) {
-        throw new Error(configResponse.data.error || "Failed to get assessment configuration")
-      }
-      const { topic, qnCount, difficulty } = configResponse.data
-      console.log("✅ [ASSESSMENT] Config received - Topic:", topic, "Questions:", qnCount, "Difficulty:", difficulty)
-
-      const assessmentConfig: AssessmentConfig = {
-        topic,
-        qnCount,
-        difficulty,
-      }
-
-      setConfig(assessmentConfig)
-
-      // Set timer based on difficulty
-      const totalTime = getDifficultyTime(difficulty, qnCount)
-      setTimeRemaining(totalTime)
-
-      console.log("🤖 [ASSESSMENT] Fetching questions from Gemini AI...")
-      console.log("🤖 [ASSESSMENT] Request params:", { topic, difficulty, count: qnCount })
-      const geminiResponse = await api.get("/db/questions", {
-        params: {
-          topic,
-          difficulty,
-          count: qnCount,
-        },
-      })
-
-      console.log("✅ [ASSESSMENT] Questions received from Gemini AI")
-      console.log("✅ [ASSESSMENT] Response data:", geminiResponse.data)
-
-      if (!Array.isArray(geminiResponse.data) || geminiResponse.data.length === 0) {
-        throw new Error("No questions were generated. Please try again.")
-      }
-
-      setQuestions(geminiResponse.data)
-      setLoading(false)
-    } catch (error: any) {
-      console.error("❌ [ASSESSMENT] Error fetching questions:", error)
-      let errorMessage = "Failed to load questions"
-
-      if (error.response?.data?.detail) {
-        errorMessage =
-          typeof error.response.data.detail === "string"
-            ? error.response.data.detail
-            : JSON.stringify(error.response.data.detail)
-      } else if (error.message) {
-        errorMessage = error.message
-      }
-
-      setError(errorMessage)
-      setLoading(false)
-    }
-  }, [])
-
-  const handleEndAssessment = useCallback(
-    async (finalScore: number) => {
-      if (isSubmitting) return // Prevent multiple submissions
-      setIsSubmitting(true)
-      try {
-        if (!config) {
-          throw new Error("No assessment configuration found")
-        }
-
-        // Update score state
-        setScore(finalScore)
-
-        // Calculate time taken
-        const totalTime = getDifficultyTime(config.difficulty, config.qnCount)
-        const timeTaken = Math.max(0, totalTime - (timeRemaining || 0))
-        console.log(
-          `⏱️ [ASSESSMENT] Assessment completed - Time taken: ${timeTaken}s, Score: ${finalScore}/${config.qnCount}`,
-        )
-
-        // Fetch explanations for questions
-        let explanations: { questionIndex: number; explanation: string }[] = []
-        try {
-          // Explanations are now included in the question objects; no extra request needed
-          explanations = questions.map((q, idx) => ({
-            questionIndex: idx,
-            explanation: q.explanation || "",
-          }))
-        } catch (error) {
-          console.error("❌ Error fetching explanations:", error)
-          // Continue without explanations if they fail
-          console.log("⚠️ Continuing assessment completion without explanations")
-        }
-
-        const result = {
-          user_id: user?._id || user?.id,
-          score: finalScore,
-          total_questions: questions.length,
-          questions: questions.map((q) => ({
-            question: q.question,
-            options: q.options,
-            answer: q.answer,
-            explanation: q.explanation,
-          })),
-          user_answers: userAnswers,
-          topic: config.topic,
-          difficulty: config.difficulty,
-          time_taken: timeTaken,
-          explanations: explanations,
-        }
-
-        console.log("📤 Saving result with enhanced data:", result)
-        const response = await api.post("/api/results", result)
-
-        if (!response.data.success) {
-          throw new Error(response.data.error || "Failed to save results")
-        }
-
-        // Clear timer
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-        }
-
-        success("Assessment Complete!", `You scored ${finalScore}/${questions.length}`)
-
-        const resultState = {
-          score: finalScore,
-          totalQuestions: questions.length,
-          topic: config.topic,
-          difficulty: config.difficulty,
-          questions: questions,
-          userAnswers: userAnswers,
-          timeTaken: timeTaken,
-          explanations: explanations, // Include explanations in state
-        }
-
-        console.log("📊 Navigating to results with state:", resultState)
-        navigate("/results", { state: resultState })
-      } catch (error: any) {
-        let errorMessage = "Failed to save results. Please try again."
-
-        if (error.response?.data?.detail) {
-          errorMessage =
-            typeof error.response.data.detail === "string"
-              ? error.response.data.detail
-              : JSON.stringify(error.response.data.detail)
-        } else if (error.message) {
-          errorMessage = error.message
-        }
-
-        setError(errorMessage)
-      } finally {
-        setIsSubmitting(false)
-      }
-    },
-    [config, questions, userAnswers, navigate, user?._id, success, timeRemaining, isSubmitting],
-  )
-
-  useEffect(() => {
-    if (!questionsFetched.current && !isAuthChecking) {
-      questionsFetched.current = true
-      fetchQuestions()
-    }
-  }, [fetchQuestions, isAuthChecking])
-
-  useEffect(() => {
-    if (userAnswers.length === questions.length && questions.length > 0 && !isSubmitting) {
-      const newScore = userAnswers.reduce((acc, answer, index) => {
-        const correctAnswer = questions[index]?.answer
-        const isCorrect = correctAnswer && answer === correctAnswer
-        return isCorrect ? acc + 1 : acc
-      }, 0)
-      handleEndAssessment(newScore)
-    }
-  }, [userAnswers, questions, handleEndAssessment, isSubmitting])
-
-  useEffect(() => {
-    if (loading) {
-      const interval = setInterval(() => {
-        setProgress((prevProgress) => {
-          if (prevProgress < 95) {
-            return Math.min(prevProgress + 1, 95)
-          } else {
-            clearInterval(interval)
-            return prevProgress
-          }
-        })
-      }, 20)
-      return () => clearInterval(interval)
-    }
-  }, [loading])
-
-  // Timer effect
-  useEffect(() => {
-    if (timeRemaining !== null && timeRemaining > 0 && !loading && !isSubmitting) {
-      timerRef.current = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev === null || prev <= 1) {
-            // Time's up - auto submit
-            const finalScore = userAnswers.reduce((acc, answer, index) => {
-              const correctAnswer = questions[index]?.answer
-              return answer === correctAnswer ? acc + 1 : acc
-            }, 0)
-            setScore(finalScore)
-            showError("Time Up!", "Assessment has been automatically submitted")
-            handleEndAssessment(finalScore)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-
-      return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current)
-        }
-      }
-    }
-  }, [timeRemaining, loading, userAnswers, questions, handleEndAssessment, error, isSubmitting])
-
-  const handleAnswer = useCallback(
-    (answer: string) => {
-      setUserAnswers((prevAnswers) => [...prevAnswers, answer])
-      if (currentQuestion < questions.length - 1) {
-        setCurrentQuestion((prev) => prev + 1)
-      }
-    },
-    [currentQuestion, questions.length],
-  )
-
-  const formatTime = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`
+  const startTest = () => {
+    setTestStarted(true)
   }
 
-  const question = questions.length > 0 ? questions[currentQuestion] : null
+  const handleAnswerSelect = (questionIndex: number, answerIndex: number) => {
+    const newAnswers = [...answers]
+    newAnswers[questionIndex] = answerIndex
+    setAnswers(newAnswers)
+  }
 
-  if (isAuthChecking) {
+  const handleSubmitTest = async () => {
+    if (submitting) return
+    
+    try {
+      setSubmitting(true)
+      
+      // Calculate score
+      let score = 0
+      assessment?.questions.forEach((question, index) => {
+        if (answers[index] === question.correct_answer) {
+          score++
+        }
+      })
+      
+      const percentage = Math.round((score / (assessment?.question_count || 1)) * 100)
+      
+      if (assessmentType === 'teacher') {
+        // Submit to teacher-created assessment endpoint
+        const submission = {
+          answers: answers,
+          time_taken: assessment?.time_limit ? (assessment.time_limit * 60) - timeLeft : 0
+        }
+        
+        await api.post(`/api/assessments/${id}/submit`, submission)
+        
+        success("Success", `Test completed! Your score: ${score}/${assessment?.question_count} (${percentage}%)`)
+        
+        setTestCompleted(true)
+        
+        // Navigate to results after a delay
+        setTimeout(() => {
+          navigate(`/test-result/${id}`)
+        }, 2000)
+        
+      } else {
+        // Submit to student-generated assessment endpoint (existing system)
+        const result = {
+          user_id: user?.id,
+          score: score,
+          total_questions: assessment?.question_count || 0,
+          questions: assessment?.questions.map((q) => ({
+            question: q.question,
+            options: q.options,
+            answer: q.options[q.correct_answer],
+            explanation: q.explanation,
+          })) || [],
+          user_answers: answers.map(i => i >= 0 ? assessment?.questions[i]?.options[i] || '' : ''),
+          topic: assessment?.subject || '',
+          difficulty: assessment?.difficulty || '',
+          time_taken: assessment?.time_limit ? (assessment.time_limit * 60) - timeLeft : 0,
+          explanations: assessment?.questions.map((q, idx) => ({
+            questionIndex: idx,
+            explanation: q.explanation || "",
+          })) || []
+        }
+        
+        await api.post("/api/results", result)
+        
+        success("Assessment Complete!", `You scored ${score}/${assessment?.question_count}`)
+
+        const resultState = {
+          score: score,
+          totalQuestions: assessment?.question_count || 0,
+          topic: assessment?.subject || '',
+          difficulty: assessment?.difficulty || '',
+          questions: assessment?.questions || [],
+          userAnswers: answers.map(i => i >= 0 ? assessment?.questions[i]?.options[i] || '' : ''),
+          timeTaken: assessment?.time_limit ? (assessment.time_limit * 60) - timeLeft : 0,
+          explanations: assessment?.questions.map((q, idx) => ({
+            questionIndex: idx,
+            explanation: q.explanation || "",
+          })) || []
+        }
+        
+        navigate("/results", { state: resultState })
+      }
+      
+    } catch (err: any) {
+      console.error("❌ [ASSESSMENT] Error submitting test:", err)
+      showError("Error", "Failed to submit test. Please try again.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  }
+
+  if (loading) {
     return (
-      <PageShell title="Assessment" subtitle="Checking authentication...">
-        <div className="min-h-[60vh] flex items-center justify-center">
-          <LoadingState size="lg" text="Checking authentication..." showCard={true} />
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingState size="lg" />
         </div>
-      </PageShell>
     )
   }
 
+  if (!assessment) {
   return (
-    <PageShell title={mode === "professional" ? "Assessment" : "Adaptive Assessment"} subtitle="Test your knowledge">
-      <motion.div
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        variants={ANIMATION_VARIANTS.fadeIn}
-        className="container mx-auto px-4 pb-8"
-      >
-        {loading ? (
-          <motion.div variants={ANIMATION_VARIANTS.fadeIn} className="text-center">
-            <LoadingState size="lg" text="Loading questions..." />
-            <div
-              className={`
-                            w-full max-w-md mx-auto mt-6 rounded-full h-2.5
-                            ${
-                              mode === "professional"
-                                ? colorScheme === "dark"
-                                  ? "bg-gray-800/30"
-                                  : "bg-gray-200/50"
-                                : colorScheme === "dark"
-                                  ? "bg-purple-900/30"
-                                  : "bg-purple-100/50"
-                            }
-                        `}
-            >
-              <motion.div
-                className={`
-                                    h-2.5 rounded-full
-                                    ${
-                                      mode === "professional"
-                                        ? "bg-gradient-to-r from-gray-600 to-gray-700"
-                                        : "bg-gradient-to-r from-purple-500 to-pink-500"
-                                    }
-                                 `}
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              />
-            </div>
-          </motion.div>
-        ) : error ? (
-          <motion.div variants={ANIMATION_VARIANTS.slideUp} className="text-center">
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-8 text-center">
             <ErrorState
-              title="Assessment Error"
-              message={error}
-              onBack={() => navigate("/assessconfig")}
-              backText="Configure Assessment"
+            title="Assessment Not Found"
+            message="The assessment you're looking for doesn't exist or you don't have access to it."
+            onBack={() => navigate("/dashboard")}
+            backText="Return to Dashboard"
               showCard={true}
             />
-          </motion.div>
-        ) : (
-          question && (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentQuestion}
-                initial={{ x: 300, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: -300, opacity: 0 }}
-                transition={TRANSITION_DEFAULTS}
-                className="max-w-4xl mx-auto"
-              >
-                {isSubmitting ? (
-                  <Card className="p-8 text-center">
-                    <LoadingState size="lg" text="Submitting assessment..." />
-                    <p className="text-purple-300 mt-4">Please wait while we save your results...</p>
-                  </Card>
-                ) : (
-                  <Card className="p-8">
-                    <div className="space-y-6">
-                      {/* Progress Header with Timer */}
-                      <div className="flex justify-between items-center mb-6">
-                        <div className="flex items-center space-x-4">
-                          <h3
-                            className={`
-                                                text-xl font-semibold
-                                                ${mode === "professional" ? "font-serif" : "font-sans"}
-                                                ${
-                                                  mode === "professional"
-                                                    ? colorScheme === "dark"
-                                                      ? "text-gray-200"
-                                                      : "text-gray-800"
-                                                    : colorScheme === "dark"
-                                                      ? "text-purple-200"
-                                                      : "text-purple-800"
-                                                }
-                                            `}
-                          >
-                            Question {currentQuestion + 1} of {questions.length}
-                          </h3>
+        </Card>
+      </div>
+    )
+  }
 
-                          {/* Progress Ring */}
-                          <div className="flex items-center space-x-3">
-                            <div
-                              className={`
-                                                    w-24 rounded-full h-2
-                                                    ${
-                                                      mode === "professional"
-                                                        ? colorScheme === "dark"
-                                                          ? "bg-gray-800/30"
-                                                          : "bg-gray-200/50"
-                                                        : colorScheme === "dark"
-                                                          ? "bg-purple-900/30"
-                                                          : "bg-purple-100/50"
-                                                    }
-                                                `}
-                            >
-                              <motion.div
-                                className={`
-                                                            h-2 rounded-full
-                                                            ${
-                                                              mode === "professional"
-                                                                ? "bg-gradient-to-r from-gray-600 to-gray-700"
-                                                                : "bg-gradient-to-r from-purple-500 to-pink-500"
-                                                            }
-                                                         `}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
-                                transition={TRANSITION_DEFAULTS}
-                              />
+  if (testCompleted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <h2 className="text-2xl font-bold text-green-400 mb-4">Test Completed!</h2>
+          <p className="text-gray-300 mb-6">Your test has been submitted successfully. Redirecting to results...</p>
+          <LoadingState size="md" />
+        </Card>
+      </div>
+    )
+  }
+
+  if (!testStarted) {
+    return (
+      <div className="min-h-screen pt-20 px-4">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-8"
+          >
+            <h1 className="text-4xl font-bold text-white mb-4">{assessment.title}</h1>
+            <p className="text-gray-300 text-lg">{assessment.description}</p>
+            {assessmentType === 'teacher' && (
+              <p className="text-blue-300 text-sm mt-2">Created by Teacher</p>
+            )}
+            {assessmentType === 'student' && (
+              <p className="text-purple-300 text-sm mt-2">AI-Generated Assessment</p>
+            )}
+          </motion.div>
+
+          <Card className="p-8 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-400 mb-2">{assessment.question_count}</div>
+                <div className="text-gray-300">Questions</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-400 mb-2">{assessment.time_limit}</div>
+                <div className="text-gray-300">Minutes</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-400 mb-2">{assessment.difficulty}</div>
+                <div className="text-gray-300">Difficulty</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-yellow-400 mb-2">{assessment.subject}</div>
+                <div className="text-gray-300">Subject</div>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <Button
+                onClick={startTest}
+                className="px-8 py-3 text-lg"
+                variant="primary"
+              >
+                Start Test
+              </Button>
+            </div>
+                  </Card>
+        </div>
                             </div>
-                            <span
-                              className={`
-                                                    text-sm font-medium
-                                                    ${
-                                                      mode === "professional"
-                                                        ? colorScheme === "dark"
-                                                          ? "text-gray-400"
-                                                          : "text-gray-600"
-                                                        : colorScheme === "dark"
-                                                          ? "text-purple-300"
-                                                          : "text-purple-600"
-                                                    }
-                                                `}
-                            >
-                              {Math.round(((currentQuestion + 1) / questions.length) * 100)}%
-                            </span>
-                          </div>
-                          
-                          {/* Score Display */}
-                          {score > 0 && (
-                            <div className="mt-2">
-                              <span
-                                className={`
-                                  text-sm font-medium
-                                  ${
-                                    mode === "professional"
-                                      ? colorScheme === "dark"
-                                        ? "text-gray-400"
-                                        : "text-gray-600"
-                                      : colorScheme === "dark"
-                                        ? "text-purple-200"
-                                        : "text-purple-700"
-                                  }
-                                `}
-                              >
-                                Current Score: {score}/{questions.length}
-                              </span>
+    )
+  }
+
+  const currentQuestion = assessment.questions[currentQuestionIndex]
+  const progress = ((currentQuestionIndex + 1) / assessment.question_count) * 100
+
+  return (
+    <div className="min-h-screen pt-20 px-4 bg-gray-900">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold text-white">{assessment.title}</h1>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-red-400">{formatTime(timeLeft)}</div>
+              <div className="text-sm text-gray-400">Time Remaining</div>
                             </div>
-                          )}
                         </div>
 
-                        {/* Timer */}
-                        {timeRemaining !== null && (
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className={`
-                                                    flex items-center space-x-2 rounded-xl px-4 py-2 border
-                                                    ${
-                                                      mode === "professional"
-                                                        ? colorScheme === "dark"
-                                                          ? "bg-gray-800/30 border-gray-600/30"
-                                                          : "bg-gray-50/80 border-gray-200/50"
-                                                        : colorScheme === "dark"
-                                                          ? "bg-purple-900/30 border-purple-500/30"
-                                                          : "bg-purple-50/80 border-purple-200/50"
-                                                    }
-                                                `}
-                          >
-                            <svg
-                              className={`w-5 h-5 ${
-                                mode === "professional"
-                                  ? colorScheme === "dark"
-                                    ? "text-gray-400"
-                                    : "text-gray-600"
-                                  : colorScheme === "dark"
-                                    ? "text-purple-400"
-                                    : "text-purple-600"
-                              }`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            <span
-                              className={`
-                                                    font-mono text-lg font-semibold
-                                                    ${
-                                                      timeRemaining < 60
-                                                        ? "text-red-400"
-                                                        : mode === "professional"
-                                                          ? colorScheme === "dark"
-                                                            ? "text-gray-200"
-                                                            : "text-gray-800"
-                                                          : colorScheme === "dark"
-                                                            ? "text-purple-200"
-                                                            : "text-purple-800"
-                                                    }
-                                                `}
-                            >
-                              {formatTime(timeRemaining)}
-                            </span>
-                          </motion.div>
-                        )}
+          <div className="w-full bg-gray-700 rounded-full h-2 mb-4">
+            <div
+              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
                       </div>
+          
+          <div className="flex justify-between text-sm text-gray-400">
+            <span>Question {currentQuestionIndex + 1} of {assessment.question_count}</span>
+            <span>{Math.round(progress)}% Complete</span>
+          </div>
+        </motion.div>
 
                       {/* Question */}
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className={`
-                                            rounded-xl p-6 border
-                                            ${
-                                              mode === "professional"
-                                                ? colorScheme === "dark"
-                                                  ? "bg-gray-800/20 border-gray-600/30"
-                                                  : "bg-gray-50/50 border-gray-200/50"
-                                                : colorScheme === "dark"
-                                                  ? "bg-purple-900/20 border-purple-500/30"
-                                                  : "bg-purple-50/50 border-purple-200/50"
-                                            }
-                                        `}
-                      >
-                        <p
-                          className={`
-                                            text-xl leading-relaxed
-                                            ${mode === "professional" ? "font-serif" : "font-sans"}
-                                            ${
-                                              mode === "professional"
-                                                ? colorScheme === "dark"
-                                                  ? "text-gray-100"
-                                                  : "text-gray-900"
-                                                : colorScheme === "dark"
-                                                  ? "text-purple-100"
-                                                  : "text-purple-900"
-                                            }
-                                        `}
-                        >
-                          {question.question}
-                        </p>
+          key={currentQuestionIndex}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className="p-8 mb-6">
+            <h2 className="text-xl font-semibold text-white mb-6">
+              {currentQuestion.question}
+            </h2>
+            
+            <div className="space-y-3">
+              {currentQuestion.options.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleAnswerSelect(currentQuestionIndex, index)}
+                  className={`w-full p-4 text-left rounded-lg border transition-all duration-200 ${
+                    answers[currentQuestionIndex] === index
+                      ? 'bg-blue-600 border-blue-400 text-white'
+                      : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <div className={`w-6 h-6 rounded-full border-2 mr-3 flex items-center justify-center ${
+                      answers[currentQuestionIndex] === index
+                        ? 'border-white bg-white text-blue-600'
+                        : 'border-gray-400'
+                    }`}>
+                      {answers[currentQuestionIndex] === index && '✓'}
+                    </div>
+                    <span>{String.fromCharCode(65 + index)}. {option}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Card>
                       </motion.div>
 
-                      {/* Options */}
-                      <motion.div
-                        variants={ANIMATION_VARIANTS.stagger}
-                        initial="initial"
-                        animate="animate"
-                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                      >
-                        {question.options?.map((option, index) => (
-                          <motion.div
+        {/* Navigation */}
+        <div className="flex justify-between items-center">
+          <Button
+            onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+            disabled={currentQuestionIndex === 0}
+            variant="secondary"
+          >
+            Previous
+          </Button>
+          
+          <div className="flex space-x-2">
+            {assessment.questions.map((_, index) => (
+              <button
                             key={index}
-                            variants={ANIMATION_VARIANTS.slideUp}
-                            transition={{ delay: 0.3 + index * 0.1 }}
-                          >
+                onClick={() => setCurrentQuestionIndex(index)}
+                className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
+                  index === currentQuestionIndex
+                    ? 'bg-blue-600 text-white'
+                    : answers[index] !== -1
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                {index + 1}
+              </button>
+            ))}
+          </div>
+          
+          {currentQuestionIndex === assessment.questions.length - 1 ? (
                             <Button
-                              onClick={() => handleAnswer(option)}
-                              variant="outline"
-                              className={`
-                                                        w-full p-6 text-left justify-start h-auto transition-all duration-300 group rounded-xl
-                                                        ${
-                                                          mode === "professional"
-                                                            ? colorScheme === "dark"
-                                                              ? "bg-gray-800/20 border-gray-600/30 text-gray-200 hover:bg-gray-800/40 hover:border-gray-500/50 hover:text-white"
-                                                              : "bg-gray-50/50 border-gray-200/50 text-gray-800 hover:bg-gray-100/80 hover:border-gray-300/70 hover:text-gray-900"
-                                                            : colorScheme === "dark"
-                                                              ? "bg-purple-900/20 border-purple-500/30 text-purple-200 hover:bg-purple-900/40 hover:border-purple-400/50 hover:text-white"
-                                                              : "bg-purple-50/50 border-purple-200/50 text-purple-800 hover:bg-purple-100/80 hover:border-purple-300/70 hover:text-purple-900"
-                                                        }
-                                                    `}
-                            >
-                              <div className="flex items-center space-x-3 w-full">
-                                <div
-                                  className={`
-                                                            w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border transition-all duration-300
-                                                            ${
-                                                              mode === "professional"
-                                                                ? colorScheme === "dark"
-                                                                  ? "bg-gray-700/20 border-gray-600/30 group-hover:bg-gray-600/30 group-hover:border-gray-500/50"
-                                                                  : "bg-gray-100/80 border-gray-200/50 group-hover:bg-gray-200/80 group-hover:border-gray-300/70"
-                                                                : colorScheme === "dark"
-                                                                  ? "bg-purple-500/20 border-purple-500/30 group-hover:bg-purple-500/30 group-hover:border-purple-400/50"
-                                                                  : "bg-purple-100/80 border-purple-200/50 group-hover:bg-purple-200/80 group-hover:border-purple-300/70"
-                                                            }
-                                                        `}
-                                >
-                                  {String.fromCharCode(65 + index)}
+              onClick={handleSubmitTest}
+              disabled={submitting}
+              variant="primary"
+            >
+              {submitting ? 'Submitting...' : 'Submit Test'}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setCurrentQuestionIndex(Math.min(assessment.questions.length - 1, currentQuestionIndex + 1))}
+              variant="primary"
+            >
+              Next
+            </Button>
+          )}
                                 </div>
-                                <span className="flex-1 text-left">{option}</span>
                               </div>
-                            </Button>
-                          </motion.div>
-                        ))}
-                      </motion.div>
                     </div>
-                  </Card>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          )
-        )}
-      </motion.div>
-    </PageShell>
   )
 }
 

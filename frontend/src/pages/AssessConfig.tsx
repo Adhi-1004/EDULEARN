@@ -61,8 +61,18 @@ const AssessConfig: React.FC<AssessConfigProps> = () => {
 
       if (response.data.success) {
         console.log("✅ Assessment config saved, navigating to assessment...")
+        console.log("📤 [ASSESSCONFIG] Passing state:", { 
+          assessmentConfig: config,
+          isStudentGenerated: true 
+        })
         success("Assessment Started!", `Starting ${config.qnCount} questions on ${config.topic} (${config.difficulty})`)
-        navigate("/assessment", { replace: true })
+        navigate("/assessment", { 
+          replace: true,
+          state: { 
+            assessmentConfig: config,
+            isStudentGenerated: true 
+          }
+        })
       } else {
         throw new Error(response.data.error || "Failed to start assessment")
       }

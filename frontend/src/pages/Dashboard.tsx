@@ -40,6 +40,7 @@ const Dashboard: React.FC = () => {
   })
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [recentTests, setRecentTests] = useState<TestResult[]>([])
+  const [upcomingTests, setUpcomingTests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,6 +49,7 @@ const Dashboard: React.FC = () => {
       console.log("📊 [DASHBOARD] Fetching analytics for user:", user.email)
       fetchStats()
       fetchRecentTests()
+      fetchUpcomingTests()
     }
   }, [user?._id, user?.id])
 
@@ -137,6 +139,25 @@ const Dashboard: React.FC = () => {
 
       // Don't set error for recent tests, just log it
       console.log("⚠️ [DASHBOARD] Recent tests failed, but continuing...")
+    }
+  }
+
+  const fetchUpcomingTests = async () => {
+    try {
+      console.log("📊 [DASHBOARD] Fetching upcoming tests for user:", user?.email)
+      const response = await api.get("/api/assessments/student/upcoming")
+      console.log("📊 [DASHBOARD] Upcoming tests response:", response.data)
+      setUpcomingTests(response.data || [])
+    } catch (error: any) {
+      console.error("❌ [DASHBOARD] Error in fetchUpcomingTests:", error)
+      console.error("❌ [DASHBOARD] Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        config: error.config,
+      })
+      setUpcomingTests([])
     }
   }
 
@@ -332,6 +353,56 @@ const Dashboard: React.FC = () => {
                   retryText="Retry"
                   showCard={false}
                 />
+              </motion.div>
+            )}
+
+            {/* Upcoming Tests */}
+            {upcomingTests.length > 0 && (
+              <motion.div
+                variants={ANIMATION_VARIANTS.slideUp}
+                initial="initial"
+                animate="animate"
+                transition={{ delay: 0.4 }}
+                className="mb-8"
+              >
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center">
+                    <span className="mr-2">📅</span>
+                    Upcoming Tests
+                  </h3>
+                  <div className="space-y-3">
+                    {upcomingTests.map((test, index) => (
+                      <motion.div
+                        key={test.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500/50 transition-all duration-300 cursor-pointer group"
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-foreground font-medium group-hover:text-foreground/80 transition-colors">
+                              {test.title}
+                            </p>
+                            <p className="text-muted-foreground text-sm">
+                              {test.subject} • {test.difficulty} • {test.time_limit} minutes
+                            </p>
+                            <p className="text-blue-400 text-sm mt-1">
+                              {test.question_count} questions
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <Link to={`/assessment/${test.id}`}>
+                              <Button variant="primary" size="sm">
+                                Start Test
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </Card>
               </motion.div>
             )}
 

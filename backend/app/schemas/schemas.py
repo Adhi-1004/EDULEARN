@@ -111,6 +111,7 @@ class AssessmentCreate(BaseModel):
     questions: List[QuestionCreate] = []
     max_attempts: int = Field(default=1, ge=1, le=10)
     type: str = Field(default="mcq")
+    batches: List[str] = Field(default_factory=list)
 
 class AssessmentResponse(BaseModel):
     id: str
@@ -127,6 +128,44 @@ class AssessmentResponse(BaseModel):
     type: str
     is_active: bool
     total_questions: int
+    assigned_batches: List[str] = []
+
+# Assessment Submission Schemas
+class AssessmentSubmission(BaseModel):
+    assessment_id: str
+    student_id: str
+    answers: List[int]
+    score: int
+    percentage: float
+    time_taken: int
+    submitted_at: datetime
+    is_completed: bool = True
+
+class AssessmentSubmissionResponse(BaseModel):
+    id: str
+    assessment_id: str
+    student_id: str
+    student_name: str
+    student_email: str
+    score: int
+    percentage: float
+    time_taken: int
+    submitted_at: str
+    total_questions: int
+
+# Student Assessment Access
+class StudentAssessment(BaseModel):
+    id: str
+    title: str
+    subject: str
+    difficulty: DifficultyLevel
+    description: str
+    time_limit: int
+    question_count: int
+    type: str
+    is_active: bool
+    created_at: str
+    teacher_name: str
 
 class QuestionResponse(BaseModel):
     id: str

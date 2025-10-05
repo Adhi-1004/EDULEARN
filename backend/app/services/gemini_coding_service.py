@@ -35,6 +35,109 @@ class GeminiCodingService:
             self.available = False
             print("[WARNING] [GEMINI_CODING] Gemini API key not configured, using fallback mode")
 
+    async def generate_mcq_questions(
+        self,
+        topic: str,
+        difficulty: str,
+        count: int = 10,
+        question_type: str = "mcq"
+    ) -> List[Dict[str, Any]]:
+        """Generate MCQ questions for assessments using Gemini AI"""
+        try:
+            print(f"🧠 [GEMINI_CODING] Generating {count} {difficulty} MCQ questions for topic: {topic}")
+            
+            if not self.available:
+                return self._generate_fallback_mcq_questions(topic, difficulty, count)
+            
+            prompt = f"""
+            Generate {count} high-quality multiple choice questions on the topic: "{topic}"
+            Difficulty level: {difficulty}
+            
+            Requirements:
+            - Each question should have exactly 4 options (A, B, C, D)
+            - Only one correct answer per question
+            - Include detailed explanations for each answer
+            - Questions should test understanding, not just memorization
+            - Vary question types (conceptual, application, analysis)
+            - Ensure questions are original and educational
+            
+            Format the response as a JSON array with this structure:
+            [
+                {{
+                    "question": "Question text here?",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "correct_answer": 0,
+                    "explanation": "Detailed explanation of why this is correct"
+                }}
+            ]
+            
+            Return only the JSON array, no additional text.
+            """
+            
+            response = await self.model.generate_content_async(prompt)
+            questions_text = response.text.strip()
+            
+            # Parse JSON response
+            questions = json.loads(questions_text)
+            
+            # Validate and clean questions
+            validated_questions = []
+            for i, q in enumerate(questions[:count]):
+                if self._validate_mcq_question(q):
+                    validated_questions.append({
+                        "question": q["question"],
+                        "options": q["options"],
+                        "correct_answer": q["correct_answer"],
+                        "explanation": q.get("explanation", ""),
+                        "difficulty": difficulty,
+                        "topic": topic,
+                        "generated_by": "gemini"
+                    })
+            
+            print(f"✅ [GEMINI_CODING] Generated {len(validated_questions)} valid MCQ questions")
+            return validated_questions
+            
+        except Exception as e:
+            print(f"❌ [GEMINI_CODING] Error generating MCQ questions: {str(e)}")
+            return self._generate_fallback_mcq_questions(topic, difficulty, count)
+    
+    def _validate_mcq_question(self, question: Dict[str, Any]) -> bool:
+        """Validate MCQ question structure"""
+        required_fields = ["question", "options", "correct_answer"]
+        if not all(field in question for field in required_fields):
+            return False
+        
+        if not isinstance(question["options"], list) or len(question["options"]) != 4:
+            return False
+        
+        if not isinstance(question["correct_answer"], int) or question["correct_answer"] < 0 or question["correct_answer"] > 3:
+            return False
+        
+        return True
+    
+    def _generate_fallback_mcq_questions(self, topic: str, difficulty: str, count: int) -> List[Dict[str, Any]]:
+        """Generate fallback MCQ questions when AI is not available"""
+        print(f"🔄 [GEMINI_CODING] Using fallback MCQ generation for {topic}")
+        
+        fallback_questions = []
+        for i in range(count):
+            fallback_questions.append({
+                "question": f"What is the main concept of {topic}? (Question {i+1})",
+                "options": [
+                    f"Option A for {topic}",
+                    f"Option B for {topic}",
+                    f"Option C for {topic}",
+                    f"Option D for {topic}"
+                ],
+                "correct_answer": i % 4,
+                "explanation": f"This is a fallback question about {topic}",
+                "difficulty": difficulty,
+                "topic": topic,
+                "generated_by": "fallback"
+            })
+        
+        return fallback_questions
+
     async def generate_coding_problem(
         self, 
         topic: str, 

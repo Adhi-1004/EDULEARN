@@ -112,10 +112,26 @@ const AppContent: React.FC = () => {
                   }
                 />
                 <Route
+                  path="/assessment/:id"
+                  element={
+                    <ProtectedRoute allowedRoles={["student"]}>
+                      <Assessment />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/test/:assessmentId"
                   element={
                     <ProtectedRoute allowedRoles={["student"]}>
                       <TestPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/test-result/:id"
+                  element={
+                    <ProtectedRoute allowedRoles={["student"]}>
+                      <TestResultDetail />
                     </ProtectedRoute>
                   }
                 />
@@ -131,7 +147,7 @@ const AppContent: React.FC = () => {
               path="/test-result/:resultId"
               element={
                 <ProtectedRoute allowedRoles={["student"]}>
-                  {user && <TestResultDetail user={user} />}
+                  <TestResultDetail />
                 </ProtectedRoute>
               }
             />
