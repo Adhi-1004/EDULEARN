@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, EmailStr
+from bson import ObjectId
 
 from ..core.security import security_manager
 from ..db import get_db
@@ -37,8 +38,11 @@ class GamificationResponse(BaseModel):
     xp: int
     level: int
     streak: int
+    longest_streak: int
     badges: List[str]
     achievements: List[str]
+    next_level_xp: int
+    progress_to_next_level: float
 
 class BadgeResponse(BaseModel):
     id: str
@@ -160,7 +164,7 @@ async def get_user(
     try:
         db = await get_db()
         
-        user_doc = await db.users.find_one({"_id": user_id})
+        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user_doc:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -302,27 +306,45 @@ async def get_user_gamification(
     """Get user gamification data (XP, level, streak, badges)"""
     try:
         # Verify user can access this data
-        if current_user.id != user_id and current_user.role not in ["admin", "teacher"]:
+        if str(current_user.id) != user_id and current_user.role not in ["admin", "teacher"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to access this user's gamification data"
             )
         
         db = await get_db()
-        user_doc = await db.users.find_one({"_id": user_id})
+        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user_doc:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
         
-        # Return gamification data (with defaults if not set)
+        # Get gamification data
+        xp = user_doc.get("xp", 0)
+        level = user_doc.get("level", 1)
+        streak = user_doc.get("streak", 0)
+        longest_streak = user_doc.get("longest_streak", streak)
+        badges = user_doc.get("badges", [])
+        achievements = user_doc.get("achievements", [])
+        
+        # Calculate next level XP (every 100 XP = 1 level)
+        next_level_xp = level * 100
+        
+        # Calculate progress to next level (0.0 to 1.0)
+        current_level_xp = (level - 1) * 100
+        progress_to_next_level = (xp - current_level_xp) / 100.0 if next_level_xp > current_level_xp else 1.0
+        
+        # Return gamification data
         return GamificationResponse(
-            xp=user_doc.get("xp", 0),
-            level=user_doc.get("level", 1),
-            streak=user_doc.get("streak", 0),
-            badges=user_doc.get("badges", []),
-            achievements=user_doc.get("achievements", [])
+            xp=xp,
+            level=level,
+            streak=streak,
+            longest_streak=longest_streak,
+            badges=badges,
+            achievements=achievements,
+            next_level_xp=next_level_xp,
+            progress_to_next_level=min(progress_to_next_level, 1.0)
         )
         
     except HTTPException:
@@ -341,14 +363,14 @@ async def get_user_badges(
     """Get user badges"""
     try:
         # Verify user can access this data
-        if current_user.id != user_id and current_user.role not in ["admin", "teacher"]:
+        if str(current_user.id) != user_id and current_user.role not in ["admin", "teacher"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to access this user's badges"
             )
         
         db = await get_db()
-        user_doc = await db.users.find_one({"_id": user_id})
+        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user_doc:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -409,7 +431,7 @@ async def update_user_activity(
         now = datetime.utcnow()
         today = now.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        user_doc = await db.users.find_one({"_id": user_id})
+        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user_doc:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

@@ -10,8 +10,96 @@ from pydantic import BaseModel
 from ..db import get_db
 from ..models.models import UserModel
 from ..dependencies import get_current_user
+from bson import ObjectId
 
 router = APIRouter()
+
+async def update_user_progress(db, user_id: str, score: int, percentage: float, total_questions: int):
+    """Update user's gamification progress after completing an assessment"""
+    try:
+        # Get current user data
+        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user_doc:
+            return
+        
+        # Calculate XP based on score and questions
+        base_xp = 10  # Base XP for completing assessment
+        score_xp = int(percentage * 0.5)  # XP based on percentage (0-50 XP)
+        question_xp = total_questions * 2  # 2 XP per question
+        total_xp = base_xp + score_xp + question_xp
+        
+        # Calculate new level (every 100 XP = 1 level)
+        current_xp = user_doc.get("xp", 0)
+        new_xp = current_xp + total_xp
+        new_level = (new_xp // 100) + 1
+        
+        # Update streak (simplified - just increment if assessment completed)
+        current_streak = user_doc.get("streak", 0)
+        new_streak = current_streak + 1
+        
+        # Update longest streak
+        current_longest_streak = user_doc.get("longest_streak", 0)
+        new_longest_streak = max(current_longest_streak, new_streak)
+        
+        # Check for badges
+        badges = user_doc.get("badges", [])
+        new_badges = []
+        
+        # First assessment badge
+        if "first_assessment" not in badges:
+            new_badges.append("first_assessment")
+        
+        # High score badge (90%+)
+        if percentage >= 90 and "high_scorer" not in badges:
+            new_badges.append("high_scorer")
+        
+        # Streak badges
+        if new_streak >= 5 and "consistent_learner" not in badges:
+            new_badges.append("consistent_learner")
+        
+        # Level up badge
+        old_level = (current_xp // 100) + 1
+        if new_level > old_level and "level_up" not in badges:
+            new_badges.append("level_up")
+        
+        # Update user document
+        update_data = {
+            "xp": new_xp,
+            "level": new_level,
+            "streak": new_streak,
+            "longest_streak": new_longest_streak,
+            "last_activity": datetime.utcnow(),
+            "completed_assessments": user_doc.get("completed_assessments", 0) + 1,
+            "total_questions_answered": user_doc.get("total_questions_answered", 0) + total_questions,
+            "average_score": calculate_average_score(user_doc, percentage)
+        }
+        
+        # Add new badges
+        if new_badges:
+            update_data["badges"] = badges + new_badges
+        
+        await db.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": update_data}
+        )
+        
+        print(f"[SUCCESS] [GAMIFICATION] Updated user {user_id}: +{total_xp} XP, Level {new_level}, Streak {new_streak}")
+        if new_badges:
+            print(f"[SUCCESS] [GAMIFICATION] New badges earned: {new_badges}")
+            
+    except Exception as e:
+        print(f"[ERROR] [GAMIFICATION] Failed to update user progress: {str(e)}")
+
+def calculate_average_score(user_doc: dict, new_percentage: float) -> float:
+    """Calculate new average score"""
+    current_avg = user_doc.get("average_score", 0)
+    completed_count = user_doc.get("completed_assessments", 0)
+    
+    if completed_count == 0:
+        return new_percentage
+    else:
+        # Weighted average
+        return ((current_avg * completed_count) + new_percentage) / (completed_count + 1)
 
 # Response Models
 class TestResult(BaseModel):
@@ -36,7 +124,7 @@ async def get_user_results(
     """Get user's test results"""
     try:
         # Verify user can access this data
-        if current_user.id != user_id and current_user.role not in ["admin", "teacher"]:
+        if str(current_user.id) != user_id and current_user.role not in ["admin", "teacher"]:
             raise HTTPException(
                 status_code=403,
                 detail="Not authorized to access this user's results"
@@ -89,28 +177,50 @@ async def get_user_analytics(
     """Get user analytics data"""
     try:
         # Verify user can access this data
-        if current_user.id != user_id and current_user.role not in ["admin", "teacher"]:
+        if str(current_user.id) != user_id and current_user.role not in ["admin", "teacher"]:
             raise HTTPException(
                 status_code=403,
                 detail="Not authorized to access this user's analytics"
             )
         
-        # Return mock analytics data
+        # Get real analytics data from database
+        db = await get_db()
+        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
+        
+        if not user_doc:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+        
+        # Get user's assessment results
+        results_cursor = db.results.find({"user_id": user_id}).sort("submitted_at", -1).limit(10)
+        results = await results_cursor.to_list(length=10)
+        
+        # Calculate analytics from real data
+        total_tests = user_doc.get("completed_assessments", 0)
+        average_score = user_doc.get("average_score", 0)
+        total_questions = user_doc.get("total_questions_answered", 0)
+        streak_days = user_doc.get("streak", 0)
+        
+        # Get recent performance data
+        recent_performance = []
+        for result in results:
+            if result.get("submitted_at"):
+                recent_performance.append({
+                    "date": result["submitted_at"].strftime("%Y-%m-%d") if hasattr(result["submitted_at"], 'strftime') else str(result["submitted_at"]),
+                    "score": result.get("score", 0)
+                })
+        
         analytics_data = {
             "success": True,
             "analytics": {
-                "total_tests": 5,
-                "average_score": 78.5,
-                "total_time_spent": 3600,  # seconds
-                "streak_days": 7,
-                "improvement_rate": 12.5,
-                "strongest_subject": "Python",
-                "weakest_subject": "Algorithms",
-                "recent_performance": [
-                    {"date": "2024-01-01", "score": 85},
-                    {"date": "2024-01-02", "score": 78},
-                    {"date": "2024-01-03", "score": 92}
-                ]
+                "total_assessments": total_tests,
+                "total_questions": total_questions,
+                "average_score": average_score,
+                "streak_days": streak_days,
+                "topics": ["Mathematics", "Science", "Programming"],  # Default topics
+                "recent_performance": recent_performance
             }
         }
         
@@ -201,8 +311,11 @@ async def submit_assessment_result(
             "explanations": submission.explanations
         }
         
-        # In a real implementation, you would save to database:
-        # result_id = await db.results.insert_one(result_data)
+        # Save to database
+        result_id = await db.results.insert_one(result_data)
+        
+        # Update user gamification data
+        await update_user_progress(db, str(current_user.id), correct_count, score, submission.total_questions)
         
         print(f"[SUCCESS] [RESULTS] Assessment submitted for user {current_user.id}: {score:.1f}% ({correct_count}/{submission.total_questions})")
         
@@ -234,7 +347,7 @@ async def get_detailed_result(
         # In a real implementation, you would fetch from the database
         mock_result = {
             "id": result_id,
-            "user_id": current_user.id,
+            "user_id": str(current_user.id),
             "score": 3,
             "total_questions": 3,
             "questions": [
