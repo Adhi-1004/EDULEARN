@@ -162,7 +162,16 @@ async def submit_assessment_result(
         for i, user_answer in enumerate(submission.user_answers):
             if i < len(submission.questions):
                 question = submission.questions[i]
+                # Handle both string and integer correct answers
                 correct_answer = question.get("answer", "")
+                correct_answer_index = question.get("correct_answer", -1)
+                
+                # If correct_answer is an integer (index), get the actual option text
+                if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
+                    options = question.get("options", [])
+                    if correct_answer_index < len(options):
+                        correct_answer = options[correct_answer_index]
+                
                 if user_answer == correct_answer:
                     correct_count += 1
         
@@ -210,6 +219,94 @@ async def submit_assessment_result(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to submit assessment: {str(e)}"
+        )
+
+@router.get("/{result_id}/detailed")
+async def get_detailed_result(
+    result_id: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get detailed result with question reviews"""
+    try:
+        db = await get_db()
+        
+        # For now, return mock data since we don't have a real database implementation
+        # In a real implementation, you would fetch from the database
+        mock_result = {
+            "id": result_id,
+            "user_id": current_user.id,
+            "score": 3,
+            "total_questions": 3,
+            "questions": [
+                {
+                    "question": "What is 2 + 2?",
+                    "options": ["3", "4", "5", "6"],
+                    "answer": "4",
+                    "correct_answer": 1,
+                    "explanation": "2 + 2 equals 4."
+                },
+                {
+                    "question": "Which shape has 3 sides?",
+                    "options": ["Square", "Circle", "Triangle", "Rectangle"],
+                    "answer": "Triangle",
+                    "correct_answer": 2,
+                    "explanation": "A triangle has 3 sides."
+                },
+                {
+                    "question": "What is the color of the sky on a clear day?",
+                    "options": ["Green", "Red", "Blue", "Yellow"],
+                    "answer": "Blue",
+                    "correct_answer": 2,
+                    "explanation": "The sky appears blue due to the scattering of sunlight."
+                }
+            ],
+            "user_answers": ["4", "Triangle", "Blue"],
+            "topic": "Science",
+            "difficulty": "Easy",
+            "time_taken": 120,
+            "date": datetime.utcnow().isoformat(),
+            "percentage": 100,
+            "correct_answers": 3,
+            "incorrect_answers": 0
+        }
+        
+        # Generate question reviews with proper is_correct calculation
+        question_reviews = []
+        for i, question in enumerate(mock_result["questions"]):
+            user_answer = mock_result["user_answers"][i] if i < len(mock_result["user_answers"]) else ""
+            
+            # Handle both string and integer correct answers
+            correct_answer = question.get("answer", "")
+            correct_answer_index = question.get("correct_answer", -1)
+            
+            if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
+                options = question.get("options", [])
+                if correct_answer_index < len(options):
+                    correct_answer = options[correct_answer_index]
+            
+            is_correct = user_answer == correct_answer
+            
+            question_reviews.append({
+                "question_index": i,
+                "question": question["question"],
+                "options": question["options"],
+                "correct_answer": correct_answer,
+                "user_answer": user_answer,
+                "is_correct": is_correct,
+                "explanation": question.get("explanation", "")
+            })
+        
+        return {
+            "success": True,
+            "result": mock_result,
+            "question_reviews": question_reviews
+        }
+        
+    except Exception as e:
+        print(f"[ERROR] [RESULTS] Failed to get detailed result: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get detailed result: {str(e)}"
         )
 
 @router.get("/health")

@@ -100,24 +100,48 @@ async def get_questions_from_db(
             count=count
         )
         
-        print(f"✅ [QUESTIONS] Generated {len(questions)} questions successfully")
-        return questions
+        # Transform questions to convert letter answers to actual option text
+        transformed_questions = []
+        for question in questions:
+            # Convert letter answer (A, B, C, D) to actual option text
+            answer_letter = question.get("answer", "")
+            options = question.get("options", [])
+            
+            # Convert letter to index (A=0, B=1, C=2, D=3)
+            if answer_letter in ["A", "B", "C", "D"]:
+                answer_index = ord(answer_letter) - ord("A")
+                if answer_index < len(options):
+                    question["answer"] = options[answer_index]
+                    question["correct_answer"] = answer_index  # Add correct_answer field for frontend
+                else:
+                    question["answer"] = options[0] if options else ""
+                    question["correct_answer"] = 0
+            else:
+                # If answer is already text, keep it as is
+                question["correct_answer"] = -1  # No index available
+            
+            transformed_questions.append(question)
+        
+        print(f"✅ [QUESTIONS] Generated {len(transformed_questions)} questions successfully")
+        return transformed_questions
         
     except Exception as e:
         print(f"❌ [QUESTIONS] Error generating questions: {str(e)}")
         # Fallback to mock data if AI fails
-        mock_questions = [
-            {
+        mock_questions = []
+        for i in range(count):
+            correct_index = i % 4
+            question = {
                 "id": f"q{i+1}",
                 "question": f"Sample question {i+1} about {topic}",
                 "options": ["Option A", "Option B", "Option C", "Option D"],
-                "answer": f"Option {chr(65 + (i % 4))}",
+                "answer": f"Option {chr(65 + correct_index)}",  # Actual option text
+                "correct_answer": correct_index,  # Index of correct answer
                 "explanation": f"This is the explanation for question {i+1}",
                 "difficulty": difficulty,
                 "topic": topic
             }
-            for i in range(count)
-        ]
+            mock_questions.append(question)
         return mock_questions
 
 # Health check endpoints

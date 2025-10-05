@@ -201,7 +201,19 @@ const Assessment: React.FC<AssessmentProps> = () => {
     useEffect(() => {
         if (userAnswers.length === questions.length && questions.length > 0 && !isSubmitting) {
             const newScore = userAnswers.reduce((acc, answer, index) => {
-                const correctAnswer = questions[index]?.answer;
+                const question = questions[index];
+                if (!question) return acc;
+                
+                // Handle both string and integer correct answers
+                let correctAnswer = question.answer;
+                if (typeof question.correct_answer === 'number' && question.correct_answer >= 0) {
+                    // If correct_answer is an index, get the actual option text
+                    const options = question.options || [];
+                    if (question.correct_answer < options.length) {
+                        correctAnswer = options[question.correct_answer];
+                    }
+                }
+                
                 const isCorrect = correctAnswer && answer === correctAnswer;
                 return isCorrect ? acc + 1 : acc;
             }, 0);

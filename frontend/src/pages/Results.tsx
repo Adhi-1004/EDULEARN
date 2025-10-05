@@ -217,7 +217,17 @@ const Results: React.FC<ResultsProps> = ({ user }) => {
                                 <div className="space-y-6">
                                     {questions.map((question: Question, index: number) => {
                                         const userAnswer = userAnswers[index];
-                                        const correctAnswer = question.answer;
+                                        
+                                        // Handle both string and integer correct answers
+                                        let correctAnswer = question.answer;
+                                        if (typeof question.correct_answer === 'number' && question.correct_answer >= 0) {
+                                            // If correct_answer is an index, get the actual option text
+                                            const options = question.options || [];
+                                            if (question.correct_answer < options.length) {
+                                                correctAnswer = options[question.correct_answer];
+                                            }
+                                        }
+                                        
                                         const isCorrect = userAnswer === correctAnswer;
                                         const explanation = explanations.find(exp => exp.questionIndex === index);
                                         

@@ -1079,8 +1079,21 @@ async def submit_assessment(
         total_questions = len(questions)
         
         for i, question in enumerate(questions):
-            if i < len(submission.answers) and submission.answers[i] == question["correct_answer"]:
-                score += question.get("points", 1)
+            if i < len(submission.answers):
+                user_answer = submission.answers[i]
+                correct_answer_index = question.get("correct_answer", -1)
+                correct_answer = ""
+                
+                # Handle both string and integer correct answers
+                if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
+                    options = question.get("options", [])
+                    if correct_answer_index < len(options):
+                        correct_answer = options[correct_answer_index]
+                else:
+                    correct_answer = question.get("answer", "")
+                
+                if user_answer == correct_answer:
+                    score += question.get("points", 1)
         
         percentage = (score / sum(q.get("points", 1) for q in questions)) * 100 if questions else 0
         

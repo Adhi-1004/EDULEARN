@@ -1552,7 +1552,7 @@ Important: Return ONLY the JSON array, no other text or formatting."""
                     ["string", "int", "float", "boolean"],
                     ["2.5", "2", "3", "2.0"]
                 ]
-                answers = ["A", "B", "A", "A", "B"]
+                correct_answers = [0, 1, 0, 0, 1]  # Indices of correct answers
                 explanations = [
                     "Lists in Python are created using square brackets []",
                     "The 'def' keyword is used to define functions in Python",
@@ -1575,7 +1575,7 @@ Important: Return ONLY the JSON array, no other text or formatting."""
                     ["Essential tool", "Required instrument", "Necessary device", "Important equipment"],
                     ["Main difficulty", "Primary obstacle", "Key challenge", "Major hurdle"]
                 ]
-                answers = ["A", "B", "C", "A", "C"]
+                correct_answers = [0, 1, 2, 0, 2]  # Indices of correct answers
                 explanations = [
                     f"This represents a fundamental principle in {topic}",
                     f"This is a commonly used approach in {topic}",
@@ -1585,11 +1585,15 @@ Important: Return ONLY the JSON array, no other text or formatting."""
                 ]
             
             q_idx = i % len(questions)
+            correct_index = correct_answers[q_idx]
+            correct_answer_text = options_sets[q_idx][correct_index]
+            
             fallback_questions.append({
                 "id": f"q{i+1}",
                 "question": questions[q_idx],
                 "options": options_sets[q_idx],
-                "answer": answers[q_idx],
+                "answer": correct_answer_text,  # Actual option text
+                "correct_answer": correct_index,  # Index of correct answer
                 "explanation": explanations[q_idx],
                 "difficulty": difficulty,
                 "topic": topic

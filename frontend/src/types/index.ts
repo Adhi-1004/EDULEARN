@@ -14,6 +14,7 @@ export interface User {
     question: string;
     options: string[];
     answer: string;
+    correct_answer?: number; // Index of correct answer (0-based)
     explanation?: string;
   }
   
