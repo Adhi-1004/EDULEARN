@@ -13,7 +13,6 @@ import LoadingState from "./components/LoadingState"
 import ProtectedRoute from "./components/ProtectedRoute"
 import LandingPage from "./pages/LandingPage"
 import Dashboard from "./pages/Dashboard"
-import AssessConfig from "./pages/AssessConfig"
 import Assessment from "./pages/Assessment"
 import Results from "./pages/Results"
 import TestResultDetail from "./pages/TestResultDetail"
@@ -23,7 +22,7 @@ import UserProfile from "./pages/UserProfile"
 import Settings from "./pages/Settings"
 import CodingPlatform from "./pages/CodingPlatform"
 import CodingProblemPage from "./pages/CodingProblem"
-import AssessmentChoice from "./pages/AssessmentChoice"
+import UnifiedAssessment from "./pages/UnifiedAssessment"
 import TeacherDashboard from "./pages/TeacherDashboard"
 import EnhancedAdminDashboard from "./components/admin/EnhancedAdminDashboard"
 import TestPage from "./pages/TestPage"
@@ -99,7 +98,7 @@ const AppContent: React.FC = () => {
                   path="/assessconfig"
                   element={
                     <ProtectedRoute allowedRoles={["student"]}>
-                      <AssessConfig />
+                      <UnifiedAssessment />
                     </ProtectedRoute>
                   }
                 />
@@ -187,7 +186,15 @@ const AppContent: React.FC = () => {
                   path="/assessment-choice"
                   element={
                     <ProtectedRoute allowedRoles={["student"]}>
-                      {user && <AssessmentChoice user={user} />}
+                      <UnifiedAssessment />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/unified-assessment"
+                  element={
+                    <ProtectedRoute allowedRoles={["student"]}>
+                      <UnifiedAssessment />
                     </ProtectedRoute>
                   }
                 />

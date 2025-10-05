@@ -173,7 +173,7 @@ const Results: React.FC<ResultsProps> = ({ }) => {
                     variants={ANIMATION_VARIANTS.slideUp}
                     className="text-center mb-8 space-x-4"
                 >
-                    <Link to="/assessconfig">
+                    <Link to="/assessment-choice">
                         <Button variant="primary" size="lg">
                             Take Another Assessment
                         </Button>
