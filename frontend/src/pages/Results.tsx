@@ -5,21 +5,19 @@ import { User, Question } from "../types";
 import AnimatedBackground from "../components/AnimatedBackground";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import LoadingSpinner from "../components/ui/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
-import api from "../utils/api";
 import { ANIMATION_VARIANTS, TRANSITION_DEFAULTS } from "../utils/constants";
 
 interface ResultsProps {
-    user: User;
+  user: User
 }
 
 interface Explanation {
-    questionIndex: number;
-    explanation: string;
+  questionIndex: number
+  explanation: string
 }
 
-const Results: React.FC<ResultsProps> = ({ user }) => {
+const Results: React.FC<ResultsProps> = ({ }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { score, totalQuestions, topic, difficulty, questions, userAnswers, timeTaken, explanations: stateExplanations } = location.state || { 
@@ -30,7 +28,7 @@ const Results: React.FC<ResultsProps> = ({ user }) => {
         timeTaken: 0,
         explanations: []
     };
-    
+
     const [explanations, setExplanations] = useState<Explanation[]>(stateExplanations || []);
     const [showExplanations, setShowExplanations] = useState(false);
     
@@ -213,24 +211,24 @@ const Results: React.FC<ResultsProps> = ({ user }) => {
                                     </h3>
                                     {/* Explanations available instantly */}
                                 </div>
-                                
+
                                 <div className="space-y-6">
                                     {questions.map((question: Question, index: number) => {
                                         const userAnswer = userAnswers[index];
                                         
                                         // Handle both string and integer correct answers
                                         let correctAnswer = question.answer;
-                                        if (typeof question.correct_answer === 'number' && question.correct_answer >= 0) {
-                                            // If correct_answer is an index, get the actual option text
+                                        // Check if answer is a number (index) and convert to option text
+                                        if (typeof question.answer === 'number' && question.answer >= 0) {
                                             const options = question.options || [];
-                                            if (question.correct_answer < options.length) {
-                                                correctAnswer = options[question.correct_answer];
+                                            if (question.answer < options.length) {
+                                                correctAnswer = options[question.answer];
                                             }
                                         }
                                         
                                         const isCorrect = userAnswer === correctAnswer;
                                         const explanation = explanations.find(exp => exp.questionIndex === index);
-                                        
+
                                         return (
                                             <motion.div
                                                 key={index}
@@ -257,14 +255,14 @@ const Results: React.FC<ResultsProps> = ({ user }) => {
                                                         <span>{isCorrect ? 'Correct' : 'Incorrect'}</span>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Question Text */}
                                                 <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-4 mb-6">
                                                     <p className="text-purple-100 text-lg leading-relaxed">
                                                         {question.question}
                                                     </p>
                                                 </div>
-                                                
+
                                                 {/* Options */}
                                                 <div className="space-y-3 mb-6">
                                                     {question.options.map((option, optionIndex) => {
@@ -280,7 +278,7 @@ const Results: React.FC<ResultsProps> = ({ user }) => {
                                                         } else {
                                                             optionClasses += "bg-purple-900/20 border-purple-500/30 text-purple-200";
                                                         }
-                                                        
+
                                                         return (
                                                             <div key={optionIndex} className={optionClasses}>
                                                                 <div className="flex items-center justify-between">
@@ -355,4 +353,4 @@ const Results: React.FC<ResultsProps> = ({ user }) => {
     );
 };
 
-export default Results;
+export default Results

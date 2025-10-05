@@ -120,7 +120,7 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogou
             `}
           >
             <div className="py-2">
-              {menuItems.map((item, index) => (
+                      {menuItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}

@@ -1,83 +1,86 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { useToast } from "../contexts/ToastContext";
-import { useAuth } from "../hooks/useAuth";
-import Card from "../components/ui/Card";
-import Button from "../components/ui/Button";
-import Input from "../components/ui/Input";
-import AnimatedBackground from "../components/AnimatedBackground";
-import Leaderboard from "../components/Leaderboard";
-import CodingQuestionForm from "../components/CodingQuestionForm";
-import BatchPerformanceControl from "../components/teacher/BatchPerformanceControl";
-import AIStudentReports from "../components/teacher/AIStudentReports";
-import SmartAssessmentCreator from "../components/teacher/SmartAssessmentCreator";
-import api from "../utils/api";
-import { ANIMATION_VARIANTS } from "../utils/constants";
+"use client"
+
+import type React from "react"
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import { useToast } from "../contexts/ToastContext"
+import { useAuth } from "../hooks/useAuth"
+import Card from "../components/ui/Card"
+import Button from "../components/ui/Button"
+import Input from "../components/ui/Input"
+import AnimatedBackground from "../components/AnimatedBackground"
+import Leaderboard from "../components/Leaderboard"
+import CodingQuestionForm from "../components/CodingQuestionForm"
+import BatchPerformanceControl from "../components/teacher/BatchPerformanceControl"
+import AIStudentReports from "../components/teacher/AIStudentReports"
+import SmartAssessmentCreator from "../components/teacher/SmartAssessmentCreator"
+import api from "../utils/api"
+import { ANIMATION_VARIANTS } from "../utils/constants"
 
 interface Student {
-  id: string;
-  name: string;
-  email: string;
-  progress: number;
-  lastActive: string;
-  batch?: string;
-  batchId?: string;
+  id: string
+  name: string
+  email: string
+  progress: number
+  lastActive: string
+  batch?: string
+  batchId?: string
 }
 
 interface Batch {
-  id: string;
-  name: string;
-  studentCount: number;
-  createdAt: string;
+  id: string
+  name: string
+  studentCount: number
+  createdAt: string
 }
 
 const TeacherDashboard: React.FC = () => {
-  const { user } = useAuth();
-  const { success, error: showError } = useToast();
+  const { user } = useAuth()
+  const { success, error: showError } = useToast()
   
-  const [students, setStudents] = useState<Student[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedBatch, setSelectedBatch] = useState<string>("all");
-  const [newBatchName, setNewBatchName] = useState("");
-  const [showCreateBatch, setShowCreateBatch] = useState(false);
-  const [showAddStudent, setShowAddStudent] = useState<string | null>(null);
-  const [studentEmail, setStudentEmail] = useState("");
-  const [studentName, setStudentName] = useState("");
-  const [addingStudent, setAddingStudent] = useState(false);
-  const [showStudentManagement, setShowStudentManagement] = useState(false);
-  const [showBatchManagement, setShowBatchManagement] = useState(false);
-  const [showAssessmentCreation, setShowAssessmentCreation] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [showMCQForm, setShowMCQForm] = useState(false);
-  const [showChallengeForm, setShowChallengeForm] = useState(false);
-  const [showBatchPerformance, setShowBatchPerformance] = useState(false);
-  const [showAIReports, setShowAIReports] = useState(false);
-  const [showSmartAssessment, setShowSmartAssessment] = useState(false);
-  const [showAIGenerateForm, setShowAIGenerateForm] = useState(false);
-  const [assessmentTitle, setAssessmentTitle] = useState("");
-  const [assessmentTopic, setAssessmentTopic] = useState("");
-  const [assessmentDifficulty, setAssessmentDifficulty] = useState("medium");
-  const [questionCount, setQuestionCount] = useState(10);
-  const [creatingAssessment, setCreatingAssessment] = useState(false);
-  const [currentAssessment, setCurrentAssessment] = useState<any>(null);
-  const [showQuestionForm, setShowQuestionForm] = useState(false);
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [students, setStudents] = useState<Student[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedBatch, setSelectedBatch] = useState<string>("all")
+  const [newBatchName, setNewBatchName] = useState("")
+  const [showCreateBatch, setShowCreateBatch] = useState(false)
+  const [showAddStudent, setShowAddStudent] = useState<string | null>(null)
+  const [studentEmail, setStudentEmail] = useState("")
+  const [studentName, setStudentName] = useState("")
+  const [addingStudent, setAddingStudent] = useState(false)
+  const [showStudentManagement, setShowStudentManagement] = useState(false)
+  const [showBatchManagement, setShowBatchManagement] = useState(false)
+  const [showAssessmentCreation, setShowAssessmentCreation] = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  const [showMCQForm, setShowMCQForm] = useState(false)
+  const [showChallengeForm, setShowChallengeForm] = useState(false)
+  const [showBatchPerformance, setShowBatchPerformance] = useState(false)
+  const [showAIReports, setShowAIReports] = useState(false)
+  const [showSmartAssessment, setShowSmartAssessment] = useState(false)
+  const [showAIGenerateForm, setShowAIGenerateForm] = useState(false)
+  const [assessmentTitle, setAssessmentTitle] = useState("")
+  const [assessmentTopic, setAssessmentTopic] = useState("")
+  const [assessmentDifficulty, setAssessmentDifficulty] = useState("medium")
+  const [questionCount, setQuestionCount] = useState(10)
+  const [creatingAssessment, setCreatingAssessment] = useState(false)
+  const [currentAssessment, setCurrentAssessment] = useState<any>(null)
+  const [showQuestionForm, setShowQuestionForm] = useState(false)
+  const [questions, setQuestions] = useState<any[]>([])
   const [currentQuestion, setCurrentQuestion] = useState({
     question: "",
     options: ["", "", "", ""],
     correct_answer: 0,
     explanation: ""
-  });
-  const [showBatchAssignment, setShowBatchAssignment] = useState(false);
-  const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [selectedAssessmentForLeaderboard, setSelectedAssessmentForLeaderboard] = useState<string | null>(null);
-  const [showCodingQuestionForm, setShowCodingQuestionForm] = useState(false);
-  const [aiQuestionType, setAiQuestionType] = useState<'mcq' | 'coding' | 'both'>('mcq');
-  const [showAIGeneratedQuestions, setShowAIGeneratedQuestions] = useState(false);
-  const [aiGeneratedQuestions, setAiGeneratedQuestions] = useState<any[]>([]);
+  })
+  const [showBatchAssignment, setShowBatchAssignment] = useState(false)
+  const [selectedBatches, setSelectedBatches] = useState<string[]>([])
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [selectedAssessmentForLeaderboard, setSelectedAssessmentForLeaderboard] = useState<string | null>(null)
+  const [showCodingQuestionForm, setShowCodingQuestionForm] = useState(false)
+  const [aiQuestionType, setAiQuestionType] = useState<'mcq' | 'coding' | 'both'>('mcq')
+  const [showAIGeneratedQuestions, setShowAIGeneratedQuestions] = useState(false)
+  const [aiGeneratedQuestions, setAiGeneratedQuestions] = useState<any[]>([])
 
   // Early return if user is not available
   if (!user) {
@@ -88,32 +91,32 @@ const TeacherDashboard: React.FC = () => {
           <p className="text-purple-300">Please wait while we load your dashboard.</p>
         </div>
       </div>
-    );
+    )
   }
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    fetchDashboardData()
+  }, [])
 
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
+      setLoading(true)
       
-      console.log("📊 [TEACHER] Fetching dashboard data...");
+      console.log("📊 [TEACHER] Fetching dashboard data...")
       
       // Fetch students from API
-      const studentsResponse = await api.get("/api/teacher/students");
+      const studentsResponse = await api.get("/api/teacher/students")
       if (studentsResponse.data.success) {
-        console.log("🔍 [TEACHER] Raw students data:", studentsResponse.data.students);
-        setStudents(studentsResponse.data.students);
-        console.log("✅ [TEACHER] Students loaded:", studentsResponse.data.students.length);
+        console.log("🔍 [TEACHER] Raw students data:", studentsResponse.data.students)
+        setStudents(studentsResponse.data.students)
+        console.log("✅ [TEACHER] Students loaded:", studentsResponse.data.students.length)
       } else {
-        console.warn("⚠️ [TEACHER] No students data received");
-        setStudents([]);
+        console.warn("⚠️ [TEACHER] No students data received")
+        setStudents([])
       }
       
       // Fetch batches from API
-      const batchesResponse = await api.get("/api/teacher/batches");
+      const batchesResponse = await api.get("/api/teacher/batches")
       if (batchesResponse.data && Array.isArray(batchesResponse.data)) {
         // Add "All Students" option
         const allStudentsBatch = {
@@ -121,7 +124,7 @@ const TeacherDashboard: React.FC = () => {
           name: "All Students",
           studentCount: studentsResponse.data.students?.length || 0,
           createdAt: new Date().toISOString().split('T')[0]
-        };
+        }
         
         const formattedBatches = [
           allStudentsBatch,
@@ -131,217 +134,217 @@ const TeacherDashboard: React.FC = () => {
             studentCount: batch.total_students,
             createdAt: new Date().toISOString().split('T')[0]
           }))
-        ];
+        ]
         
-        setBatches(formattedBatches);
-        console.log("✅ [TEACHER] Batches loaded:", formattedBatches.length);
+        setBatches(formattedBatches)
+        console.log("✅ [TEACHER] Batches loaded:", formattedBatches.length)
       } else {
-        console.warn("⚠️ [TEACHER] No batches data received");
+        console.warn("⚠️ [TEACHER] No batches data received")
         setBatches([{
           id: "all",
           name: "All Students",
           studentCount: 0,
           createdAt: new Date().toISOString().split('T')[0]
-        }]);
+        }])
       }
       
     } catch (err) {
-      console.error("❌ [TEACHER] Failed to fetch dashboard data:", err);
-      showError("Error", "Failed to load dashboard data");
+      console.error("❌ [TEACHER] Failed to fetch dashboard data:", err)
+      showError("Error", "Failed to load dashboard data")
       
       // Fallback to empty data
-      setStudents([]);
+      setStudents([])
       setBatches([{
         id: "all",
         name: "All Students",
         studentCount: 0,
         createdAt: new Date().toISOString().split('T')[0]
-      }]);
+      }])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleCreateBatch = async () => {
     if (!newBatchName.trim()) {
-      showError("Error", "Please enter a batch name");
-      return;
+      showError("Error", "Please enter a batch name")
+      return
     }
-    
+
     try {
-      console.log("📝 [TEACHER] Creating batch:", newBatchName);
-      
+      console.log("📝 [TEACHER] Creating batch:", newBatchName)
+
       const response = await api.post("/api/teacher/batches", {
         name: newBatchName,
-        description: `Batch created by ${user?.name || 'Teacher'}`
-      });
-      
+        description: `Batch created by ${user?.name || "Teacher"}`,
+      })
+
       if (response.data.success) {
         const newBatch: Batch = {
           id: response.data.batch_id,
           name: newBatchName,
           studentCount: 0,
-          createdAt: new Date().toISOString().split('T')[0]
-        };
-        
-        setBatches(prev => [...prev, newBatch]);
-        setNewBatchName("");
-        setShowCreateBatch(false);
-        success("Success", `Batch "${newBatchName}" created successfully`);
-        console.log("✅ [TEACHER] Batch created successfully");
+          createdAt: new Date().toISOString().split("T")[0],
+        }
+
+        setBatches((prev) => [...prev, newBatch])
+        setNewBatchName("")
+        setShowCreateBatch(false)
+        success("Success", `Batch "${newBatchName}" created successfully`)
+        console.log("✅ [TEACHER] Batch created successfully")
       } else {
-        throw new Error(response.data.message || "Failed to create batch");
+        throw new Error(response.data.message || "Failed to create batch")
       }
     } catch (err: any) {
-      console.error("❌ [TEACHER] Failed to create batch:", err);
-      const errorMessage = err.response?.data?.detail || err.message || "Failed to create batch";
-      showError("Error", errorMessage);
+      console.error("❌ [TEACHER] Failed to create batch:", err)
+      const errorMessage = err.response?.data?.detail || err.message || "Failed to create batch"
+      showError("Error", errorMessage)
     }
-  };
+  }
 
   const handleAddStudentToBatch = async (batchId: string) => {
     if (!studentEmail.trim()) {
-      showError("Error", "Please enter student email");
-      return;
+      showError("Error", "Please enter student email")
+      return
     }
     
     try {
-      setAddingStudent(true);
-      console.log("👤 [TEACHER] Adding student to batch:", { email: studentEmail, batchId });
-      console.log("🔍 [TEACHER] Making API call to: /api/teacher/students/add");
+      setAddingStudent(true)
+      console.log("👤 [TEACHER] Adding student to batch:", { email: studentEmail, batchId })
+      console.log("🔍 [TEACHER] Making API call to: /api/teacher/students/add")
       console.log("🔍 [TEACHER] Request payload:", {
         email: studentEmail.trim(),
         name: studentName.trim() || null,
         batch_id: batchId
-      });
+      })
       
       const response = await api.post("/api/teacher/students/add", {
         email: studentEmail.trim(),
         name: studentName.trim() || null,
         batch_id: batchId
-      });
+      })
       
       if (response.data.success) {
-        success("Success", response.data.message);
-        setStudentEmail("");
-        setStudentName("");
-        setShowAddStudent(null);
+        success("Success", response.data.message)
+        setStudentEmail("")
+        setStudentName("")
+        setShowAddStudent(null)
         // Refresh the dashboard data
-        await fetchDashboardData();
-        console.log("✅ [TEACHER] Student added successfully");
+        await fetchDashboardData()
+        console.log("✅ [TEACHER] Student added successfully")
       } else {
-        throw new Error(response.data.message || "Failed to add student");
+        throw new Error(response.data.message || "Failed to add student")
       }
     } catch (err: any) {
-      console.error("❌ [TEACHER] Failed to add student to batch:", err);
-      const errorMessage = err.response?.data?.detail || err.message || "Failed to add student to batch";
-      showError("Error", errorMessage);
+      console.error("❌ [TEACHER] Failed to add student to batch:", err)
+      const errorMessage = err.response?.data?.detail || err.message || "Failed to add student to batch"
+      showError("Error", errorMessage)
     } finally {
-      setAddingStudent(false);
+      setAddingStudent(false)
     }
-  };
+  }
 
   const handleRemoveStudentFromBatch = async (studentId: string, batchId: string, studentName: string) => {
     if (!confirm(`Are you sure you want to remove ${studentName} from this batch?`)) {
-      return;
+      return
     }
     
     try {
-      console.log("👤 [TEACHER] Removing student from batch:", { studentId, batchId });
+      console.log("👤 [TEACHER] Removing student from batch:", { studentId, batchId })
       
       const response = await api.post("/api/teacher/students/remove", {
         student_id: studentId,
         batch_id: batchId
-      });
+      })
       
       if (response.data.success) {
-        success("Success", response.data.message);
+        success("Success", response.data.message)
         // Refresh the dashboard data
-        await fetchDashboardData();
-        console.log("✅ [TEACHER] Student removed successfully");
+        await fetchDashboardData()
+        console.log("✅ [TEACHER] Student removed successfully")
       } else {
-        throw new Error(response.data.message || "Failed to remove student");
+        throw new Error(response.data.message || "Failed to remove student")
       }
     } catch (err: any) {
-      console.error("❌ [TEACHER] Failed to remove student from batch:", err);
-      const errorMessage = err.response?.data?.detail || err.message || "Failed to remove student from batch";
-      showError("Error", errorMessage);
+      console.error("❌ [TEACHER] Failed to remove student from batch:", err)
+      const errorMessage = err.response?.data?.detail || err.message || "Failed to remove student from batch"
+      showError("Error", errorMessage)
     }
-  };
+  }
 
   const handleManageStudents = () => {
-    setShowStudentManagement(!showStudentManagement);
-    setShowBatchManagement(false);
-    setShowAssessmentCreation(false);
-  };
+    setShowStudentManagement(!showStudentManagement)
+    setShowBatchManagement(false)
+    setShowAssessmentCreation(false)
+  }
 
   const handleManageBatches = () => {
-    setShowBatchManagement(!showBatchManagement);
-    setShowStudentManagement(false);
-    setShowAssessmentCreation(false);
-  };
+    setShowBatchManagement(!showBatchManagement)
+    setShowStudentManagement(false)
+    setShowAssessmentCreation(false)
+  }
 
   const handleToggleAssessmentCreation = () => {
-    setShowAssessmentCreation(!showAssessmentCreation);
-    setShowStudentManagement(false);
-    setShowBatchManagement(false);
-  };
+    setShowAssessmentCreation(!showAssessmentCreation)
+    setShowStudentManagement(false)
+    setShowBatchManagement(false)
+  }
 
   const handleViewStudentDetails = (student: Student) => {
-    setSelectedStudent(student);
-  };
+    setSelectedStudent(student)
+  }
 
   const handleCloseStudentDetails = () => {
-    setSelectedStudent(null);
-  };
+    setSelectedStudent(null)
+  }
 
   const handleCreateMCQ = () => {
-    setShowMCQForm(true);
-    setShowChallengeForm(false);
-    setShowAIGenerateForm(false);
-  };
+    setShowMCQForm(true)
+    setShowChallengeForm(false)
+    setShowAIGenerateForm(false)
+  }
 
   const handleCreateChallenge = () => {
-    setShowChallengeForm(true);
-    setShowMCQForm(false);
-    setShowAIGenerateForm(false);
-  };
+    setShowChallengeForm(true)
+    setShowMCQForm(false)
+    setShowAIGenerateForm(false)
+  }
 
   const handleAIGenerate = () => {
-    setShowAIGenerateForm(true);
-    setShowMCQForm(false);
-    setShowChallengeForm(false);
-  };
+    setShowAIGenerateForm(true)
+    setShowMCQForm(false)
+    setShowChallengeForm(false)
+  }
 
-  const handleCreateAssessment = async (type: 'mcq' | 'challenge' | 'ai') => {
+  const handleCreateAssessment = async (type: "mcq" | "challenge" | "ai") => {
     if (!assessmentTitle.trim() || !assessmentTopic.trim()) {
-      showError("Error", "Please fill in all required fields");
-      return;
+      showError("Error", "Please fill in all required fields")
+      return
     }
 
     try {
-      setCreatingAssessment(true);
-      
-      console.log('🔍 [ASSESSMENT] Creating assessment with data:', {
+      setCreatingAssessment(true)
+
+      console.log("🔍 [ASSESSMENT] Creating assessment with data:", {
         title: assessmentTitle,
         topic: assessmentTopic,
         difficulty: assessmentDifficulty,
-        type: type
-      });
-      
-      console.log('🔍 [ASSESSMENT] User info:', user);
-      
+        type: type,
+      })
+
+      console.log("🔍 [ASSESSMENT] User info:", user)
+
       // Create assessment via API
-      const response = await api.post('/api/assessments/', {
+      const response = await api.post("/api/assessments/", {
         title: assessmentTitle,
         subject: assessmentTopic, // Backend expects 'subject' field
         difficulty: assessmentDifficulty,
         description: `AI-generated ${type} assessment on ${assessmentTopic}`,
-        time_limit: type === 'challenge' ? 60 : 30, // 60 minutes for coding, 30 for MCQ
+        time_limit: type === "challenge" ? 60 : 30, // 60 minutes for coding, 30 for MCQ
         max_attempts: 1,
-        type: type  // Send the assessment type to backend
-      });
-      
+        type: type, // Send the assessment type to backend
+      })
+
       if (response.data) {
         // Set up for question addition
         setCurrentAssessment({
@@ -350,62 +353,64 @@ const TeacherDashboard: React.FC = () => {
           topic: assessmentTopic,
           difficulty: assessmentDifficulty,
           type: type,
-          questionCount: questionCount
-        });
-        
-        success("Success", `${type.toUpperCase()} assessment "${assessmentTitle}" created successfully! Now add questions.`);
-        
+          questionCount: questionCount,
+        })
+
+        success(
+          "Success",
+          `${type.toUpperCase()} assessment "${assessmentTitle}" created successfully! Now add questions.`,
+        )
+
         // Reset form
-        setAssessmentTitle("");
-        setAssessmentTopic("");
-        setAssessmentDifficulty("medium");
-        setQuestionCount(10);
-        setShowMCQForm(false);
-        setShowChallengeForm(false);
-        setShowAIGenerateForm(false);
-        
+        setAssessmentTitle("")
+        setAssessmentTopic("")
+        setAssessmentDifficulty("medium")
+        setQuestionCount(10)
+        setShowMCQForm(false)
+        setShowChallengeForm(false)
+        setShowAIGenerateForm(false)
+
         // Handle different assessment types
-        if (type === 'challenge') {
+        if (type === "challenge") {
           // For coding challenges, go directly to coding question form
-          setShowCodingQuestionForm(true);
-        } else if (type === 'ai') {
+          setShowCodingQuestionForm(true)
+        } else if (type === "ai") {
           // For AI-generated assessments, generate questions automatically
-          await handleAIGenerateQuestions(response.data.id, aiQuestionType);
+          await handleAIGenerateQuestions(response.data.id, aiQuestionType)
         } else {
           // For MCQ assessments, show regular question form
-          setShowQuestionForm(true);
+          setShowQuestionForm(true)
         }
       }
-      
     } catch (err: any) {
-      console.error("❌ [ASSESSMENT] Failed to create assessment:", err);
-      console.error("❌ [ASSESSMENT] Error response:", err.response?.data);
-      console.error("❌ [ASSESSMENT] Error status:", err.response?.status);
-      console.error("❌ [ASSESSMENT] Error headers:", err.response?.headers);
-      
-      const errorMessage = err.response?.data?.detail || err.message || "Failed to create assessment. Please try again.";
-      showError("Error", errorMessage);
+      console.error("❌ [ASSESSMENT] Failed to create assessment:", err)
+      console.error("❌ [ASSESSMENT] Error response:", err.response?.data)
+      console.error("❌ [ASSESSMENT] Error status:", err.response?.status)
+      console.error("❌ [ASSESSMENT] Error headers:", err.response?.headers)
+
+      const errorMessage = err.response?.data?.detail || err.message || "Failed to create assessment. Please try again."
+      showError("Error", errorMessage)
     } finally {
-      setCreatingAssessment(false);
+      setCreatingAssessment(false)
     }
-  };
+  }
 
   const handleCloseAssessmentForm = () => {
-    setShowMCQForm(false);
-    setShowChallengeForm(false);
-    setShowAIGenerateForm(false);
-    setAssessmentTitle("");
-    setAssessmentTopic("");
-    setAssessmentDifficulty("medium");
-    setQuestionCount(10);
-  };
+    setShowMCQForm(false)
+    setShowChallengeForm(false)
+    setShowAIGenerateForm(false)
+    setAssessmentTitle("")
+    setAssessmentTopic("")
+    setAssessmentDifficulty("medium")
+    setQuestionCount(10)
+  }
 
   const handleAddQuestion = async () => {
-    if (!currentQuestion.question.trim() || currentQuestion.options.some(opt => !opt.trim())) {
-      showError("Error", "Please fill in the question and all options");
-      return;
+    if (!currentQuestion.question.trim() || currentQuestion.options.some((opt) => !opt.trim())) {
+      showError("Error", "Please fill in the question and all options")
+      return
     }
-    
+
     try {
       // Add question via API
       const response = await api.post(`/api/assessments/${currentAssessment.id}/questions`, {
@@ -413,104 +418,103 @@ const TeacherDashboard: React.FC = () => {
         options: currentQuestion.options,
         correct_answer: currentQuestion.correct_answer,
         explanation: currentQuestion.explanation,
-        points: 1
-      });
-      
+        points: 1,
+      })
+
       if (response.data) {
-        setQuestions([...questions, { ...currentQuestion, id: questions.length + 1 }]);
+        setQuestions([...questions, { ...currentQuestion, id: questions.length + 1 }])
         setCurrentQuestion({
           question: "",
           options: ["", "", "", ""],
           correct_answer: 0,
-          explanation: ""
-        });
-        success("Success", "Question added successfully!");
+          explanation: "",
+        })
+        success("Success", "Question added successfully!")
       }
     } catch (err: any) {
-      console.error("Failed to add question:", err);
-      showError("Error", "Failed to add question. Please try again.");
+      console.error("Failed to add question:", err)
+      showError("Error", "Failed to add question. Please try again.")
     }
-  };
+  }
 
   const handleSubmitAssessment = () => {
     if (questions.length === 0) {
-      showError("Error", "Please add at least one question");
-      return;
+      showError("Error", "Please add at least one question")
+      return
     }
-    setShowBatchAssignment(true);
-  };
+    setShowBatchAssignment(true)
+  }
 
   const handleAssignToBatches = async () => {
     if (selectedBatches.length === 0) {
-      showError("Error", "Please select at least one batch");
-      return;
+      showError("Error", "Please select at least one batch")
+      return
     }
-    
+
     try {
       // Assign assessment to batches
-      await api.post(`/api/assessments/${currentAssessment.id}/assign-batches`, selectedBatches);
-      
+      await api.post(`/api/assessments/${currentAssessment.id}/assign-batches`, selectedBatches)
+
       // Publish assessment
-      await api.post(`/api/assessments/${currentAssessment.id}/publish`);
-      
-      success("Success", `Assessment assigned to ${selectedBatches.length} batch(es) and published successfully!`);
-      
+      await api.post(`/api/assessments/${currentAssessment.id}/publish`)
+
+      success("Success", `Assessment assigned to ${selectedBatches.length} batch(es) and published successfully!`)
+
       // Reset everything
-      setShowQuestionForm(false);
-      setShowBatchAssignment(false);
-      setCurrentAssessment(null);
-      setQuestions([]);
-      setSelectedBatches([]);
-      
+      setShowQuestionForm(false)
+      setShowBatchAssignment(false)
+      setCurrentAssessment(null)
+      setQuestions([])
+      setSelectedBatches([])
     } catch (err: any) {
-      console.error("Failed to assign assessment:", err);
-      showError("Error", "Failed to assign assessment. Please try again.");
+      console.error("Failed to assign assessment:", err)
+      showError("Error", "Failed to assign assessment. Please try again.")
     }
-  };
+  }
 
   const handleAddCodingQuestion = () => {
     if (!currentAssessment) {
-      showError("Error", "No assessment selected");
-      return;
+      showError("Error", "No assessment selected")
+      return
     }
-    setShowCodingQuestionForm(true);
-  };
+    setShowCodingQuestionForm(true)
+  }
 
   const handleCodingQuestionAdded = () => {
-    setShowCodingQuestionForm(false);
+    setShowCodingQuestionForm(false)
     // Show success message and allow adding more questions or submitting
-    success("Success", "Coding question added successfully! You can add more questions or submit the assessment.");
-  };
+    success("Success", "Coding question added successfully! You can add more questions or submit the assessment.")
+  }
 
   const fetchAIGeneratedQuestions = async (assessmentId: string) => {
     try {
-      const response = await api.get(`/api/assessments/${assessmentId}/details`);
+      const response = await api.get(`/api/assessments/${assessmentId}/details`)
       if (response.data && response.data.questions) {
-        setAiGeneratedQuestions(response.data.questions);
+        setAiGeneratedQuestions(response.data.questions)
       }
     } catch (err: any) {
-      console.error("Failed to fetch AI generated questions:", err);
+      console.error("Failed to fetch AI generated questions:", err)
     }
-  };
+  }
 
   const handlePostTest = () => {
     if (!currentAssessment) {
-      showError("Error", "No assessment selected");
-      return;
+      showError("Error", "No assessment selected")
+      return
     }
-    setShowAIGeneratedQuestions(false);
-    setShowBatchAssignment(true);
-  };
+    setShowAIGeneratedQuestions(false)
+    setShowBatchAssignment(true)
+  }
 
-  const handleAIGenerateQuestions = async (assessmentId: string, questionType: 'mcq' | 'coding' | 'both') => {
+  const handleAIGenerateQuestions = async (assessmentId: string, questionType: "mcq" | "coding" | "both") => {
     try {
-      setCreatingAssessment(true);
-      
-      console.log('🤖 [AI GENERATION] Generating questions for assessment:', assessmentId);
-      console.log('🤖 [AI GENERATION] Question type:', questionType);
-      console.log('🤖 [AI GENERATION] Topic:', assessmentTopic);
-      console.log('🤖 [AI GENERATION] Difficulty:', assessmentDifficulty);
-      console.log('🤖 [AI GENERATION] Question count:', questionCount);
+      setCreatingAssessment(true)
+
+      console.log("🤖 [AI GENERATION] Generating questions for assessment:", assessmentId)
+      console.log("🤖 [AI GENERATION] Question type:", questionType)
+      console.log("🤖 [AI GENERATION] Topic:", assessmentTopic)
+      console.log("🤖 [AI GENERATION] Difficulty:", assessmentDifficulty)
+      console.log("🤖 [AI GENERATION] Question count:", questionCount)
 
       // Call AI generation endpoint
       const response = await api.post(`/api/assessments/${assessmentId}/ai-generate-questions`, {
@@ -518,34 +522,33 @@ const TeacherDashboard: React.FC = () => {
         topic: assessmentTopic,
         difficulty: assessmentDifficulty,
         question_count: questionCount,
-        title: assessmentTitle
-      });
+        title: assessmentTitle,
+      })
 
       if (response.data) {
-        success("Success", `AI generated ${response.data.generated_count} questions successfully!`);
-        
+        success("Success", `AI generated ${response.data.generated_count} questions successfully!`)
+
         // Fetch the generated questions to show for review
-        await fetchAIGeneratedQuestions(assessmentId);
-        
+        await fetchAIGeneratedQuestions(assessmentId)
+
         // Show the generated questions for review
-        setShowAIGeneratedQuestions(true);
+        setShowAIGeneratedQuestions(true)
         setCurrentAssessment({
           id: assessmentId,
           title: assessmentTitle,
           topic: assessmentTopic,
           difficulty: assessmentDifficulty,
-          type: 'ai',
-          questionCount: response.data.generated_count
-        });
+          type: "ai",
+          questionCount: response.data.generated_count,
+        })
       }
     } catch (err: any) {
-      console.error("❌ [AI GENERATION] Failed to generate questions:", err);
-      showError("Error", "Failed to generate questions. Please try again.");
+      console.error("❌ [AI GENERATION] Failed to generate questions:", err)
+      showError("Error", "Failed to generate questions. Please try again.")
     } finally {
-      setCreatingAssessment(false);
+      setCreatingAssessment(false)
     }
-  };
-
+  }
 
   const filteredStudents = students.filter(student => {
     const studentName = student.name || '';
@@ -607,7 +610,12 @@ const TeacherDashboard: React.FC = () => {
                   <div className="flex items-center mb-4">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center mr-4">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                        />
                       </svg>
                     </div>
                     <h3 className="text-xl font-semibold text-purple-200">Student Management</h3>
@@ -630,7 +638,12 @@ const TeacherDashboard: React.FC = () => {
                   <div className="flex items-center mb-4">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mr-4">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                        />
                       </svg>
                     </div>
                     <h3 className="text-xl font-semibold text-purple-200">Batch Management</h3>
@@ -653,7 +666,12 @@ const TeacherDashboard: React.FC = () => {
                   <div className="flex items-center mb-4">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-r from-green-500 to-teal-500 flex items-center justify-center mr-4">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                        />
                       </svg>
                     </div>
                     <h3 className="text-xl font-semibold text-purple-200">Assessment Creation</h3>
@@ -684,7 +702,12 @@ const TeacherDashboard: React.FC = () => {
                   <div className="flex items-center mb-4">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mr-4">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                        />
                       </svg>
                     </div>
                     <h3 className="text-xl font-semibold text-purple-200">Batch Performance</h3>
@@ -707,7 +730,12 @@ const TeacherDashboard: React.FC = () => {
                   <div className="flex items-center mb-4">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mr-4">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                        />
                       </svg>
                     </div>
                     <h3 className="text-xl font-semibold text-purple-200">AI Student Reports</h3>
@@ -730,7 +758,12 @@ const TeacherDashboard: React.FC = () => {
                   <div className="flex items-center mb-4">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center mr-4">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
                       </svg>
                     </div>
                     <h3 className="text-xl font-semibold text-purple-200">Smart Assessment Creator</h3>
@@ -779,21 +812,18 @@ const TeacherDashboard: React.FC = () => {
                 exit={{ opacity: 0, height: 0 }}
                 className="mb-8"
               >
-                <SmartAssessmentCreator 
-                  teacherId={user?.id || user?._id || ""} 
+                <SmartAssessmentCreator
+                  teacherId={user?.id || user?._id || ""}
                   onAssessmentCreated={(assessment) => {
-                    console.log("Assessment created:", assessment);
-                    setShowSmartAssessment(false);
+                    console.log("Assessment created:", assessment)
+                    setShowSmartAssessment(false)
                   }}
                 />
               </motion.div>
             )}
 
             {/* Batch Management Section */}
-            <motion.div
-              variants={ANIMATION_VARIANTS.slideUp}
-              className="mb-8"
-            >
+            <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
               <Card className="p-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
                   <h2 className="text-2xl font-bold text-purple-200 mb-4 md:mb-0">
@@ -858,19 +888,19 @@ const TeacherDashboard: React.FC = () => {
                           Created: {new Date(batch.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      
+
                       {/* Add Student Button */}
                       <div className="mt-3">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => setShowAddStudent(showAddStudent === batch.id ? null : batch.id)}
                           className="w-full"
                         >
                           {showAddStudent === batch.id ? "Cancel" : "Add Student"}
                         </Button>
                       </div>
-                      
+
                       {/* Add Student Form */}
                       {showAddStudent === batch.id && (
                         <div className="mt-4 p-3 bg-purple-900/20 rounded-lg border border-purple-500/30">
@@ -922,10 +952,7 @@ const TeacherDashboard: React.FC = () => {
             </motion.div>
 
             {/* Student Management Section */}
-            <motion.div
-              variants={ANIMATION_VARIANTS.slideUp}
-              className="mb-8"
-            >
+            <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
               <Card className="p-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
                   <h2 className="text-2xl font-bold text-purple-200 mb-4 md:mb-0">
@@ -995,9 +1022,9 @@ const TeacherDashboard: React.FC = () => {
                               </Button>
                               {student.batch && student.batchId && (
                                 <Button 
-                                  variant="destructive" 
+                                  variant="outline" 
                                   size="sm"
-                                  onClick={() => handleRemoveStudentFromBatch(student.id, student.batchId, student.name)}
+                                  onClick={() => student.batchId && handleRemoveStudentFromBatch(student.id, student.batchId, student.name)}
                                 >
                                   Remove
                                 </Button>
@@ -1008,7 +1035,7 @@ const TeacherDashboard: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
-                  
+
                   {filteredStudents.length === 0 && (
                     <div className="text-center py-8 text-purple-300">
                       No students found matching your criteria.
@@ -1210,7 +1237,7 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="mt-6 flex space-x-3">
                     <Button variant="primary" size="sm">
                       View Full Profile
@@ -1314,7 +1341,7 @@ const TeacherDashboard: React.FC = () => {
                         />
                       </div>
                     </div>
-                    
+
                     {showAIGenerateForm && (
                       <div className="space-y-4">
                         {/* Question Type Selection */}
@@ -1383,7 +1410,7 @@ const TeacherDashboard: React.FC = () => {
                         </div>
                       </div>
                     )}
-                    
+
                     {showChallengeForm && (
                       <div className="p-4 bg-green-900/20 rounded-lg border border-green-500/30">
                         <h3 className="text-lg font-semibold text-green-200 mb-2">Coding Challenge Features</h3>
@@ -1408,7 +1435,7 @@ const TeacherDashboard: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="mt-6 flex space-x-3">
                     <Button 
                       variant="primary" 
@@ -1479,10 +1506,10 @@ const TeacherDashboard: React.FC = () => {
                       Close
                     </Button>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Question Form - Only show for MCQ and AI assessments */}
-                    {currentAssessment.type !== 'challenge' && (
+                    {currentAssessment.type !== "challenge" && (
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-purple-200">Add New Question</h3>
                         
@@ -1547,9 +1574,9 @@ const TeacherDashboard: React.FC = () => {
                         </Button>
                       </div>
                     )}
-                    
+
                     {/* Questions List - Only show for MCQ and AI assessments */}
-                    {currentAssessment.type !== 'challenge' && (
+                    {currentAssessment.type !== "challenge" && (
                       <div className="space-y-4">
                       <h3 className="text-lg font-semibold text-purple-200">Added Questions ({questions.length})</h3>
                       
@@ -1583,9 +1610,9 @@ const TeacherDashboard: React.FC = () => {
                         )}
                       </div>
                     )}
-                    
+
                     {/* Coding Challenge Section - Only show for coding challenges */}
-                    {currentAssessment?.type === 'challenge' && (
+                    {currentAssessment?.type === "challenge" && (
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-purple-200">Coding Challenge Questions</h3>
                         <p className="text-purple-300">Add coding questions with problem statements, test cases, and constraints.</p>
@@ -1698,8 +1725,8 @@ const TeacherDashboard: React.FC = () => {
               <Leaderboard
                 assessmentId={selectedAssessmentForLeaderboard || "demo-assessment"}
                 onClose={() => {
-                  setShowLeaderboard(false);
-                  setSelectedAssessmentForLeaderboard(null);
+                  setShowLeaderboard(false)
+                  setSelectedAssessmentForLeaderboard(null)
                 }}
               />
             )}
@@ -1891,7 +1918,7 @@ const TeacherDashboard: React.FC = () => {
         </motion.div>
       </div>
     </>
-  );
-};
+  )
+}
 
-export default TeacherDashboard;
+export default TeacherDashboard

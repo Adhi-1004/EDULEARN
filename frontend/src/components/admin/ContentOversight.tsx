@@ -7,7 +7,6 @@ import { motion } from 'framer-motion';
 import { 
   BookOpen, 
   Search, 
-  Filter, 
   CheckCircle, 
   XCircle, 
   Clock, 
@@ -206,26 +205,35 @@ const ContentOversight: React.FC = () => {
     }
   };
 
-  const filteredContent = activeTab === 'library' 
-    ? (content || []).filter(item => {
-        const title = item.title || '';
-        const creator = item.creator || '';
-        return title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               creator.toLowerCase().includes(searchTerm.toLowerCase());
-      })
-    : activeTab === 'curation'
-    ? (curation || []).filter(item => {
-        const title = item.title || '';
-        const creator = item.creator || '';
-        return title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               creator.toLowerCase().includes(searchTerm.toLowerCase());
-      })
-    : (aiQuestions || []).filter(item => {
-        const question = item.question || '';
-        const topic = item.topic || '';
-        return question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               topic.toLowerCase().includes(searchTerm.toLowerCase());
-      });
+  const getDifficultyValue = (item: ContentItem | ContentCuration | AIQuestion) => {
+    if ('difficulty' in item) {
+      return item.difficulty;
+    } else if ('difficulty_level' in item) {
+      return item.difficulty_level;
+    }
+    return '';
+  };
+
+  const filteredLibraryContent = (content || []).filter(item => {
+    const title = item.title || '';
+    const creator = item.creator || '';
+    return title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           creator.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const filteredCurationContent = (curation || []).filter(item => {
+    const title = item.title || '';
+    const creator = item.creator || '';
+    return title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           creator.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const filteredAIQuestions = (aiQuestions || []).filter(item => {
+    const question = item.question || '';
+    const topic = item.topic || '';
+    return question.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           topic.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   if (loading) {
     return (
@@ -352,7 +360,7 @@ const ContentOversight: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredContent.map((item) => (
+                  {filteredLibraryContent.map((item) => (
                     <motion.tr
                       key={item.id}
                       initial={{ opacity: 0, y: 20 }}
@@ -381,8 +389,8 @@ const ContentOversight: React.FC = () => {
                       </td>
                       
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${getDifficultyColor(item.difficulty)}`}>
-                          {item.difficulty}
+                        <span className={`text-sm font-medium ${getDifficultyColor(getDifficultyValue(item))}`}>
+                          {getDifficultyValue(item)}
                         </span>
                       </td>
                       
@@ -471,7 +479,7 @@ const ContentOversight: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredContent.map((item) => (
+                  {filteredCurationContent.map((item) => (
                     <motion.tr
                       key={item.content_id}
                       initial={{ opacity: 0, y: 20 }}
@@ -511,8 +519,8 @@ const ContentOversight: React.FC = () => {
                       </td>
                       
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${getDifficultyColor(item.difficulty_level)}`}>
-                          {item.difficulty_level}
+                        <span className={`text-sm font-medium ${getDifficultyColor(getDifficultyValue(item))}`}>
+                          {getDifficultyValue(item)}
                         </span>
                       </td>
                       
@@ -529,7 +537,7 @@ const ContentOversight: React.FC = () => {
                             <>
                               <button
                                 onClick={() => {
-                                  setSelectedContent(item);
+                                  setSelectedContent(item as ContentCuration);
                                   setShowReviewModal(true);
                                 }}
                                 className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
@@ -539,7 +547,7 @@ const ContentOversight: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => {
-                                  setSelectedContent(item);
+                                  setSelectedContent(item as ContentCuration);
                                   setShowReviewModal(true);
                                 }}
                                 className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
@@ -605,7 +613,7 @@ const ContentOversight: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredContent.map((question) => (
+                  {filteredAIQuestions.map((question) => (
                     <motion.tr
                       key={question.id}
                       initial={{ opacity: 0, y: 20 }}
@@ -628,8 +636,8 @@ const ContentOversight: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getDifficultyColor(question.difficulty)}`}>
-                          {question.difficulty}
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getDifficultyColor(getDifficultyValue(question))}`}>
+                          {getDifficultyValue(question)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

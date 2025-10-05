@@ -1,223 +1,219 @@
+"use client"
+
 /**
  * Enhanced User Management Component
  * Comprehensive user CRUD operations and analytics
  */
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  Users, 
-  UserPlus, 
-  Search, 
-  Filter, 
-  Download, 
-  Upload, 
-  Edit, 
-  Trash2, 
-  Eye,
-  TrendingUp,
-  Award,
-  Clock
-} from 'lucide-react';
-import { useToast } from '../../contexts/ToastContext';
-import api from '../../utils/api';
+import type React from "react"
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import { UserPlus, Search, Download, Upload, Edit, Trash2, Eye, TrendingUp, Award } from "lucide-react"
+import { useToast } from "../../contexts/ToastContext"
+import api from "../../utils/api"
 
 interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  last_login?: string;
-  total_logins: number;
-  activity_score: number;
-  progress_percentage: number;
-  assessments_taken: number;
-  average_score: number;
-  badges_earned: number;
-  streak_days: number;
+  id: string
+  name: string
+  email: string
+  role: string
+  last_login?: string
+  total_logins: number
+  activity_score: number
+  progress_percentage: number
+  assessments_taken: number
+  average_score: number
+  badges_earned: number
+  streak_days: number
 }
 
 interface UserDetails {
   user: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    created_at: string;
-    last_login?: string;
-    is_active: boolean;
-  };
-  analytics: User;
-  recent_activity: any[];
-  assessment_history: any[];
-  badges: any[];
+    id: string
+    name: string
+    email: string
+    role: string
+    created_at: string
+    last_login?: string
+    is_active: boolean
+  }
+  analytics: User
+  recent_activity: any[]
+  assessment_history: any[]
+  badges: any[]
 }
 
 const UserManagement: React.FC = () => {
-  const { success, error } = useToast();
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedUser, setSelectedUser] = useState<UserDetails | null>(null);
-  const [showUserDetails, setShowUserDetails] = useState(false);
-  const [showCreateUser, setShowCreateUser] = useState(false);
-  const [showBulkImport, setShowBulkImport] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
-  const [sortBy, setSortBy] = useState('activity_score');
-  const [sortOrder, setSortOrder] = useState('desc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const { success, error } = useToast()
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedUser, setSelectedUser] = useState<UserDetails | null>(null)
+  const [showUserDetails, setShowUserDetails] = useState(false)
+  const [showCreateUser, setShowCreateUser] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [roleFilter, setRoleFilter] = useState("")
+  const [sortBy, setSortBy] = useState("activity_score")
+  const [sortOrder, setSortOrder] = useState("desc")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
 
-  const itemsPerPage = 20;
+  const itemsPerPage = 20
 
   // Fetch users
   const fetchUsers = async () => {
     try {
-      setLoading(true);
-      const response = await api.get('/admin/users/analytics', {
+      setLoading(true)
+      const response = await api.get("/admin/users/analytics", {
         params: {
           limit: itemsPerPage,
           offset: (currentPage - 1) * itemsPerPage,
           role: roleFilter || undefined,
           sort_by: sortBy,
-          order: sortOrder
-        }
-      });
-      
-      setUsers(response.data);
-      setTotalPages(Math.ceil(response.data.length / itemsPerPage));
+          order: sortOrder,
+        },
+      })
+
+      setUsers(response.data)
+      setTotalPages(Math.ceil(response.data.length / itemsPerPage))
     } catch (err: any) {
-      error('Failed to fetch users', err.response?.data?.detail || 'Unknown error');
+      error("Failed to fetch users", err.response?.data?.detail || "Unknown error")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // Fetch user details
   const fetchUserDetails = async (userId: string) => {
     try {
-      const response = await api.get(`/admin/users/${userId}/details`);
-      setSelectedUser(response.data);
-      setShowUserDetails(true);
+      const response = await api.get(`/admin/users/${userId}/details`)
+      setSelectedUser(response.data)
+      setShowUserDetails(true)
     } catch (err: any) {
-      error('Failed to fetch user details', err.response?.data?.detail || 'Unknown error');
+      error("Failed to fetch user details", err.response?.data?.detail || "Unknown error")
     }
-  };
+  }
 
   // Create user
   const createUser = async (userData: any) => {
     try {
-      await api.post('/admin/users', userData);
-      success('User created successfully', 'The new user has been added to the platform');
-      setShowCreateUser(false);
-      fetchUsers();
+      await api.post("/admin/users", userData)
+      success("User created successfully", "The new user has been added to the platform")
+      setShowCreateUser(false)
+      fetchUsers()
     } catch (err: any) {
-      error('Failed to create user', err.response?.data?.detail || 'Unknown error');
+      error("Failed to create user", err.response?.data?.detail || "Unknown error")
     }
-  };
+  }
 
   // Update user
   const updateUser = async (userId: string, userData: any) => {
     try {
-      await api.put(`/admin/users/${userId}`, userData);
-      success('User updated successfully', 'The user information has been updated');
-      fetchUsers();
+      await api.put(`/admin/users/${userId}`, userData)
+      success("User updated successfully", "The user information has been updated")
+      fetchUsers()
     } catch (err: any) {
-      error('Failed to update user', err.response?.data?.detail || 'Unknown error');
+      error("Failed to update user", err.response?.data?.detail || "Unknown error")
     }
-  };
+  }
 
   // Delete user
   const deleteUser = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
-    
+    if (!window.confirm("Are you sure you want to delete this user?")) return
+
     try {
-      await api.delete(`/admin/users/${userId}`);
-      success('User deleted successfully', 'The user has been removed from the platform');
-      fetchUsers();
+      await api.delete(`/admin/users/${userId}`)
+      success("User deleted successfully", "The user has been removed from the platform")
+      fetchUsers()
     } catch (err: any) {
-      error('Failed to delete user', err.response?.data?.detail || 'Unknown error');
+      error("Failed to delete user", err.response?.data?.detail || "Unknown error")
     }
-  };
+  }
 
   // Export users
-  const exportUsers = async (format: 'csv' | 'json') => {
+  const exportUsers = async (format: "csv" | "json") => {
     try {
-      const response = await api.get('/admin/users/export', {
-        params: { format, role: roleFilter || undefined }
-      });
-      
-      if (format === 'csv') {
-        const blob = new Blob([response.data.content], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+      const response = await api.get("/admin/users/export", {
+        params: { format, role: roleFilter || undefined },
+      })
+
+      if (format === "csv") {
+        const blob = new Blob([response.data.content], { type: "text/csv" })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `users_export_${new Date().toISOString().split("T")[0]}.csv`
+        a.click()
+        window.URL.revokeObjectURL(url)
       } else {
-        const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `users_export_${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+        const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: "application/json" })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `users_export_${new Date().toISOString().split("T")[0]}.json`
+        a.click()
+        window.URL.revokeObjectURL(url)
       }
-      
-      success('Export successful', 'Users have been exported successfully');
+
+      success("Export successful", "Users have been exported successfully")
     } catch (err: any) {
-      error('Failed to export users', err.response?.data?.detail || 'Unknown error');
+      error("Failed to export users", err.response?.data?.detail || "Unknown error")
     }
-  };
+  }
 
   // Bulk import users
   const handleBulkImport = async (file: File) => {
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await api.post('/admin/users/bulk-import', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await api.post("/admin/users/bulk-import", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+
       success(
-        'Bulk import completed', 
-        `Successfully imported ${response.data.success_count} users. ${response.data.error_count} errors occurred.`
-      );
-      
-      setShowBulkImport(false);
-      fetchUsers();
+        "Bulk import completed",
+        `Successfully imported ${response.data.success_count} users. ${response.data.error_count} errors occurred.`,
+      )
+
+      setShowBulkImport(false)
+      fetchUsers()
     } catch (err: any) {
-      error('Failed to import users', err.response?.data?.detail || 'Unknown error');
+      error("Failed to import users", err.response?.data?.detail || "Unknown error")
     }
-  };
+  }
 
   useEffect(() => {
-    fetchUsers();
-  }, [currentPage, roleFilter, sortBy, sortOrder]);
+    fetchUsers()
+  }, [currentPage, roleFilter, sortBy, sortOrder])
 
-  const filteredUsers = users.filter(user => {
-    const userName = user.name || '';
-    const userEmail = user.email || '';
-    
-    return userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           userEmail.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filteredUsers = users.filter((user) => {
+    const userName = user.name || ""
+    const userEmail = user.email || ""
+
+    return (
+      userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      userEmail.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  })
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      case 'teacher': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'student': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+      case "admin":
+        return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"
+      case "teacher":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
+      case "student":
+        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
     }
-  };
+  }
 
   const getActivityColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 dark:text-green-400';
-    if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
-  };
+    if (score >= 80) return "text-green-600 dark:text-green-400"
+    if (score >= 60) return "text-yellow-600 dark:text-yellow-400"
+    return "text-red-600 dark:text-red-400"
+  }
 
   return (
     <div className="space-y-6">
@@ -227,7 +223,7 @@ const UserManagement: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">User Management</h2>
           <p className="text-gray-600 dark:text-gray-400">Manage users, roles, and permissions</p>
         </div>
-        
+
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setShowCreateUser(true)}
@@ -236,7 +232,7 @@ const UserManagement: React.FC = () => {
             <UserPlus className="h-4 w-4" />
             Add User
           </button>
-          
+
           <button
             onClick={() => setShowBulkImport(true)}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -244,17 +240,17 @@ const UserManagement: React.FC = () => {
             <Upload className="h-4 w-4" />
             Import CSV
           </button>
-          
+
           <div className="flex gap-1">
             <button
-              onClick={() => exportUsers('csv')}
+              onClick={() => exportUsers("csv")}
               className="flex items-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               <Download className="h-4 w-4" />
               CSV
             </button>
             <button
-              onClick={() => exportUsers('json')}
+              onClick={() => exportUsers("json")}
               className="flex items-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               <Download className="h-4 w-4" />
@@ -278,7 +274,7 @@ const UserManagement: React.FC = () => {
             />
           </div>
         </div>
-        
+
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
@@ -289,7 +285,7 @@ const UserManagement: React.FC = () => {
           <option value="teacher">Teacher</option>
           <option value="student">Student</option>
         </select>
-        
+
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
@@ -300,12 +296,12 @@ const UserManagement: React.FC = () => {
           <option value="average_score">Average Score</option>
           <option value="last_login">Last Login</option>
         </select>
-        
+
         <button
-          onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+          onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
           className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         >
-          {sortOrder === 'desc' ? '↓' : '↑'}
+          {sortOrder === "desc" ? "↓" : "↑"}
         </button>
       </div>
 
@@ -352,27 +348,30 @@ const UserManagement: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                            {(user.name || 'U').charAt(0).toUpperCase()}
+                          <div
+                            className="h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold"
+                            style={{ background: "linear-gradient(90deg, var(--primary), var(--accent))" }}
+                          >
+                            {(user.name || "U").charAt(0).toUpperCase()}
                           </div>
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {user.name || 'Unknown'}
+                            {user.name || "Unknown"}
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {user.email || 'No email'}
-                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{user.email || "No email"}</div>
                         </div>
                       </div>
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role || '')}`}>
-                        {(user.role || 'Unknown').charAt(0).toUpperCase() + (user.role || 'Unknown').slice(1)}
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role || "")}`}
+                      >
+                        {(user.role || "Unknown").charAt(0).toUpperCase() + (user.role || "Unknown").slice(1)}
                       </span>
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <TrendingUp className="h-4 w-4 text-gray-400 mr-2" />
@@ -380,15 +379,13 @@ const UserManagement: React.FC = () => {
                           {(user.activity_score || 0).toFixed(1)}
                         </span>
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {user.total_logins || 0} logins
-                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{user.total_logins || 0} logins</div>
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
-                          <div 
+                          <div
                             className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                             style={{ width: `${Math.min(user.progress_percentage || 0, 100)}%` }}
                           ></div>
@@ -398,7 +395,7 @@ const UserManagement: React.FC = () => {
                         </span>
                       </div>
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900 dark:text-white">
                         {user.assessments_taken || 0} assessments
@@ -411,7 +408,7 @@ const UserManagement: React.FC = () => {
                         {user.badges_earned || 0} badges
                       </div>
                     </td>
-                    
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         <button
@@ -422,7 +419,9 @@ const UserManagement: React.FC = () => {
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => {/* Implement edit */}}
+                          onClick={() => {
+                            /* Implement edit */
+                          }}
                           className="text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300"
                           title="Edit User"
                         >
@@ -455,11 +454,11 @@ const UserManagement: React.FC = () => {
           >
             Previous
           </button>
-          
+
           <span className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
             Page {currentPage} of {totalPages}
           </span>
-          
+
           <button
             onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
@@ -476,7 +475,7 @@ const UserManagement: React.FC = () => {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                User Details: {selectedUser.user.name || 'Unknown'}
+                User Details: {selectedUser.user.name || "Unknown"}
               </h3>
               <button
                 onClick={() => setShowUserDetails(false)}
@@ -485,29 +484,60 @@ const UserManagement: React.FC = () => {
                 ✕
               </button>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-white mb-2">Basic Information</h4>
                 <div className="space-y-2 text-sm">
-                  <div><span className="font-medium">Name:</span> {selectedUser.user.name || 'Unknown'}</div>
-                  <div><span className="font-medium">Email:</span> {selectedUser.user.email || 'No email'}</div>
-                  <div><span className="font-medium">Role:</span> {selectedUser.user.role || 'Unknown'}</div>
-                  <div><span className="font-medium">Created:</span> {selectedUser.user.created_at ? new Date(selectedUser.user.created_at).toLocaleDateString() : 'Unknown'}</div>
-                  <div><span className="font-medium">Last Login:</span> {selectedUser.user.last_login ? new Date(selectedUser.user.last_login).toLocaleDateString() : 'Never'}</div>
+                  <div>
+                    <span className="font-medium">Name:</span> {selectedUser.user.name || "Unknown"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Email:</span> {selectedUser.user.email || "No email"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Role:</span> {selectedUser.user.role || "Unknown"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Created:</span>{" "}
+                    {selectedUser.user.created_at
+                      ? new Date(selectedUser.user.created_at).toLocaleDateString()
+                      : "Unknown"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Last Login:</span>{" "}
+                    {selectedUser.user.last_login
+                      ? new Date(selectedUser.user.last_login).toLocaleDateString()
+                      : "Never"}
+                  </div>
                 </div>
               </div>
-              
+
               {selectedUser.analytics && (
                 <div>
                   <h4 className="font-medium text-gray-900 dark:text-white mb-2">Analytics</h4>
                   <div className="space-y-2 text-sm">
-                    <div><span className="font-medium">Activity Score:</span> {(selectedUser.analytics.activity_score || 0).toFixed(1)}</div>
-                    <div><span className="font-medium">Progress:</span> {(selectedUser.analytics.progress_percentage || 0).toFixed(1)}%</div>
-                    <div><span className="font-medium">Assessments:</span> {selectedUser.analytics.assessments_taken || 0}</div>
-                    <div><span className="font-medium">Average Score:</span> {(selectedUser.analytics.average_score || 0).toFixed(1)}%</div>
-                    <div><span className="font-medium">Badges:</span> {selectedUser.analytics.badges_earned || 0}</div>
-                    <div><span className="font-medium">Streak:</span> {selectedUser.analytics.streak_days || 0} days</div>
+                    <div>
+                      <span className="font-medium">Activity Score:</span>{" "}
+                      {(selectedUser.analytics.activity_score || 0).toFixed(1)}
+                    </div>
+                    <div>
+                      <span className="font-medium">Progress:</span>{" "}
+                      {(selectedUser.analytics.progress_percentage || 0).toFixed(1)}%
+                    </div>
+                    <div>
+                      <span className="font-medium">Assessments:</span> {selectedUser.analytics.assessments_taken || 0}
+                    </div>
+                    <div>
+                      <span className="font-medium">Average Score:</span>{" "}
+                      {(selectedUser.analytics.average_score || 0).toFixed(1)}%
+                    </div>
+                    <div>
+                      <span className="font-medium">Badges:</span> {selectedUser.analytics.badges_earned || 0}
+                    </div>
+                    <div>
+                      <span className="font-medium">Streak:</span> {selectedUser.analytics.streak_days || 0} days
+                    </div>
                   </div>
                 </div>
               )}
@@ -516,7 +546,7 @@ const UserManagement: React.FC = () => {
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default UserManagement;
+export default UserManagement

@@ -30,9 +30,72 @@
   --light-card: #f8fafc;
   --light-text: #1e293b;
   --light-border: #e2e8f0;
+
+  /* Shared Utilities */
+  --foreground: 220 20% 50%;
+  --muted-foreground: 220 20% 60%;
+
+  /* Base neutrals */
+  --background: 0 0% 100%;
+  --foreground: 222.2 47.4% 11.2%;
+
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215 16.3% 46.9%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 47.4% 11.2%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 47.4% 11.2%;
+
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 200 89% 45%;
+
+  /* Brand: cyan-blue primary + teal accent (unique yet professional) */
+  --primary: 200 89% 45%;
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+
+  --accent: 160 84% 40%;
+  --accent-foreground: 210 40% 98%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+
+  --radius: 0.75rem;
 }
 
-/* Theme Mode Classes */
+/* dark mode tokens for crisp contrast */
+.dark {
+  --background: 222.2 47.4% 7.2%;
+  --foreground: 210 40% 98%;
+
+  --muted: 217.2 32.6% 12%;
+  --muted-foreground: 215 20.2% 65.1%;
+
+  --card: 222.2 47.4% 9.2%;
+  --card-foreground: 210 40% 98%;
+
+  --popover: 222.2 47.4% 9.2%;
+  --popover-foreground: 210 40% 98%;
+
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 200 89% 48%;
+
+  --primary: 200 89% 48%;
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 217.2 32.6% 12%;
+  --secondary-foreground: 210 40% 98%;
+
+  --accent: 160 84% 42%;
+  --accent-foreground: 210 40% 98%;
+}
+
 .casual.dark {
   background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
   color: var(--casual-text-light);
@@ -75,20 +138,26 @@
 body {
   min-height: 100vh;
   transition: all 0.3s ease;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
 /* Enhanced Button Styles with Rounded Corners */
-button, .btn {
-  border-radius: 0.75rem; /* 12px */
+button,
+.btn {
+  border-radius: var(--radius);
   transition: all 0.3s ease;
 }
 
-input, textarea, select {
-  border-radius: 0.75rem; /* 12px */
+input,
+textarea,
+select {
+  border-radius: var(--radius);
   transition: all 0.3s ease;
 }
 
-.card, [class*="card"] {
+.card,
+[class*="card"] {
   border-radius: 1rem; /* 16px */
 }
 
@@ -140,29 +209,54 @@ input, textarea, select {
 
 /* Enhanced Animations */
 @keyframes gradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(139, 92, 246, 0.6); }
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.6);
+  }
 }
 
 @keyframes professional-pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(107, 114, 128, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(107, 114, 128, 0.6); }
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(107, 114, 128, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(107, 114, 128, 0.6);
+  }
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* Glass Morphism Effects */
@@ -232,15 +326,25 @@ textarea:focus-visible {
 }
 
 .loading-dots::after {
-  content: '';
+  content: "";
   animation: dots 1.5s steps(4, end) infinite;
 }
 
 @keyframes dots {
-  0%, 20% { content: ''; }
-  40% { content: '.'; }
-  60% { content: '..'; }
-  80%, 100% { content: '...'; }
+  0%,
+  20% {
+    content: "";
+  }
+  40% {
+    content: ".";
+  }
+  60% {
+    content: "..";
+  }
+  80%,
+  100% {
+    content: "...";
+  }
 }
 
 /* Floating Animation */
@@ -260,7 +364,7 @@ textarea:focus-visible {
 }
 
 .shimmer::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -276,7 +380,7 @@ textarea:focus-visible {
   .casual {
     font-size: 14px;
   }
-  
+
   .professional {
     font-size: 15px;
   }
@@ -288,7 +392,7 @@ textarea:focus-visible {
     background: white !important;
     color: black !important;
   }
-  
+
   .professional * {
     background: transparent !important;
     color: black !important;
@@ -323,7 +427,9 @@ textarea:focus-visible {
 }
 
 /* Enhanced Input Styles */
-input:focus, textarea:focus, select:focus {
+input:focus,
+textarea:focus,
+select:focus {
   transform: scale(1.02);
 }
 
@@ -420,4 +526,59 @@ input:checked + .toggle-slider:before {
 
 .casual.dark .card {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+}
+
+/* Shared Utilities for Consistent Layout and Animated Background */
+.edl-container {
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+.edl-title {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+.edl-subtitle {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: hsl(var(--muted-foreground));
+}
+.edl-animated-bg {
+  background: radial-gradient(
+      60rem 60rem at 10% 10%,
+      color-mix(in oklab, hsl(var(--primary)) 18%, transparent) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      60rem 60rem at 90% 20%,
+      color-mix(in oklab, hsl(var(--accent)) 15%, transparent) 0%,
+      transparent 70%
+    );
+}
+
+/* add a theme-aware, subtle global background applied once in App */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--app-bg);
+}
+
+/* Light mode: soft paper with faint vignette */
+.light .app-bg {
+  --app-bg: radial-gradient(800px 600px at 10% 15%, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.0) 60%),
+    radial-gradient(900px 700px at 85% 20%, rgba(0, 0, 0, 0.035) 0%, rgba(0, 0, 0, 0.0) 60%),
+    linear-gradient(180deg, hsl(var(--background)) 0%, white 100%);
+}
+
+/* Dark mode: refined slate with soft color accents */
+.dark .app-bg {
+  --app-bg: radial-gradient(900px 700px at 10% 15%, hsla(var(--primary), 0.18) 0%, rgba(0, 0, 0, 0.0) 60%), /* blue */
+    radial-gradient(900px 700px at 85% 20%, hsla(var(--accent), 0.16) 0%, rgba(0, 0, 0, 0.0) 60%), /* teal */
+    linear-gradient(180deg, hsl(220 60% 6%) 0%, hsl(222.2 47.4% 7.2%) 100%);
 }

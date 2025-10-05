@@ -1,5 +1,4 @@
 import axios, { AxiosResponse } from 'axios';
-import { ApiResponse } from '../types';
 
 // Environment-based API configuration
 const getApiBaseUrl = () => {
@@ -38,7 +37,7 @@ api.interceptors.request.use(
             console.log('⚠️ [API] No auth token found for request:', config.url);
         }
         
-        console.log('🌐 [API] Making request to:', config.baseURL + config.url);
+        console.log('🌐 [API] Making request to:', (config.baseURL || '') + (config.url || ''));
         return config;
     },
     (error) => {

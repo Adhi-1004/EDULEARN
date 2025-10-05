@@ -109,4 +109,3 @@ export const FACE_DESCRIPTOR_LENGTH = 128;
 export const TOAST_DURATION = 3000;
 export const LOADING_TIMEOUT = 30000;
 export const ANIMATION_DURATION = 2500;
-  

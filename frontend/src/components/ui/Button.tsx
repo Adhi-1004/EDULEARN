@@ -1,48 +1,50 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+"use client"
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
-  isLoading?: boolean;
-  children: React.ReactNode;
+import type React from "react"
+import { motion, HTMLMotionProps } from "framer-motion"
+
+interface ButtonProps extends Omit<HTMLMotionProps<"button">, "onDrag" | "onDragStart" | "onDragEnd"> {
+  variant?: "primary" | "secondary" | "outline" | "ghost"
+  size?: "sm" | "md" | "lg"
+  isLoading?: boolean
+  children: React.ReactNode
 }
 
 const Button: React.FC<ButtonProps> = ({
-  variant = 'primary',
-  size = 'md',
+  variant = "primary",
+  size = "md",
   isLoading = false,
   children,
-  className = '',
+  className = "",
   disabled,
   ...props
 }) => {
-  const baseClasses = 'font-medium rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-transparent';
-  
+  const baseClasses =
+    "font-medium rounded-lg transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+
   const variantClasses = {
-    primary: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 shadow-lg hover:shadow-xl',
-    secondary: 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 shadow-lg hover:shadow-xl',
-    outline: 'border-2 border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white',
-    ghost: 'text-purple-400 hover:bg-purple-500/10 hover:text-purple-300'
-  };
+    primary: "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary shadow-sm",
+    secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90 active:bg-secondary shadow-sm",
+    outline: "border border-border text-foreground hover:bg-muted/30",
+    ghost: "text-muted-foreground hover:text-foreground hover:bg-muted/20",
+  }
 
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-6 py-3 text-base',
-    lg: 'px-8 py-4 text-lg'
-  };
+    sm: "px-3 py-1.5 text-sm",
+    md: "px-6 py-3 text-base",
+    lg: "px-8 py-4 text-lg",
+  }
 
-  const isDisabled = disabled || isLoading;
+  const isDisabled = disabled || isLoading
 
   return (
     <motion.button
       whileHover={!isDisabled ? { scale: 1.02, y: -1 } : {}}
       whileTap={!isDisabled ? { scale: 0.98 } : {}}
-      className={`
+      className={` 
         ${baseClasses}
         ${variantClasses[variant]}
         ${sizeClasses[size]}
-        ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
         ${className}
       `}
       disabled={isDisabled}
@@ -57,7 +59,7 @@ const Button: React.FC<ButtonProps> = ({
         children
       )}
     </motion.button>
-  );
-};
+  )
+}
 
-export default Button;
+export default Button

@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-    AreaChart,
-    Area,
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    PieChart,
-    Pie,
-    Cell,
     BarChart,
     Bar,
     LineChart,
@@ -22,7 +17,6 @@ import Card from "./ui/Card";
 import LoadingSpinner from "./ui/LoadingSpinner";
 import { ANIMATION_VARIANTS } from "../utils/constants";
 
-const COLORS = ["#6366f1", "#8b5cf6", "#3b82f6", "#2dd4bf", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6"];
 
 interface ProgressChartsProps {
     user: User;

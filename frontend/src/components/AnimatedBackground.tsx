@@ -30,8 +30,8 @@ const AnimatedBackground: React.FC = () => {
             color: string;
 
             constructor() {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * canvas.height;
+                this.x = Math.random() * (canvas?.width || 0);
+                this.y = Math.random() * (canvas?.height || 0);
                 this.size = Math.random() * 6 + 4;
                 this.speedX = Math.random() * 0.5 - 0.25;
                 this.speedY = Math.random() * 0.5 - 0.25;
@@ -43,13 +43,14 @@ const AnimatedBackground: React.FC = () => {
                 this.x += this.speedX;
                 this.y += this.speedY;
 
-                if (this.x > canvas.width) this.x = 0;
-                else if (this.x < 0) this.x = canvas.width;
-                if (this.y > canvas.height) this.y = 0;
-                else if (this.y < 0) this.y = canvas.height;
+                if (this.x > (canvas?.width || 0)) this.x = 0;
+                else if (this.x < 0) this.x = canvas?.width || 0;
+                if (this.y > (canvas?.height || 0)) this.y = 0;
+                else if (this.y < 0) this.y = canvas?.height || 0;
             }
 
             draw() {
+                if (!ctx) return;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
@@ -62,6 +63,7 @@ const AnimatedBackground: React.FC = () => {
         const particles = Array.from({ length: 50 }, () => new Particle());
 
         const drawConnections = () => {
+            if (!ctx) return;
             for (let i = 0; i < particles.length; i++) {
                 for (let j = i + 1; j < particles.length; j++) {
                     const dx = particles[i].x - particles[j].x;
@@ -81,6 +83,7 @@ const AnimatedBackground: React.FC = () => {
         };
 
         const animate = () => {
+            if (!ctx || !canvas) return;
             ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
