@@ -9,20 +9,50 @@ edulearn/
 ├── backend/                 # FastAPI backend application
 │   ├── app/                # Main application package
 │   │   ├── api/           # API endpoints (routers)
+│   │   │   ├── admin.py
+│   │   │   ├── assessments.py
+│   │   │   ├── auth.py
+│   │   │   ├── coding.py
+│   │   │   ├── notifications.py
+│   │   │   ├── results.py
+│   │   │   ├── teacher.py
+│   │   │   ├── topics.py
+│   │   │   └── users.py
 │   │   ├── core/          # Configuration and security
+│   │   │   ├── config.py
+│   │   │   └── security.py
 │   │   ├── db/            # Database session management
+│   │   │   ├── mock_db.py
+│   │   │   └── session.py
 │   │   ├── models/        # Database ORM models
+│   │   │   └── models.py
 │   │   ├── schemas/       # Pydantic schemas for validation
+│   │   │   └── schemas.py
 │   │   ├── services/      # Business logic
-│   │   └── utils/         # Utility functions
+│   │   │   ├── code_execution_service.py
+│   │   │   ├── gemini_coding_service.py
+│   │   │   └── judge0_execution_service.py
+│   │   ├── utils/         # Utility functions
+│   │   │   ├── auth_utils.py
+│   │   │   └── validators.py
+│   │   ├── dependencies.py # FastAPI dependencies
+│   │   └── main.py        # FastAPI app instance
 │   ├── main.py           # Application entry point
 │   ├── requirements.txt  # Python dependencies
+│   ├── env.example       # Environment configuration template
 │   └── venv/             # Python virtual environment
 │
 ├── frontend/             # React frontend application
 │   ├── src/              # Source code
 │   │   ├── api/          # Centralized API services
+│   │   │   ├── authService.ts
+│   │   │   ├── assessmentService.ts
+│   │   │   ├── codingService.ts
+│   │   │   └── index.ts
 │   │   ├── components/   # Reusable UI components
+│   │   │   ├── admin/    # Admin-specific components
+│   │   │   ├── teacher/  # Teacher-specific components
+│   │   │   └── ui/       # Basic UI components
 │   │   ├── contexts/     # React contexts
 │   │   ├── hooks/        # Custom React hooks
 │   │   ├── pages/         # Page components
@@ -30,7 +60,13 @@ edulearn/
 │   │   ├── types/         # TypeScript type definitions
 │   │   └── utils/         # Utility functions
 │   ├── package.json      # Frontend dependencies
-│   └── [config files]    # Vite, TypeScript, Tailwind, etc.
+│   ├── package-lock.json  # Dependency lock file
+│   ├── tsconfig.json     # TypeScript configuration
+│   ├── vite.config.js    # Vite configuration
+│   ├── tailwind.config.js # Tailwind CSS configuration
+│   ├── eslint.config.js  # ESLint configuration
+│   ├── postcss.config.cjs # PostCSS configuration
+│   └── index.html        # HTML entry point
 │
 ├── docs/                 # Documentation
 │   ├── PROJECT_STRUCTURE.md
@@ -207,19 +243,6 @@ For support and questions:
 - Create an issue in the repository
 - Check the documentation in the `/docs` directory
 - Review the API documentation at `/docs` when running the backend
-
-## 🧹 Recent Cleanup
-
-The project has been recently cleaned up to remove:
-- ✅ All `__pycache__` directories
-- ✅ Test files and directories
-- ✅ Batch and PowerShell scripts
-- ✅ Duplicate files
-- ✅ Unnecessary documentation
-- ✅ Build artifacts (`node_modules`, `dist`)
-- ✅ Redundant scripts
-
-The project now has a **clean, professional structure** ready for development and deployment.
 
 ---
 

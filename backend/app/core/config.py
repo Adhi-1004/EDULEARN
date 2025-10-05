@@ -1,0 +1,60 @@
+"""
+Application configuration settings
+"""
+import os
+from typing import List
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """Application settings"""
+    
+    # Application
+    app_name: str = "modLRN API"
+    app_description: str = "AI-powered Adaptive Learning Platform API"
+    app_version: str = "1.0.0"
+    debug: bool = False
+    
+    # Database
+    mongo_uri: str = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+    db_name: str = os.getenv("DB_NAME", "edulearn")
+    
+    # Security
+    secret_key: str = os.getenv("SECRET_KEY", "your-secret-key-here")
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    
+    # CORS
+    cors_origins: List[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173", 
+        "http://localhost:3000",
+        "https://modlrn.vercel.app",
+        "https://modlrn.onrender.com",
+        "https://accounts.google.com",
+        "https://oauth2.googleapis.com"
+    ]
+    
+    # AI Services
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "your-google-ai-api-key")
+    
+    # Google OAuth
+    google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    
+    # Code Execution
+    code_execution_timeout: int = 5
+    code_memory_limit: int = 256
+    
+    # Judge0 API
+    judge0_api_key: str = os.getenv("JUDGE0_API_KEY", "")
+    judge0_api_host: str = os.getenv("JUDGE0_API_HOST", "judge0-ce.p.rapidapi.com")
+    
+    # Session
+    session_secret: str = os.getenv("SESSION_SECRET", "your-session-secret-here")
+    
+    class Config:
+        env_file = ".env"
+
+
+settings = Settings()
