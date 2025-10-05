@@ -21,6 +21,7 @@ interface Student {
   progress: number;
   lastActive: string;
   batch?: string;
+  batchId?: string;
 }
 
 interface Batch {
@@ -237,6 +238,34 @@ const TeacherDashboard: React.FC = () => {
       showError("Error", errorMessage);
     } finally {
       setAddingStudent(false);
+    }
+  };
+
+  const handleRemoveStudentFromBatch = async (studentId: string, batchId: string, studentName: string) => {
+    if (!confirm(`Are you sure you want to remove ${studentName} from this batch?`)) {
+      return;
+    }
+    
+    try {
+      console.log("👤 [TEACHER] Removing student from batch:", { studentId, batchId });
+      
+      const response = await api.post("/api/teacher/students/remove", {
+        student_id: studentId,
+        batch_id: batchId
+      });
+      
+      if (response.data.success) {
+        success("Success", response.data.message);
+        // Refresh the dashboard data
+        await fetchDashboardData();
+        console.log("✅ [TEACHER] Student removed successfully");
+      } else {
+        throw new Error(response.data.message || "Failed to remove student");
+      }
+    } catch (err: any) {
+      console.error("❌ [TEACHER] Failed to remove student from batch:", err);
+      const errorMessage = err.response?.data?.detail || err.message || "Failed to remove student from batch";
+      showError("Error", errorMessage);
     }
   };
 
@@ -521,11 +550,11 @@ const TeacherDashboard: React.FC = () => {
   const filteredStudents = students.filter(student => {
     const studentName = student.name || '';
     const studentEmail = student.email || '';
-    const studentBatch = student.batch || '';
+    const studentBatchId = student.batchId || '';
     
     const matchesSearch = studentName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           studentEmail.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesBatch = selectedBatch === "all" || studentBatch === selectedBatch;
+    const matchesBatch = selectedBatch === "all" || studentBatchId === selectedBatch;
     return matchesSearch && matchesBatch;
   });
 
@@ -956,13 +985,24 @@ const TeacherDashboard: React.FC = () => {
                             </span>
                           </td>
                           <td className="py-3 px-4">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleViewStudentDetails(student)}
-                            >
-                              View Details
-                            </Button>
+                            <div className="flex space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewStudentDetails(student)}
+                              >
+                                View Details
+                              </Button>
+                              {student.batch && student.batchId && (
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  onClick={() => handleRemoveStudentFromBatch(student.id, student.batchId, student.name)}
+                                >
+                                  Remove
+                                </Button>
+                              )}
+                            </div>
                           </td>
                         </motion.tr>
                       ))}

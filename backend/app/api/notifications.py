@@ -26,18 +26,27 @@ async def get_notifications(
         user_id = current_user.id
         notifications = await db.notifications.find(
             {"user_id": ObjectId(user_id)}
-        ).sort("timestamp", -1).to_list(length=100)
+        ).sort("created_at", -1).to_list(length=100)
         
-        # Convert ObjectId to string for JSON serialization
+        # Convert ObjectId to string for JSON serialization and map fields
         for notification in notifications:
-            notification["_id"] = str(notification["_id"])
+            # Convert all ObjectId fields to strings
+            for key, value in notification.items():
+                if isinstance(value, ObjectId):
+                    notification[key] = str(value)
+            
+            # Map specific fields for frontend compatibility
+            notification["id"] = str(notification["_id"])
             notification["user_id"] = str(notification["user_id"])
-            if notification.get("related_id"):
-                notification["related_id"] = str(notification["related_id"])
+            
+            # Map 'read' to 'is_read' for frontend compatibility
+            if "read" in notification:
+                notification["is_read"] = notification["read"]
+                del notification["read"]
         
         return {
             "notifications": notifications,
-            "unread_count": len([n for n in notifications if not n.get("read", False)])
+            "unread_count": len([n for n in notifications if not n.get("is_read", False)])
         }
     except Exception as e:
         print(f"[ERROR] [NOTIFICATIONS] Failed to get notifications: {str(e)}")

@@ -116,6 +116,8 @@ export const getNotificationTypeDisplayName = (type: string): string => {
   const typeMap: { [key: string]: string } = {
     'general': 'General',
     'batch_added': 'Batch Assignment',
+    'batch_assignment': 'Batch Assignment',
+    'batch_removal': 'Batch Removal',
     'assessment_created': 'New Assessment',
     'assessment_completed': 'Assessment Completed',
     'grade_released': 'Grade Released',
@@ -132,6 +134,8 @@ export const getNotificationIcon = (type: string): string => {
   const iconMap: { [key: string]: string } = {
     'general': '📢',
     'batch_added': '👥',
+    'batch_assignment': '👥',
+    'batch_removal': '👥',
     'assessment_created': '📝',
     'assessment_completed': '✅',
     'grade_released': '🎯',

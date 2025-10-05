@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, X, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Bell, X, Clock, CheckCircle, AlertCircle, Users } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import api from '../utils/api';
 
 interface Notification {
   id: string;
-  type: 'assessment_assigned' | 'assessment_due' | 'result_available';
+  type: 'assessment_assigned' | 'assessment_due' | 'result_available' | 'batch_assignment' | 'batch_removal';
   title: string;
   message: string;
   assessment_id?: string;
+  batch_id?: string;
+  teacher_id?: string;
   created_at: string;
   is_read: boolean;
 }
@@ -70,6 +72,10 @@ const NotificationBar: React.FC = () => {
         return <Clock className="w-5 h-5 text-orange-400" />;
       case 'result_available':
         return <CheckCircle className="w-5 h-5 text-green-400" />;
+      case 'batch_assignment':
+        return <Users className="w-5 h-5 text-green-400" />;
+      case 'batch_removal':
+        return <Users className="w-5 h-5 text-red-400" />;
       default:
         return <AlertCircle className="w-5 h-5 text-purple-400" />;
     }
@@ -83,6 +89,10 @@ const NotificationBar: React.FC = () => {
         return 'border-orange-500/30 bg-orange-900/20';
       case 'result_available':
         return 'border-green-500/30 bg-green-900/20';
+      case 'batch_assignment':
+        return 'border-green-500/30 bg-green-900/20';
+      case 'batch_removal':
+        return 'border-red-500/30 bg-red-900/20';
       default:
         return 'border-purple-500/30 bg-purple-900/20';
     }
@@ -141,11 +151,7 @@ const NotificationBar: React.FC = () => {
                 <div className="p-4 text-center text-purple-300">
                   Loading notifications...
                 </div>
-              ) : notifications.length === 0 ? (
-                <div className="p-4 text-center text-purple-300">
-                  No notifications yet
-                </div>
-              ) : (
+              ) : notifications.length === 0 ? null : (
                 <div className="space-y-2 p-2">
                   {notifications.map((notification) => (
                     <motion.div

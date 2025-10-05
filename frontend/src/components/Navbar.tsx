@@ -372,14 +372,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
                                                                     </div>
                                                                 </motion.div>
                                                             ))
-                                                        ) : (
-                                                            <div className="p-8 text-center">
-                                                                <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                                                <p className="text-gray-500 dark:text-gray-400">
-                                                                    No notifications yet
-                                                                </p>
-                                                            </div>
-                                                        )}
+                                                        ) : null}
                                                     </div>
                                                 </motion.div>
                                             )}
