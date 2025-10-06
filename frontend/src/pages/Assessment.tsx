@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate, useLocation } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useAuth } from "../hooks/useAuth"
@@ -49,10 +49,24 @@ const Assessment: React.FC = () => {
   const [testStarted, setTestStarted] = useState(false)
   const [testCompleted, setTestCompleted] = useState(false)
   const [assessmentType, setAssessmentType] = useState<'teacher' | 'student'>('teacher')
+  const [isFetching, setIsFetching] = useState(false)
+  const hasLoaded = useRef(false)
 
   useEffect(() => {
     fetchAssessment()
-  }, [id])
+  }, [id]) // Only depend on id to prevent multiple calls
+
+  // Debug effect to track assessment changes
+  useEffect(() => {
+    if (assessment) {
+      console.log("🔄 [ASSESSMENT] Assessment loaded:", {
+        id: assessment.id,
+        title: assessment.title,
+        questionCount: assessment.question_count,
+        type: assessmentType
+      })
+    }
+  }, [assessment, assessmentType])
 
   useEffect(() => {
     if (testStarted && timeLeft > 0) {
@@ -70,146 +84,38 @@ const Assessment: React.FC = () => {
   }, [testStarted, timeLeft])
 
   const fetchAssessment = async () => {
+    // Prevent multiple simultaneous requests
+    if (isFetching || hasLoaded.current) {
+      console.log("⚠️ [ASSESSMENT] Request already in progress or already loaded, skipping...")
+      return
+    }
+    
     try {
+      setIsFetching(true)
       setLoading(true)
+      hasLoaded.current = true
       
-      // Check if configuration was passed from AssessConfig
+      console.log("🔍 [ASSESSMENT] Starting assessment fetch...")
+      console.log("🔍 [ASSESSMENT] ID:", id)
+      console.log("🔍 [ASSESSMENT] Location state:", location.state)
+      
+      // Check if configuration was passed from AssessConfig (student-generated)
       const state = location.state as any
-      console.log("🔍 [ASSESSMENT] Location state:", state)
-      
       if (state?.isStudentGenerated && state?.assessmentConfig) {
-        console.log("📋 [ASSESSMENT] Using passed configuration from AssessConfig...")
-        console.log("📋 [ASSESSMENT] Config:", state.assessmentConfig)
-        
-        const { topic, qnCount, difficulty } = state.assessmentConfig
-        const totalTime = getDifficultyTime(difficulty, qnCount)
-        
-        console.log("🤖 [ASSESSMENT] Fetching questions from Gemini AI...")
-        console.log("🤖 [ASSESSMENT] Params:", { topic, difficulty, count: qnCount })
-        
-        // Fetch questions from Gemini AI
-        const geminiResponse = await api.get("/db/questions", {
-          params: { topic, difficulty, count: qnCount }
-        })
-        
-        console.log("✅ [ASSESSMENT] Gemini response:", geminiResponse.data)
-        
-        if (!Array.isArray(geminiResponse.data) || geminiResponse.data.length === 0) {
-          throw new Error("No questions were generated. Please try again.")
-        }
-        
-        // Create assessment object for student-generated assessment
-        const studentAssessment: Assessment = {
-          id: 'student-generated',
-          title: `${topic} Assessment`,
-          subject: topic,
-          difficulty: difficulty,
-          description: `AI-generated ${difficulty} assessment on ${topic}`,
-          time_limit: Math.ceil(totalTime / 60), // Convert to minutes
-          question_count: qnCount,
-          questions: geminiResponse.data,
-          type: 'mcq'
-        }
-        
-        setAssessment(studentAssessment)
-        setTimeLeft(totalTime)
-        setAnswers(new Array(qnCount).fill(-1))
-        setAssessmentType('student')
-        console.log("✅ [ASSESSMENT] Loaded student-generated assessment from passed config")
-        return
-      }
-      
-      // If no ID is provided and no state, try to get configuration from API
-      if (!id) {
-        console.log("📋 [ASSESSMENT] No ID provided, loading student-generated assessment...")
-        
-        // Get assessment configuration
-        const configResponse = await api.get("/api/topics/")
-        if (!configResponse.data.success) {
-          throw new Error(configResponse.data.error || "Failed to get assessment configuration")
-        }
-        
-        const { topic, qnCount, difficulty } = configResponse.data
-        const totalTime = getDifficultyTime(difficulty, qnCount)
-        
-        // Fetch questions from Gemini AI
-        const geminiResponse = await api.get("/db/questions", {
-          params: { topic, difficulty, count: qnCount }
-        })
-        
-        if (!Array.isArray(geminiResponse.data) || geminiResponse.data.length === 0) {
-          throw new Error("No questions were generated. Please try again.")
-        }
-        
-        // Create assessment object for student-generated assessment
-        const studentAssessment: Assessment = {
-          id: 'student-generated',
-          title: `${topic} Assessment`,
-          subject: topic,
-          difficulty: difficulty,
-          description: `AI-generated ${difficulty} assessment on ${topic}`,
-          time_limit: Math.ceil(totalTime / 60), // Convert to minutes
-          question_count: qnCount,
-          questions: geminiResponse.data,
-          type: 'mcq'
-        }
-        
-        setAssessment(studentAssessment)
-        setTimeLeft(totalTime)
-        setAnswers(new Array(qnCount).fill(-1))
-        setAssessmentType('student')
-        console.log("✅ [ASSESSMENT] Loaded student-generated assessment")
+        console.log("📋 [ASSESSMENT] Loading student-generated assessment from config...")
+        await loadStudentGeneratedAssessment(state.assessmentConfig)
         return
       }
       
       // If ID is provided, try to fetch as teacher-created assessment
-      try {
-        const response = await api.get(`/api/assessments/${id}/questions`)
-        setAssessment(response.data)
-        setTimeLeft(response.data.time_limit * 60) // Convert minutes to seconds
-        setAnswers(new Array(response.data.question_count).fill(-1))
-        setAssessmentType('teacher')
-        console.log("✅ [ASSESSMENT] Loaded teacher-created assessment")
-      } catch (teacherError) {
-        console.log("⚠️ [ASSESSMENT] Not a teacher-created assessment, trying student-generated...")
-        
-        // If teacher assessment fails, try student-generated assessment
-        const configResponse = await api.get("/api/topics/")
-        if (!configResponse.data.success) {
-          throw new Error(configResponse.data.error || "Failed to get assessment configuration")
-        }
-        
-        const { topic, qnCount, difficulty } = configResponse.data
-        const totalTime = getDifficultyTime(difficulty, qnCount)
-        
-        // Fetch questions from Gemini AI
-        const geminiResponse = await api.get("/db/questions", {
-          params: { topic, difficulty, count: qnCount }
-        })
-        
-        if (!Array.isArray(geminiResponse.data) || geminiResponse.data.length === 0) {
-          throw new Error("No questions were generated. Please try again.")
-        }
-        
-        // Create assessment object for student-generated assessment
-        const studentAssessment: Assessment = {
-          id: id || 'student-generated',
-          title: `${topic} Assessment`,
-          subject: topic,
-          difficulty: difficulty,
-          description: `AI-generated ${difficulty} assessment on ${topic}`,
-          time_limit: Math.ceil(totalTime / 60), // Convert to minutes
-          question_count: qnCount,
-          questions: geminiResponse.data,
-          type: 'mcq'
-        }
-        
-        setAssessment(studentAssessment)
-        setTimeLeft(totalTime)
-        setAnswers(new Array(qnCount).fill(-1))
-        setAssessmentType('student')
-        console.log("✅ [ASSESSMENT] Loaded student-generated assessment")
+      if (id) {
+        console.log("📋 [ASSESSMENT] Loading teacher-created assessment...")
+        await loadTeacherCreatedAssessment(id)
+        return
       }
+      
+      // If no ID and no state, this is an invalid route
+      throw new Error("No assessment ID provided and no configuration found")
       
     } catch (err: any) {
       console.error("❌ [ASSESSMENT] Error fetching assessment:", err)
@@ -217,7 +123,60 @@ const Assessment: React.FC = () => {
       navigate("/dashboard")
     } finally {
       setLoading(false)
+      setIsFetching(false)
     }
+  }
+
+  const loadStudentGeneratedAssessment = async (config: any) => {
+    const { topic, qnCount, difficulty } = config
+    const totalTime = getDifficultyTime(difficulty, qnCount)
+    
+    console.log("🤖 [ASSESSMENT] Fetching questions from Gemini AI...")
+    console.log("🤖 [ASSESSMENT] Params:", { topic, difficulty, count: qnCount })
+    
+    // Fetch questions from Gemini AI (always generates unique questions)
+    const geminiResponse = await api.get("/db/questions", {
+      params: { topic, difficulty, count: qnCount }
+    })
+    
+    console.log("📊 [ASSESSMENT] Questions fetched:", geminiResponse.data.length, "questions")
+    
+    if (!Array.isArray(geminiResponse.data) || geminiResponse.data.length === 0) {
+      throw new Error("No questions were generated. Please try again.")
+    }
+    
+    // Create assessment object for student-generated assessment
+    const studentAssessment: Assessment = {
+      id: 'student-generated',
+      title: `${topic} Assessment`,
+      subject: topic,
+      difficulty: difficulty,
+      description: `AI-generated ${difficulty} assessment on ${topic}`,
+      time_limit: Math.ceil(totalTime / 60), // Convert to minutes
+      question_count: qnCount,
+      questions: geminiResponse.data,
+      type: 'mcq'
+    }
+    
+    setAssessment(studentAssessment)
+    setTimeLeft(totalTime)
+    setAnswers(new Array(qnCount).fill(-1))
+    setAssessmentType('student')
+    console.log("✅ [ASSESSMENT] Loaded student-generated assessment")
+  }
+
+  const loadTeacherCreatedAssessment = async (assessmentId: string) => {
+    const response = await api.get(`/api/assessments/${assessmentId}/questions`)
+    
+    if (!response.data || !response.data.questions || response.data.questions.length === 0) {
+      throw new Error("Assessment not found or has no questions")
+    }
+    
+    setAssessment(response.data)
+    setTimeLeft(response.data.time_limit * 60) // Convert minutes to seconds
+    setAnswers(new Array(response.data.question_count).fill(-1))
+    setAssessmentType('teacher')
+    console.log("✅ [ASSESSMENT] Loaded teacher-created assessment")
   }
 
   const getDifficultyTime = (difficulty: string, questionCount: number) => {
@@ -234,9 +193,11 @@ const Assessment: React.FC = () => {
   }
 
   const handleAnswerSelect = (questionIndex: number, answerIndex: number) => {
+    console.log(`📝 [ASSESSMENT] Answer selected: Question ${questionIndex + 1}, Answer ${answerIndex}`)
     const newAnswers = [...answers]
     newAnswers[questionIndex] = answerIndex
     setAnswers(newAnswers)
+    console.log(`📝 [ASSESSMENT] Updated answers:`, newAnswers)
   }
 
   const handleSubmitTest = async () => {
@@ -247,13 +208,24 @@ const Assessment: React.FC = () => {
       
       // Calculate score
       let score = 0
+      console.log("📊 [ASSESSMENT] Calculating score...")
+      console.log("📊 [ASSESSMENT] Answers array:", answers)
+      console.log("📊 [ASSESSMENT] Questions:", assessment?.questions.length)
+      
       assessment?.questions.forEach((question, index) => {
-        if (answers[index] === question.correct_answer) {
+        const userAnswer = answers[index]
+        const correctAnswer = question.correct_answer
+        const isCorrect = userAnswer === correctAnswer
+        
+        console.log(`📊 [ASSESSMENT] Question ${index + 1}: User=${userAnswer}, Correct=${correctAnswer}, IsCorrect=${isCorrect}`)
+        
+        if (isCorrect) {
           score++
         }
       })
       
       const percentage = Math.round((score / (assessment?.question_count || 1)) * 100)
+      console.log(`📊 [ASSESSMENT] Final score: ${score}/${assessment?.question_count} (${percentage}%)`)
       
       if (assessmentType === 'teacher') {
         // Submit to teacher-created assessment endpoint
@@ -285,7 +257,16 @@ const Assessment: React.FC = () => {
             answer: q.options[q.correct_answer],
             explanation: q.explanation,
           })) || [],
-          user_answers: answers.map(i => i >= 0 ? assessment?.questions[i]?.options[i] || '' : ''),
+          user_answers: answers.map((answerIndex, questionIndex) => {
+            const question = assessment?.questions[questionIndex]
+            const userAnswerText = answerIndex >= 0 && question?.options[answerIndex] 
+              ? question.options[answerIndex] 
+              : ''
+            
+            console.log(`📝 [ASSESSMENT] API Question ${questionIndex + 1}: AnswerIndex=${answerIndex}, AnswerText="${userAnswerText}"`)
+            
+            return userAnswerText
+          }),
           topic: assessment?.subject || '',
           difficulty: assessment?.difficulty || '',
           time_taken: assessment?.time_limit ? (assessment.time_limit * 60) - timeLeft : 0,
@@ -299,13 +280,27 @@ const Assessment: React.FC = () => {
         
         success("Assessment Complete!", `You scored ${score}/${assessment?.question_count}`)
 
+        // Map user answers properly
+        const mappedUserAnswers = answers.map((answerIndex, questionIndex) => {
+          const question = assessment?.questions[questionIndex]
+          const userAnswerText = answerIndex >= 0 && question?.options[answerIndex] 
+            ? question.options[answerIndex] 
+            : ''
+          
+          console.log(`📝 [ASSESSMENT] Question ${questionIndex + 1}: AnswerIndex=${answerIndex}, AnswerText="${userAnswerText}"`)
+          
+          return userAnswerText
+        })
+        
+        console.log("📝 [ASSESSMENT] Mapped user answers:", mappedUserAnswers)
+        
         const resultState = {
           score: score,
           totalQuestions: assessment?.question_count || 0,
           topic: assessment?.subject || '',
           difficulty: assessment?.difficulty || '',
           questions: assessment?.questions || [],
-          userAnswers: answers.map(i => i >= 0 ? assessment?.questions[i]?.options[i] || '' : ''),
+          userAnswers: mappedUserAnswers,
           timeTaken: assessment?.time_limit ? (assessment.time_limit * 60) - timeLeft : 0,
           explanations: assessment?.questions.map((q, idx) => ({
             questionIndex: idx,
@@ -422,6 +417,10 @@ const Assessment: React.FC = () => {
 
   const currentQuestion = assessment.questions[currentQuestionIndex]
   const progress = ((currentQuestionIndex + 1) / assessment.question_count) * 100
+  
+  console.log(`🔍 [ASSESSMENT] Current question index: ${currentQuestionIndex}`)
+  console.log(`🔍 [ASSESSMENT] Current answer: ${answers[currentQuestionIndex]}`)
+  console.log(`🔍 [ASSESSMENT] All answers:`, answers)
 
   return (
     <div className="min-h-screen pt-20 px-4 bg-gray-900">

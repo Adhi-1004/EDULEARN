@@ -87,13 +87,13 @@ async def get_questions_from_db(
     difficulty: str = "medium", 
     count: int = 10
 ):
-    """Generate AI-powered MCQ questions"""
+    """Generate AI-powered MCQ questions - always generate unique questions"""
     try:
         from app.services.gemini_coding_service import gemini_coding_service
         
-        print(f"🤖 [QUESTIONS] Generating {count} {difficulty} questions for topic: {topic}")
+        print(f"🤖 [QUESTIONS] Generating {count} unique {difficulty} questions for topic: {topic}")
         
-        # Generate questions using Gemini AI
+        # Always generate fresh questions using Gemini AI
         questions = await gemini_coding_service.generate_mcq_questions(
             topic=topic,
             difficulty=difficulty,

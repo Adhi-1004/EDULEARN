@@ -357,19 +357,19 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* Upcoming Tests */}
-            {upcomingTests.length > 0 && (
-              <motion.div
-                variants={ANIMATION_VARIANTS.slideUp}
-                initial="initial"
-                animate="animate"
-                transition={{ delay: 0.4 }}
-                className="mb-8"
-              >
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center">
-                    <span className="mr-2">📅</span>
-                    Upcoming Tests
-                  </h3>
+            <motion.div
+              variants={ANIMATION_VARIANTS.slideUp}
+              initial="initial"
+              animate="animate"
+              transition={{ delay: 0.4 }}
+              className="mb-8"
+            >
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center">
+                  <span className="mr-2">📅</span>
+                  Upcoming Tests
+                </h3>
+                {upcomingTests.length > 0 ? (
                   <div className="space-y-3">
                     {upcomingTests.map((test, index) => (
                       <motion.div
@@ -402,9 +402,31 @@ const Dashboard: React.FC = () => {
                       </motion.div>
                     ))}
                   </div>
-                </Card>
-              </motion.div>
-            )}
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-6xl mb-4">📚</div>
+                    <h4 className="text-lg font-semibold text-foreground mb-2">No Upcoming Tests</h4>
+                    <p className="text-muted-foreground mb-4">
+                      You don't have any tests scheduled at the moment. Check back later or ask your teacher about upcoming assessments.
+                    </p>
+                    <div className="flex justify-center space-x-3">
+                      <Link to="/assessment-choice">
+                        <Button variant="outline" size="sm">
+                          Practice Assessment
+                        </Button>
+                      </Link>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => window.location.reload()}
+                      >
+                        Refresh
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </motion.div>
 
             {/* Recent Test History */}
             {recentTests.length > 0 && (

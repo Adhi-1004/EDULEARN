@@ -36,6 +36,8 @@ const Results: React.FC<ResultsProps> = ({ }) => {
 
     useEffect(() => {
         console.log("📊 Results page state:", location.state);
+        console.log("📊 User answers received:", userAnswers);
+        console.log("📊 Questions received:", questions?.length);
         
         if (!location.state) {
             console.log("❌ No state found, redirecting to dashboard");
@@ -215,6 +217,8 @@ const Results: React.FC<ResultsProps> = ({ }) => {
                                 <div className="space-y-6">
                                     {questions.map((question: Question, index: number) => {
                                         const userAnswer = userAnswers[index];
+                                        
+                                        console.log(`🔍 [RESULTS] Question ${index + 1}: UserAnswer="${userAnswer}", QuestionAnswer="${question.answer}"`);
                                         
                                         // Handle both string and integer correct answers
                                         let correctAnswer = question.answer;

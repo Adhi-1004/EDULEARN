@@ -24,6 +24,8 @@ import CodingPlatform from "./pages/CodingPlatform"
 import CodingProblemPage from "./pages/CodingProblem"
 import UnifiedAssessment from "./pages/UnifiedAssessment"
 import TeacherDashboard from "./pages/TeacherDashboard"
+import StudentManagement from "./pages/StudentManagement"
+import AssessmentManagement from "./pages/AssessmentManagement"
 import EnhancedAdminDashboard from "./components/admin/EnhancedAdminDashboard"
 import TestPage from "./pages/TestPage"
 
@@ -83,6 +85,22 @@ const AppContent: React.FC = () => {
                   element={
                     <ProtectedRoute allowedRoles={["teacher"]}>
                       <TeacherDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teacher/student-management"
+                  element={
+                    <ProtectedRoute allowedRoles={["teacher"]}>
+                      <StudentManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teacher/assessment-management"
+                  element={
+                    <ProtectedRoute allowedRoles={["teacher"]}>
+                      <AssessmentManagement />
                     </ProtectedRoute>
                   }
                 />
