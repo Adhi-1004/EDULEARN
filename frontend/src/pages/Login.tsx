@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useToast } from "../contexts/ToastContext"
@@ -22,6 +22,27 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user')
+    if (savedUser) {
+      const userData = JSON.parse(savedUser)
+      
+      // Redirect based on role
+      switch (userData.role) {
+        case "teacher":
+          navigate("/teacher-dashboard", { replace: true })
+          break
+        case "admin":
+          navigate("/admin-dashboard", { replace: true })
+          break
+        default:
+          navigate("/dashboard", { replace: true })
+          break
+      }
+    }
+  }, [navigate])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,13 +67,13 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
         // Redirect based on role
         switch (userData.role) {
           case "teacher":
-            navigate("/teacher-dashboard")
+            navigate("/teacher-dashboard", { replace: true })
             break
           case "admin":
-            navigate("/admin-dashboard")
+            navigate("/admin-dashboard", { replace: true })
             break
           default:
-            navigate("/dashboard")
+            navigate("/dashboard", { replace: true })
             break
         }
 

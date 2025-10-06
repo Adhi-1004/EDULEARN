@@ -30,7 +30,22 @@ import EnhancedAdminDashboard from "./components/admin/EnhancedAdminDashboard"
 import TestPage from "./pages/TestPage"
 
 const AppContent: React.FC = () => {
-  const { user, setUser, logout, isLoading } = useAuth()
+  const { user, setUser, isLoading } = useAuth()
+
+  if (isLoading) {
+    return <LoadingState text="Loading application..." size="lg" fullScreen={true} />
+  }
+
+  return (
+    <ThemeProvider>
+      <ToastProvider>
+        <AppRouter user={user} setUser={setUser} />
+      </ToastProvider>
+    </ThemeProvider>
+  )
+}
+
+const AppRouter: React.FC<{ user: any; setUser: any }> = ({ user, setUser }) => {
   const { toasts, removeToast } = useToast()
 
   // Function to get the appropriate dashboard path based on user role
@@ -49,24 +64,19 @@ const AppContent: React.FC = () => {
     }
   }
 
-  if (isLoading) {
-    return <LoadingState text="Loading application..." size="lg" fullScreen={true} />
-  }
 
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <Router>
-          <div className="min-h-screen relative overflow-hidden transition-colors duration-300 bg-background text-foreground">
-            <div className="app-bg" aria-hidden="true" />
-            <Navbar user={user} setUser={logout} />
-            <ToastContainer toasts={toasts} onClose={removeToast} />
+    <Router>
+      <div className="min-h-screen relative overflow-hidden transition-colors duration-300 bg-background text-foreground">
+        <div className="app-bg" aria-hidden="true" />
+        <Navbar user={user} setUser={setUser} />
+        <ToastContainer toasts={toasts} onClose={removeToast} />
             <AnimatePresence mode="wait">
               <Routes>
                 <Route path="/" element={user ? <Navigate to={getDashboardPath(user)} replace /> : <LandingPage />} />
                 <Route
                   path="/login"
-                  element={user ? <Navigate to={getDashboardPath(user)} replace /> : <Login setUser={setUser} />}
+                  element={<Login setUser={setUser} />}
                 />
                 <Route
                   path="/signup"
@@ -145,45 +155,37 @@ const AppContent: React.FC = () => {
                   }
                 />
                 <Route
-                  path="/test-result/:id"
+                  path="/results"
+                  element={
+                    <ProtectedRoute allowedRoles={["student"]}>
+                      {user && <Results user={user} />}
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/test-result/:resultId"
                   element={
                     <ProtectedRoute allowedRoles={["student"]}>
                       <TestResultDetail />
                     </ProtectedRoute>
                   }
                 />
-            <Route
-              path="/results"
-              element={
-                <ProtectedRoute allowedRoles={["student"]}>
-                  {user && <Results user={user} />}
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/test-result/:resultId"
-              element={
-                <ProtectedRoute allowedRoles={["student"]}>
-                  <TestResultDetail />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute allowedRoles={["student", "teacher", "admin"]}>
-                  {user && <UserProfile user={user} />}
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute allowedRoles={["student", "teacher", "admin"]}>
-                  {user && <Settings user={user} />}
-                </ProtectedRoute>
-              }
-            />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute allowedRoles={["student", "teacher", "admin"]}>
+                      {user && <UserProfile user={user} />}
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <ProtectedRoute allowedRoles={["student", "teacher", "admin"]}>
+                      {user && <Settings user={user} />}
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/coding"
                   element={
@@ -220,19 +222,11 @@ const AppContent: React.FC = () => {
             </AnimatePresence>
           </div>
         </Router>
-      </ToastProvider>
-    </ThemeProvider>
   )
 }
 
 const App: React.FC = () => {
-  return (
-    <ThemeProvider>
-      <ToastProvider>
-        <AppContent />
-      </ToastProvider>
-    </ThemeProvider>
-  )
+  return <AppContent />
 }
 
 export default App

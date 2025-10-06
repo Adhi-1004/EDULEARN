@@ -101,9 +101,9 @@ export const DIFFICULTY_TIME_LIMITS = {
     "Very Hard": 120
 };
 
-// Face recognition settings
-export const FACE_RECOGNITION_THRESHOLD = 0.8;
-export const FACE_DESCRIPTOR_LENGTH = 128;
+// Face recognition settings (if needed in future)
+// export const FACE_RECOGNITION_THRESHOLD = 0.8;
+// export const FACE_DESCRIPTOR_LENGTH = 128;
 
 // UI Constants
 export const TOAST_DURATION = 3000;

@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { useToast } from "../contexts/ToastContext"
@@ -80,14 +80,11 @@ const StudentManagement: React.FC = () => {
     try {
       setLoading(true)
       
-      console.log("📊 [STUDENT MANAGEMENT] Fetching dashboard data...")
       
       // Fetch students from API
       const studentsResponse = await api.get("/api/teacher/students")
       if (studentsResponse.data.success) {
-        console.log("🔍 [STUDENT MANAGEMENT] Raw students data:", studentsResponse.data.students)
         setStudents(studentsResponse.data.students)
-        console.log("✅ [STUDENT MANAGEMENT] Students loaded:", studentsResponse.data.students.length)
       } else {
         console.warn("⚠️ [STUDENT MANAGEMENT] No students data received")
         setStudents([])
@@ -115,7 +112,6 @@ const StudentManagement: React.FC = () => {
         ]
         
         setBatches(formattedBatches)
-        console.log("✅ [STUDENT MANAGEMENT] Batches loaded:", formattedBatches.length)
       } else {
         console.warn("⚠️ [STUDENT MANAGEMENT] No batches data received")
         setBatches([
@@ -154,7 +150,6 @@ const StudentManagement: React.FC = () => {
     }
 
     try {
-      console.log("📝 [STUDENT MANAGEMENT] Creating batch:", newBatchName)
 
       const response = await api.post("/api/teacher/batches", {
         name: newBatchName,
@@ -173,7 +168,6 @@ const StudentManagement: React.FC = () => {
         setNewBatchName("")
         setShowCreateBatch(false)
         success("Success", `Batch "${newBatchName}" created successfully`)
-        console.log("✅ [STUDENT MANAGEMENT] Batch created successfully")
       } else {
         throw new Error(response.data.message || "Failed to create batch")
       }
@@ -192,7 +186,6 @@ const StudentManagement: React.FC = () => {
     
     try {
       setAddingStudent(true)
-      console.log("👤 [STUDENT MANAGEMENT] Adding student to batch:", { email: studentEmail, batchId })
       
       const response = await api.post("/api/teacher/students/add", {
         email: studentEmail.trim(),
@@ -207,7 +200,6 @@ const StudentManagement: React.FC = () => {
         setShowAddStudent(null)
         // Refresh the dashboard data
         await fetchDashboardData()
-        console.log("✅ [STUDENT MANAGEMENT] Student added successfully")
       } else {
         throw new Error(response.data.message || "Failed to add student")
       }
@@ -226,7 +218,6 @@ const StudentManagement: React.FC = () => {
     }
     
     try {
-      console.log("👤 [STUDENT MANAGEMENT] Removing student from batch:", { studentId, batchId })
       
       const response = await api.post("/api/teacher/students/remove", {
         student_id: studentId,
@@ -237,7 +228,6 @@ const StudentManagement: React.FC = () => {
         success("Success", response.data.message)
         // Refresh the dashboard data
         await fetchDashboardData()
-        console.log("✅ [STUDENT MANAGEMENT] Student removed successfully")
       } else {
         throw new Error(response.data.message || "Failed to remove student")
       }
@@ -345,7 +335,7 @@ const StudentManagement: React.FC = () => {
       // Remove from current batch if exists
       if (selectedStudentForBatchChange.batchId) {
         try {
-          await api.post("/api/teacher/remove-student-from-batch", {
+          await api.post("/api/teacher/students/remove", {
             student_id: selectedStudentForBatchChange.id,
             batch_id: selectedStudentForBatchChange.batchId,
           })
@@ -355,8 +345,9 @@ const StudentManagement: React.FC = () => {
       }
 
       // Add to new batch
-      await api.post("/api/teacher/add-student-to-batch", {
-        student_id: selectedStudentForBatchChange.id,
+      await api.post("/api/teacher/students/add", {
+        email: selectedStudentForBatchChange.email,
+        name: selectedStudentForBatchChange.name,
         batch_id: newBatchId,
       })
 
@@ -386,7 +377,7 @@ const StudentManagement: React.FC = () => {
       // Remove from current batch if exists
       if (student.batchId) {
         try {
-          await api.post("/api/teacher/remove-student-from-batch", {
+          await api.post("/api/teacher/students/remove", {
             student_id: studentId,
             batch_id: student.batchId,
           })
@@ -397,8 +388,9 @@ const StudentManagement: React.FC = () => {
 
       // Add to new batch
       if (newBatchId) {
-        await api.post("/api/teacher/add-student-to-batch", {
-          student_id: studentId,
+        await api.post("/api/teacher/students/add", {
+          email: student.email,
+          name: student.name,
           batch_id: newBatchId,
         })
       }
@@ -690,7 +682,7 @@ const StudentManagement: React.FC = () => {
                     </thead>
                     <tbody>
                       {filteredStudents.map((student, index) => (
-                        <>
+                        <React.Fragment key={student.id}>
                           <motion.tr
                             key={student.id}
                             initial={{ opacity: 0, y: 20 }}
@@ -973,7 +965,7 @@ const StudentManagement: React.FC = () => {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -1060,6 +1052,308 @@ const StudentManagement: React.FC = () => {
           </Card>
         </motion.div>
       </div>
+
+      {/* Batch Assignment Modal */}
+      {showBatchAssignmentModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-purple-900/95 backdrop-blur-md border border-purple-500/30 rounded-xl p-6 w-full max-w-2xl mx-4"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-purple-200">Bulk Student Assignment</h3>
+              <button
+                onClick={handleCloseBatchAssignment}
+                className="text-purple-400 hover:text-purple-200 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-purple-300 font-medium mb-2">Select Target Batch</label>
+                <select
+                  value={targetBatchId}
+                  onChange={(e) => setTargetBatchId(e.target.value)}
+                  className="w-full px-4 py-3 bg-purple-800/30 border border-purple-500/50 rounded-lg text-purple-200 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                >
+                  <option value="">Select a batch</option>
+                  {batches
+                    .filter((batch) => batch.id !== "all")
+                    .map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.name} ({batch.studentCount} students)
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-purple-300 font-medium">Select Students</label>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAllStudents}
+                      className="text-purple-200 border-purple-500/50 hover:bg-purple-800/30"
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearAllStudents}
+                      className="text-purple-200 border-purple-500/50 hover:bg-purple-800/30"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                </div>
+                
+                <Input
+                  type="text"
+                  value={batchAssignmentSearchTerm}
+                  onChange={(e) => setBatchAssignmentSearchTerm(e.target.value)}
+                  placeholder="Search students..."
+                  className="mb-4"
+                />
+
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {students
+                    .filter((student) =>
+                      student.name.toLowerCase().includes(batchAssignmentSearchTerm.toLowerCase()) ||
+                      student.email.toLowerCase().includes(batchAssignmentSearchTerm.toLowerCase())
+                    )
+                    .map((student) => (
+                      <div
+                        key={student.id}
+                        className={`p-3 rounded-lg border transition-colors cursor-pointer ${
+                          selectedStudentsForBatch.includes(student.id)
+                            ? "border-purple-400 bg-purple-800/30"
+                            : "border-purple-500/30 hover:border-purple-400/50 hover:bg-purple-900/20"
+                        }`}
+                        onClick={() => handleStudentSelection(student.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-purple-200 font-medium">{student.name}</p>
+                            <p className="text-purple-300 text-sm">{student.email}</p>
+                          </div>
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedStudentsForBatch.includes(student.id)}
+                              onChange={() => handleStudentSelection(student.id)}
+                              className="w-4 h-4 text-purple-500 bg-purple-800 border-purple-500 rounded focus:ring-purple-400"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={handleCloseBatchAssignment}
+                  className="border-purple-500/50 text-purple-200 hover:bg-purple-800/30"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleBulkAssignToBatch}
+                  disabled={!targetBatchId || selectedStudentsForBatch.length === 0}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                >
+                  Assign {selectedStudentsForBatch.length} Students
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Batch Change Modal */}
+      {showBatchChangeModal && selectedStudentForBatchChange && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-purple-900/95 backdrop-blur-md border border-purple-500/30 rounded-xl p-6 w-full max-w-md mx-4"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-purple-200">Change Student Batch</h3>
+              <button
+                onClick={handleCloseBatchChangeModal}
+                className="text-purple-400 hover:text-purple-200 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-purple-300 mb-2">Student: <span className="text-purple-200 font-medium">{selectedStudentForBatchChange.name}</span></p>
+                <p className="text-purple-300 mb-4">Email: <span className="text-purple-200">{selectedStudentForBatchChange.email}</span></p>
+              </div>
+
+              <div>
+                <label className="block text-purple-300 font-medium mb-2">New Batch</label>
+                <select
+                  value={newBatchId}
+                  onChange={(e) => setNewBatchId(e.target.value)}
+                  className="w-full px-4 py-3 bg-purple-800/30 border border-purple-500/50 rounded-lg text-purple-200 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                >
+                  <option value="">Unassigned</option>
+                  {batches
+                    .filter((batch) => batch.id !== "all")
+                    .map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={handleCloseBatchChangeModal}
+                  className="border-purple-500/50 text-purple-200 hover:bg-purple-800/30"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleChangeStudentBatch}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                >
+                  Change Batch
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Student Details Modal */}
+      {showStudentDetailsModal && selectedStudentForDetails && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-purple-900/95 backdrop-blur-md border border-purple-500/30 rounded-xl p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-purple-200">Student Details</h3>
+              <button
+                onClick={() => setShowStudentDetailsModal(false)}
+                className="text-purple-400 hover:text-purple-200 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="bg-purple-800/30 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-purple-200 mb-3">Basic Information</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-purple-300">Name:</span>
+                      <span className="text-purple-200">{selectedStudentForDetails.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-300">Email:</span>
+                      <span className="text-purple-200">{selectedStudentForDetails.email}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-300">Current Batch:</span>
+                      <span className="text-purple-200">{selectedStudentForDetails.batch || "Unassigned"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-300">Progress:</span>
+                      <span className="text-purple-200">{selectedStudentForDetails.progress || 0}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-300">Last Active:</span>
+                      <span className="text-purple-200">
+                        {selectedStudentForDetails.lastActive
+                          ? new Date(selectedStudentForDetails.lastActive).toLocaleDateString()
+                          : "Never"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-purple-800/30 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-purple-200 mb-3">Performance Overview</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-purple-300">Overall Progress</span>
+                        <span className="text-purple-200 font-bold">{selectedStudentForDetails.progress || 0}%</span>
+                      </div>
+                      <div className="w-full bg-purple-900/50 rounded-full h-3">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full"
+                          style={{ width: `${selectedStudentForDetails.progress || 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-blue-900/30 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-blue-200">0</div>
+                        <div className="text-blue-300 text-sm">Assessments</div>
+                      </div>
+                      <div className="bg-green-900/30 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-green-200">N/A</div>
+                        <div className="text-green-300 text-sm">Avg Score</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowStudentDetailsModal(false)}
+                className="border-purple-500/50 text-purple-200 hover:bg-purple-800/30"
+              >
+                Close
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setShowStudentDetailsModal(false)
+                  handleOpenBatchChangeModal(selectedStudentForDetails)
+                }}
+                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+              >
+                Change Batch
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </>
   )
 }

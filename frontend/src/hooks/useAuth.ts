@@ -27,17 +27,14 @@ export const useAuth = () => {
         const response = await api.get('/auth/status');
         
         if (response.data.isAuthenticated && response.data.user) {
-          console.log('🔐 [AUTH] User authenticated:', response.data.user.email);
           setUser(response.data.user);
           localStorage.setItem('user', JSON.stringify(response.data.user));
         } else {
-          console.log('🔐 [AUTH] Token invalid, clearing session');
           setUser(null);
           localStorage.removeItem('user');
           localStorage.removeItem('access_token');
         }
       } catch (error) {
-        console.error('❌ [AUTH] Auth check failed:', error);
         setUser(null);
         localStorage.removeItem('user');
         localStorage.removeItem('access_token');
@@ -50,7 +47,6 @@ export const useAuth = () => {
   }, []);
 
   const login = (userData: User, token?: string) => {
-    console.log('🔐 [AUTH] User logged in:', userData.email, 'Role:', userData.role);
     // Ensure role is set with default value
     const userWithRole = {
       ...userData,
@@ -64,7 +60,6 @@ export const useAuth = () => {
   };
 
   const logout = () => {
-    console.log('🔐 [AUTH] User logged out');
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('access_token');

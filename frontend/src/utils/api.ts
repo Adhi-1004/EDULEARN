@@ -32,16 +32,10 @@ api.interceptors.request.use(
         
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
-            console.log('🔐 [API] Adding auth token to request:', config.url);
-        } else {
-            console.log('⚠️ [API] No auth token found for request:', config.url);
         }
-        
-        console.log('🌐 [API] Making request to:', (config.baseURL || '') + (config.url || ''));
         return config;
     },
     (error) => {
-        console.error('🌐 [API] Request error:', error.message);
         return Promise.reject(error);
     }
 );
@@ -53,7 +47,6 @@ api.interceptors.response.use(
     },
     (error) => {
         if (error.response?.status === 401) {
-            console.log('🔐 [API] Unauthorized request, clearing token');
             // Clear invalid token
             localStorage.removeItem('access_token');
             localStorage.removeItem('user');
@@ -61,8 +54,6 @@ api.interceptors.response.use(
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login';
             }
-        } else {
-            console.error('🌐 [API] Response error:', error.message);
         }
         return Promise.reject(error);
     }
