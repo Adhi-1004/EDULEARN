@@ -16,7 +16,7 @@ class MockDatabase:
                     'email': 'test@example.com',
                     'username': 'testuser',
                     'name': 'Test User',
-                    'password_hash': '$2b$12$XiQSMgTVHvocUhCSrCBGPOVLl/27Jx2h967WzC2FPnJqCBoO4wkS2',  # 'password123'
+                    'password_hash': '$2b$12$no/ERgib2rr/ouY82ZZux.X8HVtqfMzuTN6.ocHJRDTMakDNY5dQa',  # 'password123'
                     'role': 'student',
                     'is_admin': False,
                     'created_at': '2024-01-01T00:00:00Z'
@@ -26,7 +26,7 @@ class MockDatabase:
                     'email': 'teacher@example.com',
                     'username': 'teacher',
                     'name': 'Test Teacher',
-                    'password_hash': '$2b$12$XiQSMgTVHvocUhCSrCBGPOVLl/27Jx2h967WzC2FPnJqCBoO4wkS2',  # 'password123'
+                    'password_hash': '$2b$12$no/ERgib2rr/ouY82ZZux.X8HVtqfMzuTN6.ocHJRDTMakDNY5dQa',  # 'password123'
                     'role': 'teacher',
                     'is_admin': False,
                     'created_at': '2024-01-01T00:00:00Z'
@@ -36,8 +36,40 @@ class MockDatabase:
             'results': [],
             'assessments': [],
             'coding_problems': [],
-            'batches': [],
-            'badges': []
+            'batches': [
+                {
+                    '_id': 'batch_1',
+                    'name': 'Computer Science Batch A',
+                    'student_ids': ['mock_user_1'],
+                    'created_at': '2024-01-01T00:00:00Z'
+                }
+            ],
+            'badges': [],
+            'teacher_assessments': [
+                {
+                    '_id': 'teacher_assessment_1',
+                    'title': 'Python Programming Basics',
+                    'topic': 'Python',
+                    'difficulty': 'easy',
+                    'question_count': 5,
+                    'questions': [
+                        {
+                            'question': 'What is the correct way to declare a variable in Python?',
+                            'options': ['var x = 5', 'x = 5', 'int x = 5', 'declare x = 5'],
+                            'correct_answer': 1,
+                            'explanation': 'In Python, variables are declared by simply assigning a value.'
+                        }
+                    ],
+                    'batches': ['batch_1'],
+                    'teacher_id': 'mock_user_2',
+                    'type': 'mcq',
+                    'created_at': '2024-01-01T00:00:00Z',
+                    'is_active': True,
+                    'status': 'published'
+                }
+            ],
+            'teacher_assessment_results': [],
+            'notifications': []
         }
         print("[MOCK_DB] Mock database initialized with sample users")
     
@@ -127,7 +159,7 @@ class MockDatabase:
             return self
         raise AttributeError(f"Collection '{name}' not found")
 
-# Global mock database instance
+# Global mock database instance - this will persist data
 mock_db = MockDatabase()
 
 async def get_mock_db():

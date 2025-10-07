@@ -9,7 +9,6 @@ import { useTheme } from "../contexts/ThemeContext"
 import { useToast } from "../contexts/ToastContext"
 import { useAuth } from "../hooks/useAuth"
 import ProgressCharts from "../components/ProgressCharts"
-import NotificationBar from "../components/NotificationBar"
 import Card from "../components/ui/Card"
 import Button from "../components/ui/Button"
 import StatsCard from "../components/StatsCard"
@@ -145,9 +144,24 @@ const Dashboard: React.FC = () => {
   const fetchUpcomingTests = async () => {
     try {
       console.log("📊 [DASHBOARD] Fetching upcoming tests for user:", user?.email)
-      const response = await api.get("/api/assessments/student/upcoming")
-      console.log("📊 [DASHBOARD] Upcoming tests response:", response.data)
-      setUpcomingTests(response.data || [])
+      
+      // Fetch both student-generated and teacher-assigned assessments
+      const [studentAssessments, teacherAssessments] = await Promise.all([
+        api.get("/api/assessments/student/upcoming").catch(() => ({ data: [] })),
+        api.get("/api/assessments/teacher/upcoming").catch(() => ({ data: [] }))
+      ])
+      
+      console.log("📊 [DASHBOARD] Student assessments response:", studentAssessments.data)
+      console.log("📊 [DASHBOARD] Teacher assessments response:", teacherAssessments.data)
+      
+      // Combine both types of assessments
+      const allAssessments = [
+        ...(studentAssessments.data || []),
+        ...(teacherAssessments.data || [])
+      ]
+      
+      console.log("📊 [DASHBOARD] Combined upcoming tests:", allAssessments)
+      setUpcomingTests(allAssessments)
     } catch (error: any) {
       console.error("❌ [DASHBOARD] Error in fetchUpcomingTests:", error)
       console.error("❌ [DASHBOARD] Error details:", {
@@ -221,7 +235,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <>
-      <NotificationBar />
       <div className="min-h-screen pt-20 px-4 relative z-10">
         <motion.div
           variants={ANIMATION_VARIANTS.fadeIn}

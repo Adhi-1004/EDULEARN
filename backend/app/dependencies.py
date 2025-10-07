@@ -17,15 +17,34 @@ security = HTTPBearer()
 async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[str]:
     """Get current user ID from JWT token"""
     try:
-        return security_manager.get_current_user_id(credentials)
-    except:
+        import jwt
+        import os
+        SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
+        ALGORITHM = "HS256"
+        
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            return None
+        return str(user_id)
+    except Exception:
         return None
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> UserModel:
     """Get current authenticated user"""
     try:
-        user_id = security_manager.get_current_user_id(credentials)
+        import jwt
+        import os
+        SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
+        ALGORITHM = "HS256"
+        
+        print(f"[DEBUG] [DEPENDENCIES] Verifying token...")
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        print(f"[DEBUG] [DEPENDENCIES] User ID from token: {user_id}")
+        
         if not user_id:
+            print("[ERROR] [DEPENDENCIES] No user_id in token payload")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials"
@@ -42,16 +61,19 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             user_doc = await db.users.find_one({"_id": user_id})
             
         if not user_doc:
+            print(f"[ERROR] [DEPENDENCIES] User not found in database: {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
         
+        print(f"[SUCCESS] [DEPENDENCIES] User authenticated: {user_doc.get('email', 'Unknown')}")
         return UserModel(**user_doc)
         
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[ERROR] [DEPENDENCIES] Authentication failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"

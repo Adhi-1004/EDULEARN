@@ -42,11 +42,11 @@ async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depend
             raise HTTPException(status_code=401, detail="Invalid token")
         print(f"[SUCCESS] Token verified for user: {user_id}")
         return str(user_id)  # Ensure it's a string
-    except jwt.InvalidTokenError as e:
-        print(f"[ERROR] JWT verification failed")
+    except (jwt.InvalidTokenError, ValueError) as e:
+        print(f"[ERROR] JWT verification failed: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        print(f"[ERROR] Unexpected error in token verification")
+        print(f"[ERROR] Unexpected error in token verification: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
@@ -68,11 +68,11 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "email": email,
             "role": role
         }
-    except jwt.InvalidTokenError as e:
-        print(f"[ERROR] JWT verification failed")
+    except (jwt.InvalidTokenError, ValueError) as e:
+        print(f"[ERROR] JWT verification failed: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        print(f"[ERROR] Unexpected error in token verification")
+        print(f"[ERROR] Unexpected error in token verification: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 @router.post("/register")

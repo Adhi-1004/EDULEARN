@@ -15,28 +15,24 @@ import { getNavigationItems } from "../utils/roleUtils"
 import api from "../utils/api"
 import { TRANSITION_DEFAULTS } from "../utils/constants"
 import {
-  getNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  deleteNotification,
   formatNotificationTime,
   getNotificationIcon,
-  type Notification,
 } from "../services/notificationService"
 
 interface NavbarProps {
   user: User | null
   setUser: (user: User | null) => void
+  logout: () => void
 }
 
-const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
+const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
   const { mode, colorScheme } = useTheme()
   const { success } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const [scrolled, setScrolled] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notifications, setNotifications] = useState<any[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -55,11 +51,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
   // Fetch notifications when user is authenticated
   useEffect(() => {
     const fetchNotifications = async () => {
-      if (user) {
+      if (user && user.role === "student") {
         try {
-          const response = await getNotifications()
-          setNotifications(response.notifications)
-          setUnreadCount(response.unread_count)
+          const response = await api.get("/api/assessments/notifications")
+          setNotifications(response.data || [])
+          setUnreadCount((response.data || []).filter((n: any) => !n.is_read).length)
         } catch (error) {
           console.error("Error fetching notifications:", error)
         }
@@ -92,21 +88,17 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
   const handleLogout = useCallback(async () => {
     try {
       await api.post("/auth/logout")
-      localStorage.removeItem("access_token")
-      localStorage.removeItem("user")
-      setUser(null)
+      logout() // Use the proper logout function
       success("Logout Successful!", "You have been logged out successfully.")
       navigate("/login", { replace: true })
     } catch (error) {
       console.error("Logout failed:", error)
       // Still logout locally even if server logout fails
-      localStorage.removeItem("access_token")
-      localStorage.removeItem("user")
-      setUser(null)
+      logout() // Use the proper logout function
       success("Logout Successful!", "You have been logged out successfully.")
       navigate("/login", { replace: true })
     }
-  }, [setUser, navigate, success])
+  }, [logout, navigate, success])
 
   const isActive = useCallback(
     (path: string) => {
@@ -116,11 +108,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
   )
 
   // Notification handlers
-  const handleNotificationClick = useCallback(async (notification: Notification) => {
-    if (!notification.read) {
+  const handleNotificationClick = useCallback(async (notification: any) => {
+    if (!notification.is_read) {
       try {
-        await markNotificationAsRead(notification._id)
-        setNotifications((prev) => prev.map((n) => (n._id === notification._id ? { ...n, read: true } : n)))
+        await api.patch(`/api/assessments/notifications/${notification.id}/read`)
+        setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)))
         setUnreadCount((prev) => Math.max(0, prev - 1))
       } catch (error) {
         console.error("Failed to mark notification as read:", error)
@@ -130,18 +122,22 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
-      await markAllNotificationsAsRead()
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+      // Mark all unread notifications as read
+      const unreadNotifications = notifications.filter((n) => !n.is_read)
+      for (const notification of unreadNotifications) {
+        await api.patch(`/api/assessments/notifications/${notification.id}/read`)
+      }
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
       setUnreadCount(0)
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error)
     }
-  }, [])
+  }, [notifications])
 
   const handleDeleteNotification = useCallback(async (notificationId: string) => {
     try {
-      await deleteNotification(notificationId)
-      setNotifications((prev) => prev.filter((n) => n._id !== notificationId))
+      await api.delete(`/api/assessments/notifications/${notificationId}`)
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
       setUnreadCount((prev) => Math.max(0, prev - 1))
     } catch (error) {
       console.error("Failed to delete notification:", error)
@@ -264,39 +260,39 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
                             {notifications.length > 0 ? (
                               notifications.map((notification) => (
                                 <motion.div
-                                  key={notification._id}
+                                  key={notification.id}
                                   initial={{ opacity: 0, x: -20 }}
                                   animate={{ opacity: 1, x: 0 }}
                                   className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                                    !notification.read ? "bg-blue-50 dark:bg-blue-900/20" : ""
+                                    !notification.is_read ? "bg-blue-50 dark:bg-blue-900/20" : ""
                                   }`}
                                   onClick={() => handleNotificationClick(notification)}
                                 >
                                   <div className="flex items-start space-x-3">
                                     <div className="flex-shrink-0">
                                       <span className="text-lg">
-                                        {getNotificationIcon(notification.notification_type)}
+                                        {getNotificationIcon(notification.type)}
                                       </span>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center justify-between">
                                         <p
                                           className={`text-sm font-medium ${
-                                            !notification.read
+                                            !notification.is_read
                                               ? "text-gray-900 dark:text-white"
                                               : "text-gray-600 dark:text-gray-400"
                                           }`}
                                         >
-                                          {notification.notification_type || 'Notification'}
+                                          {notification.title}
                                         </p>
                                         <div className="flex items-center space-x-2">
                                           <span className="text-xs text-gray-500 dark:text-gray-400">
-                                            {formatNotificationTime(notification.timestamp)}
+                                            {formatNotificationTime(notification.created_at)}
                                           </span>
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation()
-                                              handleDeleteNotification(notification._id)
+                                              handleDeleteNotification(notification.id)
                                             }}
                                             className="text-gray-400 hover:text-red-500 transition-colors"
                                           >
@@ -306,7 +302,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
                                       </div>
                                       <p
                                         className={`text-sm mt-1 ${
-                                          !notification.read
+                                          !notification.is_read
                                             ? "text-gray-800 dark:text-gray-200"
                                             : "text-gray-600 dark:text-gray-400"
                                         }`}

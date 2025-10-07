@@ -46,7 +46,15 @@ export const useAuth = () => {
     checkAuthStatus();
   }, []);
 
-  const login = (userData: User, token?: string) => {
+  const login = (userData: User | null, token?: string) => {
+    if (userData === null) {
+      // Handle logout case
+      setUser(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('access_token');
+      return;
+    }
+    
     // Ensure role is set with default value
     const userWithRole = {
       ...userData,
@@ -65,5 +73,14 @@ export const useAuth = () => {
     localStorage.removeItem('access_token');
   };
 
-  return { user, setUser: login, logout, isLoading };
+  return { 
+    user, 
+    setUser: login, 
+    logout: () => {
+      setUser(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('access_token');
+    }, 
+    isLoading 
+  };
 };

@@ -166,6 +166,27 @@ const Assessment: React.FC = () => {
   }
 
   const loadTeacherCreatedAssessment = async (assessmentId: string) => {
+    console.log("🔍 [ASSESSMENT] Fetching teacher assessment details for ID:", assessmentId)
+    
+    // Try teacher assessment endpoint first
+    try {
+      const response = await api.get(`/api/assessments/teacher/${assessmentId}`)
+      
+      if (!response.data || !response.data.questions || response.data.questions.length === 0) {
+        throw new Error("Teacher assessment not found or has no questions")
+      }
+      
+      setAssessment(response.data)
+      setTimeLeft(response.data.time_limit * 60) // Convert minutes to seconds
+      setAnswers(new Array(response.data.question_count).fill(-1))
+      setAssessmentType('teacher')
+      console.log("✅ [ASSESSMENT] Loaded teacher-created assessment")
+      return
+    } catch (error) {
+      console.log("⚠️ [ASSESSMENT] Teacher assessment endpoint failed, trying regular assessment endpoint...")
+    }
+    
+    // Fallback to regular assessment endpoint
     const response = await api.get(`/api/assessments/${assessmentId}/questions`)
     
     if (!response.data || !response.data.questions || response.data.questions.length === 0) {
@@ -234,7 +255,13 @@ const Assessment: React.FC = () => {
           time_taken: assessment?.time_limit ? (assessment.time_limit * 60) - timeLeft : 0
         }
         
-        await api.post(`/api/assessments/${id}/submit`, submission)
+        try {
+          // Try teacher assessment submit endpoint first
+          await api.post(`/api/assessments/teacher/${id}/submit`, submission)
+        } catch (error) {
+          // Fallback to regular assessment submit endpoint
+          await api.post(`/api/assessments/${id}/submit`, submission)
+        }
         
         success("Success", `Test completed! Your score: ${score}/${assessment?.question_count} (${percentage}%)`)
         

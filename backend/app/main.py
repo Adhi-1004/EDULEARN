@@ -2,8 +2,9 @@
 FastAPI application entry point
 Main application configuration and startup
 """
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, JSONResponse
 from contextlib import asynccontextmanager
 import uvicorn
 from datetime import datetime
@@ -45,15 +46,91 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS middleware
+# CORS middleware - Specific origins for credentials
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "https://modlrn.vercel.app",
+        "https://modlrn.onrender.com"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allow_headers=["authorization", "content-type", "accept", "origin", "x-requested-with"],
     expose_headers=["*"]
 )
+
+# Manual CORS handler for additional safety
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        # If there's an error, create a response with CORS headers
+        from fastapi.responses import JSONResponse
+        response = JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"}
+        )
+    
+    # Get the origin from the request
+    origin = request.headers.get("origin")
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173", 
+        "http://localhost:3000",
+        "https://modlrn.vercel.app",
+        "https://modlrn.onrender.com"
+    ]
+    
+    # Always set CORS headers, even for errors
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    else:
+        # For development, allow localhost even if not in the list
+        if origin and ("localhost" in origin or "127.0.0.1" in origin):
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "authorization, content-type, accept, origin, x-requested-with"
+    response.headers["Access-Control-Expose-Headers"] = "*"
+    return response
+
+# Global exception handler to ensure CORS headers are always set
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler that ensures CORS headers are set"""
+    origin = request.headers.get("origin")
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173", 
+        "http://localhost:3000",
+        "https://modlrn.vercel.app",
+        "https://modlrn.onrender.com"
+    ]
+    
+    response = JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)}
+    )
+    
+    # Set CORS headers even for exceptions
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    elif origin and ("localhost" in origin or "127.0.0.1" in origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "authorization, content-type, accept, origin, x-requested-with"
+    response.headers["Access-Control-Expose-Headers"] = "*"
+    
+    return response
 
 # Include API router
 app.include_router(api_router)
@@ -143,6 +220,31 @@ async def get_questions_from_db(
             }
             mock_questions.append(question)
         return mock_questions
+
+# CORS preflight handler
+@app.options("/{path:path}")
+async def options_handler(path: str, request: Request):
+    """Handle CORS preflight requests"""
+    origin = request.headers.get("origin")
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000", 
+        "https://modlrn.vercel.app",
+        "https://modlrn.onrender.com"
+    ]
+    
+    headers = {
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+        "Access-Control-Allow-Headers": "authorization, content-type, accept, origin, x-requested-with",
+    }
+    
+    # Only set origin and credentials if origin is allowed
+    if origin in allowed_origins:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return Response(status_code=200, headers=headers)
 
 # Health check endpoints
 @app.get("/")

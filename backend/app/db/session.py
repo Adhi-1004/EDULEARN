@@ -88,6 +88,22 @@ async def create_indexes():
         await db.code_submissions.create_index([("student_id", 1)])
         await db.code_submissions.create_index([("submitted_at", 1)])
         
+        # Teacher assessments collection indexes
+        await db.teacher_assessments.create_index([("teacher_id", 1)])
+        await db.teacher_assessments.create_index([("batches", 1)])
+        await db.teacher_assessments.create_index([("is_active", 1)])
+        await db.teacher_assessments.create_index([("status", 1)])
+        await db.teacher_assessments.create_index([("created_at", 1)])
+        
+        # Teacher assessment results indexes
+        await db.teacher_assessment_results.create_index([("assessment_id", 1)])
+        await db.teacher_assessment_results.create_index([("student_id", 1)])
+        await db.teacher_assessment_results.create_index([("submitted_at", 1)])
+        
+        # Batches collection indexes
+        await db.batches.create_index([("student_ids", 1)])
+        await db.batches.create_index([("created_at", 1)])
+        
         print(f"[DB] Database indexes created successfully")
         
     except Exception as e:

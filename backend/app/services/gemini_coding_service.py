@@ -77,12 +77,30 @@ class GeminiCodingService:
             response = await self.model.generate_content_async(prompt)
             questions_text = response.text.strip()
             
-            # Parse JSON response
-            questions = json.loads(questions_text)
+            # Clean and fix common JSON issues
+            questions_text = self._clean_json_response(questions_text)
+            
+            # Parse JSON response with error handling
+            try:
+                questions = json.loads(questions_text)
+            except json.JSONDecodeError as e:
+                print(f"❌ [GEMINI] JSON parsing error: {str(e)}")
+                print(f"🔍 [GEMINI] Raw content that failed to parse: {questions_text[:200]}...")
+                print(f"⚠️ [GEMINI] Using fallback questions for {topic} ({difficulty})")
+                return self._generate_fallback_mcq_questions(topic, difficulty, count)
             
             # Validate and clean questions
             validated_questions = []
             for i, q in enumerate(questions[:count]):
+                # Handle both "answer" (letter format) and "correct_answer" (index format)
+                if "answer" in q and "correct_answer" not in q:
+                    # Convert letter answer (A, B, C, D) to index (0, 1, 2, 3)
+                    answer_letter = q["answer"].upper()
+                    if answer_letter in ["A", "B", "C", "D"]:
+                        q["correct_answer"] = ord(answer_letter) - ord("A")
+                    else:
+                        continue  # Skip invalid answer format
+                
                 if self._validate_mcq_question(q):
                     validated_questions.append({
                         "question": q["question"],
@@ -103,17 +121,50 @@ class GeminiCodingService:
     
     def _validate_mcq_question(self, question: Dict[str, Any]) -> bool:
         """Validate MCQ question structure"""
-        required_fields = ["question", "options", "correct_answer"]
+        required_fields = ["question", "options"]
         if not all(field in question for field in required_fields):
+            return False
+        
+        # Check if we have either "answer" or "correct_answer"
+        if "answer" not in question and "correct_answer" not in question:
             return False
         
         if not isinstance(question["options"], list) or len(question["options"]) != 4:
             return False
         
-        if not isinstance(question["correct_answer"], int) or question["correct_answer"] < 0 or question["correct_answer"] > 3:
-            return False
+        # If we have correct_answer, validate it's an integer index
+        if "correct_answer" in question:
+            if not isinstance(question["correct_answer"], int) or question["correct_answer"] < 0 or question["correct_answer"] > 3:
+                return False
         
         return True
+    
+    def _clean_json_response(self, json_text: str) -> str:
+        """Clean and fix common JSON issues in AI responses"""
+        # Remove any text before the first '[' or '{'
+        start_idx = max(json_text.find('['), json_text.find('{'))
+        if start_idx > 0:
+            json_text = json_text[start_idx:]
+        
+        # Remove any text after the last ']' or '}'
+        end_idx = max(json_text.rfind(']'), json_text.rfind('}'))
+        if end_idx > 0:
+            json_text = json_text[:end_idx + 1]
+        
+        # Fix common issues with newlines in strings
+        json_text = json_text.replace('\n', '\\n')
+        
+        # Fix unterminated strings by adding quotes
+        lines = json_text.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            # Count unescaped quotes
+            quote_count = line.count('"') - line.count('\\"')
+            if quote_count % 2 == 1 and not line.strip().endswith('"'):
+                line = line.rstrip() + '"'
+            cleaned_lines.append(line)
+        
+        return '\n'.join(cleaned_lines)
     
     def _generate_fallback_mcq_questions(self, topic: str, difficulty: str, count: int) -> List[Dict[str, Any]]:
         """Generate fallback MCQ questions when AI is not available"""

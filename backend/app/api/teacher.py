@@ -514,6 +514,12 @@ async def add_student_to_batch(
             result = await db.users.insert_one(student_doc)
             student_id = str(result.inserted_id)
             
+            # Add student to batch's student_ids array
+            await db.batches.update_one(
+                {"_id": ObjectId(student_data.batch_id)},
+                {"$addToSet": {"student_ids": student_id}}
+            )
+            
             # Create notification for the student
             notification = {
                 "user_id": ObjectId(student_id),
@@ -547,6 +553,12 @@ async def add_student_to_batch(
                         "updated_at": datetime.utcnow()
                     }
                 }
+            )
+            
+            # Add student to batch's student_ids array
+            await db.batches.update_one(
+                {"_id": ObjectId(student_data.batch_id)},
+                {"$addToSet": {"student_ids": str(student["_id"])}}
             )
             
             # Create notification for the existing student
@@ -773,3 +785,130 @@ async def test_student_creation(current_user: UserModel = Depends(require_teache
             "message": f"Student creation test failed: {str(e)}",
             "error": str(e)
         }
+
+# Teacher Assessment Management
+class TeacherAssessmentCreate(BaseModel):
+    title: str
+    topic: str
+    difficulty: str
+    question_count: int
+    batches: List[str]
+    type: str = "ai_generated"
+
+class TeacherAssessmentResponse(BaseModel):
+    success: bool
+    assessment_id: str
+    message: str
+
+@router.post("/assessments/create", response_model=TeacherAssessmentResponse)
+async def create_teacher_assessment(
+    assessment_data: TeacherAssessmentCreate,
+    current_user: UserModel = Depends(require_teacher_or_admin)
+):
+    """Create an AI-generated assessment for students"""
+    try:
+        db = await get_db()
+        
+        print(f"🤖 [TEACHER ASSESSMENT] Creating AI assessment: {assessment_data.title}")
+        
+        # Generate unique assessment ID
+        assessment_id = str(ObjectId())
+        
+        # Generate questions using Gemini AI
+        from app.services.gemini_coding_service import GeminiCodingService
+        gemini_service = GeminiCodingService()
+        
+        generated_questions = await gemini_service.generate_mcq_questions(
+            topic=assessment_data.topic,
+            difficulty=assessment_data.difficulty,
+            count=assessment_data.question_count
+        )
+        
+        # Store in teacher_assessments collection
+        teacher_assessment = {
+            "_id": ObjectId(assessment_id),
+            "title": assessment_data.title,
+            "topic": assessment_data.topic,
+            "difficulty": assessment_data.difficulty,
+            "question_count": assessment_data.question_count,
+            "questions": generated_questions,
+            "batches": assessment_data.batches,
+            "teacher_id": current_user.id,
+            "type": assessment_data.type,
+            "created_at": datetime.utcnow(),
+            "is_active": True,
+            "status": "published"
+        }
+        
+        await db.teacher_assessments.insert_one(teacher_assessment)
+        
+        # Store questions in ai_questions collection for review
+        for question in generated_questions:
+            # Handle both "answer" and "correct_answer" fields for backward compatibility
+            correct_answer = question.get("correct_answer")
+            if correct_answer is None and "answer" in question:
+                # Convert letter answer (A, B, C, D) to index (0, 1, 2, 3)
+                answer_letter = question["answer"].upper()
+                if answer_letter in ["A", "B", "C", "D"]:
+                    correct_answer = ord(answer_letter) - ord("A")
+                else:
+                    print(f"⚠️ [WARNING] Invalid answer format: {question['answer']}")
+                    continue  # Skip this question
+            
+            question_doc = {
+                "question": question["question"],
+                "options": question["options"],
+                "correct_answer": correct_answer,
+                "explanation": question.get("explanation", ""),
+                "topic": assessment_data.topic,
+                "difficulty": assessment_data.difficulty,
+                "assessment_id": assessment_id,
+                "created_at": datetime.utcnow(),
+                "source": "teacher_generated"
+            }
+            await db.ai_questions.insert_one(question_doc)
+        
+        # Get all students from selected batches
+        student_ids = []
+        for batch_id in assessment_data.batches:
+            batch = await db.batches.find_one({"_id": ObjectId(batch_id)})
+            if batch and batch.get("student_ids"):
+                # Get students by their IDs from the batch
+                batch_student_ids = batch["student_ids"]
+                student_ids.extend(batch_student_ids)
+                print(f"📢 [TEACHER_ASSESSMENT] Found {len(batch_student_ids)} students in batch {batch_id}")
+            else:
+                print(f"❌ [TEACHER_ASSESSMENT] No students found in batch {batch_id}")
+        
+        # Create notifications for students
+        notifications = []
+        for student_id in student_ids:
+            notification = {
+                "student_id": student_id,
+                "type": "teacher_assessment_assigned",
+                "title": f"New Assessment: {assessment_data.title}",
+                "message": f"A new {assessment_data.difficulty} assessment on {assessment_data.topic} has been assigned to you.",
+                "assessment_id": assessment_id,
+                "created_at": datetime.utcnow(),
+                "is_read": False
+            }
+            notifications.append(notification)
+        
+        if notifications:
+            await db.notifications.insert_many(notifications)
+        
+        print(f"✅ [TEACHER ASSESSMENT] Created assessment {assessment_id} with {len(generated_questions)} questions")
+        print(f"📢 [TEACHER ASSESSMENT] Sent {len(notifications)} notifications to students")
+        
+        return TeacherAssessmentResponse(
+            success=True,
+            assessment_id=assessment_id,
+            message=f"Assessment '{assessment_data.title}' created successfully with {len(generated_questions)} questions"
+        )
+        
+    except Exception as e:
+        print(f"❌ [TEACHER ASSESSMENT] Error creating assessment: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create assessment: {str(e)}"
+        )

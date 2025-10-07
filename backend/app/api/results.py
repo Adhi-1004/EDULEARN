@@ -110,6 +110,11 @@ class TestResult(BaseModel):
     correct_answers: int
     completed_at: datetime
     duration: int  # in seconds
+    topic: Optional[str] = ""
+    difficulty: Optional[str] = "medium"
+    percentage: Optional[float] = None
+    time_taken: Optional[int] = None
+    date: Optional[datetime] = None
 
 class UserResultsResponse(BaseModel):
     success: bool
@@ -132,33 +137,93 @@ async def get_user_results(
         
         db = await get_db()
         
-        # For now, return mock data
-        # In a real implementation, this would query the database
-        mock_results = [
-            TestResult(
-                id="1",
-                test_name="Python Basics",
-                score=85.0,
-                total_questions=10,
-                correct_answers=8,
-                completed_at=datetime.utcnow(),
-                duration=1200
-            ),
-            TestResult(
-                id="2", 
-                test_name="Data Structures",
-                score=92.0,
-                total_questions=15,
-                correct_answers=14,
-                completed_at=datetime.utcnow(),
-                duration=1800
-            )
-        ]
+        # Get real results from database
+        # Check multiple collections for results
+        results = []
+        
+        # Get from db.results collection (general test results)
+        results_cursor = db.results.find({"user_id": ObjectId(user_id)}).sort("submitted_at", -1)
+        db_results = await results_cursor.to_list(length=None)
+        
+        for result in db_results:
+            score = result.get("score", 0)
+            total_questions = result.get("total_questions", 0)
+            percentage = (score / total_questions * 100) if total_questions > 0 else 0
+            
+            results.append(TestResult(
+                id=str(result["_id"]),
+                test_name=result.get("test_name", "Unknown Test"),
+                score=score,
+                total_questions=total_questions,
+                correct_answers=result.get("correct_answers", 0),
+                completed_at=result.get("submitted_at", datetime.utcnow()),
+                duration=result.get("time_spent", 0),
+                topic=result.get("topic", ""),
+                difficulty=result.get("difficulty", "medium"),
+                percentage=percentage,
+                time_taken=result.get("time_spent", 0),
+                date=result.get("submitted_at", datetime.utcnow())
+            ))
+        
+        # Get from db.assessment_results collection (assessment submissions)
+        assessment_results_cursor = db.assessment_results.find({"student_id": user_id}).sort("submitted_at", -1)
+        assessment_results = await assessment_results_cursor.to_list(length=None)
+        
+        for result in assessment_results:
+            score = result.get("score", 0)
+            total_questions = result.get("total_questions", 0)
+            percentage = (score / total_questions * 100) if total_questions > 0 else 0
+            
+            results.append(TestResult(
+                id=str(result["_id"]),
+                test_name=result.get("assessment_title", "Assessment"),
+                score=score,
+                total_questions=total_questions,
+                correct_answers=result.get("score", 0),  # For assessment results, score is the correct count
+                completed_at=result.get("submitted_at", datetime.utcnow()),
+                duration=result.get("time_taken", 0),
+                topic=result.get("subject", ""),
+                difficulty=result.get("difficulty", "medium"),
+                percentage=percentage,
+                time_taken=result.get("time_taken", 0),
+                date=result.get("submitted_at", datetime.utcnow())
+            ))
+        
+        # Get from db.assessment_submissions collection (assessment submissions)
+        submission_results_cursor = db.assessment_submissions.find({"student_id": user_id}).sort("submitted_at", -1)
+        submission_results = await submission_results_cursor.to_list(length=None)
+        
+        for result in submission_results:
+            # Get assessment details
+            assessment = await db.assessments.find_one({"_id": ObjectId(result["assessment_id"])})
+            assessment_title = assessment.get("title", "Assessment") if assessment else "Assessment"
+            
+            score = result.get("score", 0)
+            total_questions = result.get("total_questions", 0)
+            percentage = (score / total_questions * 100) if total_questions > 0 else 0
+            
+            results.append(TestResult(
+                id=str(result["_id"]),
+                test_name=assessment_title,
+                score=score,
+                total_questions=total_questions,
+                correct_answers=result.get("score", 0),
+                completed_at=result.get("submitted_at", datetime.utcnow()),
+                duration=result.get("time_taken", 0),
+                topic=assessment.get("subject", "") if assessment else "",
+                difficulty=assessment.get("difficulty", "medium") if assessment else "medium",
+                percentage=percentage,
+                time_taken=result.get("time_taken", 0),
+                date=result.get("submitted_at", datetime.utcnow())
+            ))
+        
+        # Sort all results by completion date (most recent first)
+        results.sort(key=lambda x: x.completed_at, reverse=True)
         
         return UserResultsResponse(
             success=True,
-            results=mock_results,
-            total=len(mock_results)
+            results=results,
+            total=len(results)
         )
         
     except HTTPException:
@@ -343,50 +408,40 @@ async def get_detailed_result(
     try:
         db = await get_db()
         
-        # For now, return mock data since we don't have a real database implementation
-        # In a real implementation, you would fetch from the database
-        mock_result = {
-            "id": result_id,
-            "user_id": str(current_user.id),
-            "score": 3,
-            "total_questions": 3,
-            "questions": [
-                {
-                    "question": "What is 2 + 2?",
-                    "options": ["3", "4", "5", "6"],
-                    "answer": "4",
-                    "correct_answer": 1,
-                    "explanation": "2 + 2 equals 4."
-                },
-                {
-                    "question": "Which shape has 3 sides?",
-                    "options": ["Square", "Circle", "Triangle", "Rectangle"],
-                    "answer": "Triangle",
-                    "correct_answer": 2,
-                    "explanation": "A triangle has 3 sides."
-                },
-                {
-                    "question": "What is the color of the sky on a clear day?",
-                    "options": ["Green", "Red", "Blue", "Yellow"],
-                    "answer": "Blue",
-                    "correct_answer": 2,
-                    "explanation": "The sky appears blue due to the scattering of sunlight."
-                }
-            ],
-            "user_answers": ["4", "Triangle", "Blue"],
-            "topic": "Science",
-            "difficulty": "Easy",
-            "time_taken": 120,
-            "date": datetime.utcnow().isoformat(),
-            "percentage": 100,
-            "correct_answers": 3,
-            "incorrect_answers": 0
+        # Get real result from database
+        result = await db.results.find_one({"_id": ObjectId(result_id)})
+        if not result:
+            raise HTTPException(status_code=404, detail="Result not found")
+        
+        # Verify user can access this result
+        result_user_id = result.get("user_id")
+        if isinstance(result_user_id, ObjectId):
+            result_user_id = str(result_user_id)
+        
+        if result_user_id != str(current_user.id) and current_user.role not in ["admin", "teacher"]:
+            raise HTTPException(status_code=403, detail="Not authorized to access this result")
+        
+        # Extract real data from the result
+        real_result = {
+            "id": str(result["_id"]),
+            "user_id": str(result.get("user_id")),
+            "score": result.get("score", 0),
+            "total_questions": result.get("total_questions", 0),
+            "questions": result.get("questions", []),
+            "user_answers": result.get("user_answers", []),
+            "topic": result.get("topic", ""),
+            "difficulty": result.get("difficulty", "medium"),
+            "time_taken": result.get("time_spent", 0),
+            "date": result.get("submitted_at", datetime.utcnow()).isoformat(),
+            "percentage": (result.get("score", 0) / result.get("total_questions", 1)) * 100,
+            "correct_answers": result.get("correct_answers", 0),
+            "incorrect_answers": result.get("total_questions", 0) - result.get("correct_answers", 0)
         }
         
         # Generate question reviews with proper is_correct calculation
         question_reviews = []
-        for i, question in enumerate(mock_result["questions"]):
-            user_answer = mock_result["user_answers"][i] if i < len(mock_result["user_answers"]) else ""
+        for i, question in enumerate(real_result["questions"]):
+            user_answer = real_result["user_answers"][i] if i < len(real_result["user_answers"]) else ""
             
             # Handle both string and integer correct answers
             correct_answer = question.get("answer", "")
@@ -411,7 +466,7 @@ async def get_detailed_result(
         
         return {
             "success": True,
-            "result": mock_result,
+            "result": real_result,
             "question_reviews": question_reviews
         }
         

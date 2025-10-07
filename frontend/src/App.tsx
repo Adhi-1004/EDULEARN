@@ -30,7 +30,10 @@ import EnhancedAdminDashboard from "./components/admin/EnhancedAdminDashboard"
 import TestPage from "./pages/TestPage"
 
 const AppContent: React.FC = () => {
-  const { user, setUser, isLoading } = useAuth()
+  const auth = useAuth()
+  console.log('Auth object:', auth)
+  const { user, setUser, isLoading } = auth
+  const logout = auth.logout
 
   if (isLoading) {
     return <LoadingState text="Loading application..." size="lg" fullScreen={true} />
@@ -39,13 +42,13 @@ const AppContent: React.FC = () => {
   return (
     <ThemeProvider>
       <ToastProvider>
-        <AppRouter user={user} setUser={setUser} />
+        <AppRouter user={user} setUser={setUser} logout={logout} />
       </ToastProvider>
     </ThemeProvider>
   )
 }
 
-const AppRouter: React.FC<{ user: any; setUser: any }> = ({ user, setUser }) => {
+const AppRouter: React.FC<{ user: any; setUser: any; logout: any }> = ({ user, setUser, logout }) => {
   const { toasts, removeToast } = useToast()
 
   // Function to get the appropriate dashboard path based on user role
@@ -69,7 +72,7 @@ const AppRouter: React.FC<{ user: any; setUser: any }> = ({ user, setUser }) => 
     <Router>
       <div className="min-h-screen relative overflow-hidden transition-colors duration-300 bg-background text-foreground">
         <div className="app-bg" aria-hidden="true" />
-        <Navbar user={user} setUser={setUser} />
+        <Navbar user={user} setUser={setUser} logout={logout} />
         <ToastContainer toasts={toasts} onClose={removeToast} />
             <AnimatePresence mode="wait">
               <Routes>

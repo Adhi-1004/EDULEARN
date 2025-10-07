@@ -53,9 +53,9 @@ const AssessmentManagement: React.FC = () => {
   const [showAssessmentResults, setShowAssessmentResults] = useState(false)
   const [assessmentResults] = useState<any[]>([])
   const [showCodingQuestionForm, setShowCodingQuestionForm] = useState(false)
-  const [aiQuestionType, setAiQuestionType] = useState<"mcq" | "coding" | "both">("mcq")
-  const [showAIGeneratedQuestions, setShowAIGeneratedQuestions] = useState(false)
-  const [aiGeneratedQuestions, setAiGeneratedQuestions] = useState<any[]>([])
+  // Removed aiQuestionType since we're only implementing MCQ
+  // Removed showAIGeneratedQuestions since AI generation is now handled directly
+  // Removed aiGeneratedQuestions since AI generation is now handled directly
 
   // Early return if user is not available
   if (!user) {
@@ -151,58 +151,82 @@ const AssessmentManagement: React.FC = () => {
         topic: assessmentTopic,
         difficulty: assessmentDifficulty,
         type: type,
+        questionCount: questionCount,
+        selectedBatches: selectedBatches,
       })
 
-      // Create assessment via API
-      const response = await api.post("/api/assessments/", {
-        title: assessmentTitle,
-        subject: assessmentTopic, // Backend expects 'subject' field
-        difficulty: assessmentDifficulty,
-        description: `AI-generated ${type} assessment on ${assessmentTopic}`,
-        time_limit: type === "challenge" ? 60 : 30, // 60 minutes for coding, 30 for MCQ
-        max_attempts: 1,
-        type: type, // Send the assessment type to backend
-        batches: selectedBatches, // Include selected batches
-        questions: [], // Empty questions array for now
-      })
-
-      if (response.data) {
-        // Set up for question addition
-        setCurrentAssessment({
-          id: response.data.id,
+      if (type === "ai") {
+        // For AI-generated assessments, create teacher assessment directly
+        const response = await api.post("/api/teacher/assessments/create", {
           title: assessmentTitle,
           topic: assessmentTopic,
           difficulty: assessmentDifficulty,
-          type: type,
-          questionCount: questionCount,
+          question_count: questionCount,
+          batches: selectedBatches,
+          type: "ai_generated"
         })
 
-        success(
-          "Success",
-          `${type.toUpperCase()} assessment "${assessmentTitle}" created successfully! Now add questions.`,
-        )
+        if (response.data) {
+          success(
+            "Success",
+            `AI-generated assessment "${assessmentTitle}" created successfully! Students will be notified.`,
+          )
 
-        // Reset form
-        setAssessmentTitle("")
-        setAssessmentTopic("")
-        setAssessmentDifficulty("medium")
-        setQuestionCount(10)
-        setSelectedBatches([])
-        setBatchSelectionSearchTerm("")
-        setShowMCQForm(false)
-        setShowChallengeForm(false)
-        setShowAIGenerateForm(false)
+          // Reset form
+          setAssessmentTitle("")
+          setAssessmentTopic("")
+          setAssessmentDifficulty("medium")
+          setQuestionCount(10)
+          setSelectedBatches([])
+          setBatchSelectionSearchTerm("")
+          setShowAIGenerateForm(false)
+        }
+      } else {
+        // For manual assessments, use existing flow
+        const response = await api.post("/api/assessments/", {
+          title: assessmentTitle,
+          subject: assessmentTopic,
+          difficulty: assessmentDifficulty,
+          description: `${type} assessment on ${assessmentTopic}`,
+          time_limit: type === "challenge" ? 60 : 30,
+          max_attempts: 1,
+          type: type,
+          batches: selectedBatches,
+          questions: [],
+        })
 
-        // Handle different assessment types
-        if (type === "challenge") {
-          // For coding challenges, go directly to coding question form
-          setShowCodingQuestionForm(true)
-        } else if (type === "ai") {
-          // For AI-generated assessments, generate questions automatically
-          await handleAIGenerateQuestions(response.data.id, aiQuestionType)
-        } else {
-          // For MCQ assessments, show regular question form
-          setShowQuestionForm(true)
+        if (response.data) {
+          setCurrentAssessment({
+            id: response.data.id,
+            title: assessmentTitle,
+            topic: assessmentTopic,
+            difficulty: assessmentDifficulty,
+            type: type,
+            questionCount: questionCount,
+          })
+
+          success(
+            "Success",
+            `${type.toUpperCase()} assessment "${assessmentTitle}" created successfully! Now add questions.`,
+          )
+
+          // Reset form
+          setAssessmentTitle("")
+          setAssessmentTopic("")
+          setAssessmentDifficulty("medium")
+          setQuestionCount(10)
+          setSelectedBatches([])
+          setBatchSelectionSearchTerm("")
+          setShowMCQForm(false)
+          setShowChallengeForm(false)
+          setShowAIGenerateForm(false)
+
+          // Handle different assessment types
+          if (type === "challenge") {
+            setShowCodingQuestionForm(true)
+          } else {
+            setShowQuestionForm(true)
+          }
         }
       }
     } catch (err: any) {
@@ -281,72 +305,11 @@ const AssessmentManagement: React.FC = () => {
     success("Success", "Coding question added successfully! You can add more questions or submit the assessment.")
   }
 
-  const fetchAIGeneratedQuestions = async (assessmentId: string) => {
-    try {
-      const response = await api.get(`/api/assessments/${assessmentId}/details`)
-      if (response.data && response.data.questions) {
-        setAiGeneratedQuestions(response.data.questions)
-      }
-    } catch (err: any) {
-      console.error("Failed to fetch AI generated questions:", err)
-      showError("Error", "Failed to fetch AI generated questions.")
-    }
-  }
+  // Removed fetchAIGeneratedQuestions since AI generation is now handled directly
 
-  const handlePostTest = () => {
-    if (!currentAssessment) {
-      showError("Error", "No assessment selected")
-      return
-    }
-    // This should likely lead to assigning the assessment to batches
-    setShowAIGeneratedQuestions(false) // Close the review modal
-    setShowQuestionForm(false)
-  }
+  // Removed handlePostTest since AI generation is now handled directly
 
-  const handleAIGenerateQuestions = async (assessmentId: string, questionType: "mcq" | "coding" | "both") => {
-    try {
-      setCreatingAssessment(true)
-
-      console.log("🤖 [AI GENERATION] Generating questions for assessment:", assessmentId)
-      console.log("🤖 [AI GENERATION] Question type:", questionType)
-      console.log("🤖 [AI GENERATION] Topic:", assessmentTopic)
-      console.log("🤖 [AI GENERATION] Difficulty:", assessmentDifficulty)
-      console.log("🤖 [AI GENERATION] Question count:", questionCount)
-
-      // Call AI generation endpoint
-      const response = await api.post(`/api/assessments/${assessmentId}/ai-generate-questions`, {
-        question_type: questionType,
-        topic: assessmentTopic,
-        difficulty: assessmentDifficulty,
-        question_count: questionCount,
-        title: assessmentTitle, // Passing title for context if needed by AI
-      })
-
-      if (response.data) {
-        success("Success", `AI generated ${response.data.generated_count} questions successfully!`)
-
-        // Fetch the generated questions to show for review
-        await fetchAIGeneratedQuestions(assessmentId)
-
-        // Show the generated questions for review
-        setShowAIGeneratedQuestions(true)
-        setCurrentAssessment({
-          id: assessmentId,
-          title: assessmentTitle,
-          topic: assessmentTopic,
-          difficulty: assessmentDifficulty,
-          type: "ai", // This type might need refinement based on actual generation
-          questionCount: response.data.generated_count,
-        })
-      }
-    } catch (err: any) {
-      console.error("❌ [AI GENERATION] Failed to generate questions:", err)
-      console.error("❌ [AI GENERATION] Error response:", err.response?.data)
-      showError("Error", "Failed to generate questions. Please try again.")
-    } finally {
-      setCreatingAssessment(false)
-    }
-  }
+  // Removed handleAIGenerateQuestions since AI generation is now handled directly in handleCreateAssessment
 
   if (loading) {
     return (
@@ -386,30 +349,30 @@ const AssessmentManagement: React.FC = () => {
               <Card className="p-6">
                 <h2 className="text-2xl font-bold text-purple-200 mb-6">Assessment Creation Tools</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="p-4 bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-lg border border-blue-500/30">
+                    <h3 className="text-lg font-semibold text-blue-200 mb-2">AI-Generated Assessment</h3>
+                    <p className="text-blue-300 text-sm mb-4">Use AI to generate MCQ assessments automatically</p>
+                    <Button variant="primary" size="sm" className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600" onClick={handleAIGenerate}>
+                      AI Generate
+                    </Button>
+                  </div>
                   <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
-                    <h3 className="text-lg font-semibold text-purple-200 mb-2">MCQ Assessments</h3>
-                    <p className="text-purple-300 text-sm mb-4">Create multiple choice question assessments</p>
+                    <h3 className="text-lg font-semibold text-purple-200 mb-2">Custom MCQ Assessment</h3>
+                    <p className="text-purple-300 text-sm mb-4">Create multiple choice question assessments manually</p>
                     <Button variant="primary" size="sm" className="w-full" onClick={handleCreateMCQ}>
                       Create MCQ
                     </Button>
                   </div>
-                  <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
-                    <h3 className="text-lg font-semibold text-purple-200 mb-2">Coding Challenges</h3>
-                    <p className="text-purple-300 text-sm mb-4">Create programming challenges and exercises</p>
+                  <div className="p-4 bg-green-900/20 rounded-lg border border-green-500/30">
+                    <h3 className="text-lg font-semibold text-green-200 mb-2">Coding Challenges</h3>
+                    <p className="text-green-300 text-sm mb-4">Create programming challenges and exercises</p>
                     <Button variant="primary" size="sm" className="w-full" onClick={handleCreateChallenge}>
                       Create Challenge
                     </Button>
                   </div>
-                  <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
-                    <h3 className="text-lg font-semibold text-purple-200 mb-2">AI-Generated</h3>
-                    <p className="text-purple-300 text-sm mb-4">Use AI to generate custom assessments</p>
-                    <Button variant="primary" size="sm" className="w-full" onClick={handleAIGenerate}>
-                      AI Generate
-                    </Button>
-                  </div>
-                  <div className="p-4 bg-green-900/20 rounded-lg border border-green-500/30">
-                    <h3 className="text-lg font-semibold text-green-200 mb-2">Assessment Results</h3>
-                    <p className="text-green-300 text-sm mb-4">View and analyze student performance</p>
+                  <div className="p-4 bg-orange-900/20 rounded-lg border border-orange-500/30">
+                    <h3 className="text-lg font-semibold text-orange-200 mb-2">Assessment Results</h3>
+                    <p className="text-orange-300 text-sm mb-4">View and analyze student performance</p>
                     <Button
                       variant="primary"
                       size="sm"
@@ -429,7 +392,7 @@ const AssessmentManagement: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
                 onClick={handleCloseAssessmentForm}
               >
                 <motion.div
@@ -501,45 +464,46 @@ const AssessmentManagement: React.FC = () => {
                     </div>
 
                     {/* Batch Selection Section */}
-                    <div className="p-4 bg-green-900/20 rounded-lg border border-green-500/30">
-                      <h3 className="text-lg font-semibold text-green-200 mb-3">Select Batches</h3>
-                      <p className="text-green-300 text-sm mb-4">
+                    <div className="p-3 bg-green-900/20 rounded-lg border border-green-500/30">
+                      <h3 className="text-base font-semibold text-green-200 mb-2">Select Batches</h3>
+                      <p className="text-green-300 text-xs mb-3">
                         Choose which batches this assessment will be assigned to
                       </p>
                       
                       {/* Search and Controls */}
-                      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                      <div className="flex flex-col sm:flex-row gap-2 mb-3">
                         <div className="flex-1">
                           <Input
                             type="text"
                             value={batchSelectionSearchTerm}
                             onChange={(e) => setBatchSelectionSearchTerm(e.target.value)}
                             placeholder="Search batches..."
-                            className="w-full"
+                            className="w-full text-sm"
                           />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <Button
                             variant="primary"
                             size="sm"
                             onClick={() => setSelectedBatches(batches.map((b) => b.id))}
+                            className="text-xs px-2 py-1"
                           >
                             Select All
                           </Button>
-                          <Button variant="primary" size="sm" onClick={() => setSelectedBatches([])}>
+                          <Button variant="primary" size="sm" onClick={() => setSelectedBatches([])} className="text-xs px-2 py-1">
                             Clear All
                           </Button>
                         </div>
                       </div>
 
                       {/* Batch List */}
-                      <div className="max-h-48 overflow-y-auto space-y-2">
+                      <div className="max-h-32 overflow-y-auto space-y-1">
                         {batches
                           .filter((batch) => batch.name.toLowerCase().includes(batchSelectionSearchTerm.toLowerCase()))
                           .map((batch) => (
                             <div
                               key={batch.id}
-                              className={`p-3 rounded-lg border transition-colors cursor-pointer ${
+                              className={`p-2 rounded border transition-colors cursor-pointer ${
                                 selectedBatches.includes(batch.id)
                                   ? "bg-green-600 border-green-400 text-white"
                                   : "bg-green-800/30 border-green-500/30 text-green-300 hover:bg-green-800/50"
@@ -554,10 +518,10 @@ const AssessmentManagement: React.FC = () => {
                             >
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <div className="font-medium">{batch.name}</div>
-                                  <div className="text-sm opacity-75">{batch.students?.length || 0} students</div>
+                                  <div className="font-medium text-sm">{batch.name}</div>
+                                  <div className="text-xs opacity-75">{batch.studentCount} students</div>
                                 </div>
-                                <div className="text-sm">{selectedBatches.includes(batch.id) ? "✓" : ""}</div>
+                                <div className="text-xs">{selectedBatches.includes(batch.id) ? "✓" : ""}</div>
                               </div>
                             </div>
                           ))}
@@ -565,15 +529,15 @@ const AssessmentManagement: React.FC = () => {
 
                       {/* Selected Batches Summary */}
                       {selectedBatches.length > 0 && (
-                        <div className="mt-4 p-3 bg-green-600/20 rounded-lg border border-green-500/30">
-                          <div className="text-green-200 font-medium mb-2">
+                        <div className="mt-3 p-2 bg-green-600/20 rounded border border-green-500/30">
+                          <div className="text-green-200 font-medium text-sm mb-1">
                             Selected Batches ({selectedBatches.length})
                           </div>
-                          <div className="text-green-300 text-sm">
+                          <div className="text-green-300 text-xs">
                             Total Students:{" "}
                             {selectedBatches.reduce((total, batchId) => {
                               const batch = batches.find((b) => b.id === batchId)
-                              return total + (batch?.students?.length || 0)
+                              return total + (batch?.studentCount || 0)
                             }, 0)}
                           </div>
                         </div>
@@ -581,67 +545,14 @@ const AssessmentManagement: React.FC = () => {
                     </div>
 
                     {showAIGenerateForm && (
-                      <div className="space-y-4">
-                        {/* Question Type Selection */}
-                        <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-500/30">
-                          <h3 className="text-lg font-semibold text-blue-200 mb-3">Question Type</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <button
-                              onClick={() => setAiQuestionType("mcq")}
-                              className={`p-3 rounded-lg border transition-colors ${
-                                aiQuestionType === "mcq"
-                                  ? "bg-blue-600 border-blue-400 text-white"
-                                  : "bg-blue-800/30 border-blue-500/30 text-blue-300 hover:bg-blue-800/50"
-                              }`}
-                            >
-                              <div className="text-center">
-                                <div className="font-medium">MCQ Questions</div>
-                                <div className="text-xs mt-1">Multiple choice questions</div>
-                              </div>
-                            </button>
-                            
-                            <button
-                              onClick={() => setAiQuestionType("coding")}
-                              className={`p-3 rounded-lg border transition-colors ${
-                                aiQuestionType === "coding"
-                                  ? "bg-green-600 border-green-400 text-white"
-                                  : "bg-green-800/30 border-green-500/30 text-green-300 hover:bg-green-800/50"
-                              }`}
-                            >
-                              <div className="text-center">
-                                <div className="font-medium">Coding Questions</div>
-                                <div className="text-xs mt-1">Programming challenges</div>
-                              </div>
-                            </button>
-                            
-                            <button
-                              onClick={() => setAiQuestionType("both")}
-                              className={`p-3 rounded-lg border transition-colors ${
-                                aiQuestionType === "both"
-                                  ? "bg-purple-600 border-purple-400 text-white"
-                                  : "bg-purple-800/30 border-purple-500/30 text-purple-300 hover:bg-purple-800/50"
-                              }`}
-                            >
-                              <div className="text-center">
-                                <div className="font-medium">Mixed Questions</div>
-                                <div className="text-xs mt-1">Both MCQ and coding</div>
-                              </div>
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* AI Generation Features */}
-                        <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-500/30">
-                          <h3 className="text-lg font-semibold text-blue-200 mb-2">AI Generation Features</h3>
-                          <ul className="text-blue-300 text-sm space-y-1">
-                            <li>• Automatically generates questions based on topic</li>
-                            <li>• Adapts difficulty based on student performance</li>
-                            <li>• Creates varied question types and formats</li>
-                            <li>• Includes explanations and hints</li>
-                            {aiQuestionType === "coding" && <li>• Generates test cases and constraints</li>}
-                            {aiQuestionType === "both" && <li>• Mixes MCQ and coding questions intelligently</li>}
-                          </ul>
-                        </div>
+                      <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-500/30">
+                        <h3 className="text-base font-semibold text-blue-200 mb-2">AI Generation Features</h3>
+                        <ul className="text-blue-300 text-xs space-y-1">
+                          <li>• Automatically generates MCQ questions based on topic</li>
+                          <li>• Adapts difficulty level automatically</li>
+                          <li>• Creates varied question formats</li>
+                          <li>• Includes detailed explanations for each answer</li>
+                        </ul>
                       </div>
                     )}
 
@@ -868,144 +779,7 @@ const AssessmentManagement: React.FC = () => {
               </motion.div>
             )}
 
-            {/* AI Generated Questions Review Modal */}
-            {showAIGeneratedQuestions && currentAssessment && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                onClick={() => setShowAIGeneratedQuestions(false)}
-              >
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex justify-between items-center mb-6">
-                    <div>
-                      <h2 className="text-2xl font-bold text-purple-200">
-                        AI Generated Questions - "{currentAssessment.title}"
-                      </h2>
-                      <p className="text-purple-300">
-                        Review the {aiGeneratedQuestions.length} AI-generated questions before posting
-                      </p>
-                    </div>
-                    <Button variant="primary" size="sm" onClick={() => setShowAIGeneratedQuestions(false)}>
-                      Close
-                    </Button>
-                  </div>
-
-                  <div className="space-y-6">
-                    {aiGeneratedQuestions.map((question, index) => (
-                      <div
-                        key={index}
-                        className="bg-black/20 backdrop-blur-md rounded-lg p-4 border border-purple-500/30"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-lg font-semibold text-purple-200">Question {index + 1}</h3>
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              question.type === "mcq" ? "bg-blue-600 text-white" : "bg-green-600 text-white"
-                            }`}
-                          >
-                            {question.type === "mcq" ? "MCQ" : "Coding"}
-                          </span>
-                        </div>
-
-                        {question.type === "mcq" ? (
-                          <div className="space-y-3">
-                            <div>
-                              <h4 className="text-purple-200 font-medium mb-2">Question:</h4>
-                              <p className="text-purple-300">{question.question}</p>
-                            </div>
-
-                            <div>
-                              <h4 className="text-purple-200 font-medium mb-2">Options:</h4>
-                              <div className="space-y-2">
-                                {question.options.map((option: string, optIndex: number) => (
-                                  <div
-                                    key={optIndex}
-                                    className={`p-2 rounded ${
-                                      optIndex === question.correct_answer
-                                        ? "bg-green-600/20 border border-green-500 text-green-300"
-                                        : "bg-black/20 backdrop-blur-md text-purple-300"
-                                    }`}
-                                  >
-                                    <span className="font-medium">{String.fromCharCode(65 + optIndex)}.</span>
-                                    {option}
-                                    {optIndex === question.correct_answer && (
-                                      <span className="ml-2 text-green-400">✓ Correct Answer</span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            {question.explanation && (
-                              <div>
-                                <h4 className="text-purple-200 font-medium mb-2">Explanation:</h4>
-                                <p className="text-purple-300">{question.explanation}</p>
-                              </div>
-                            )}
-
-                            <div className="flex items-center space-x-4 text-sm text-purple-400">
-                              <span>Points: {question.points}</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <div>
-                              <h4 className="text-purple-200 font-medium mb-2">Title:</h4>
-                              <p className="text-purple-300">{question.title}</p>
-                            </div>
-
-                            <div>
-                              <h4 className="text-purple-200 font-medium mb-2">Description:</h4>
-                              <p className="text-purple-300">{question.description}</p>
-                            </div>
-
-                            {question.test_cases && question.test_cases.length > 0 && (
-                              <div>
-                                <h4 className="text-purple-200 font-medium mb-2">Test Cases:</h4>
-                                <div className="space-y-2">
-                                  {question.test_cases.map((testCase: any, tcIndex: number) => (
-                                    <div key={tcIndex} className="p-2 bg-black/20 rounded border border-purple-500/30">
-                                      <div className="text-sm text-purple-300">
-                                        <strong>Input:</strong> {testCase.input}
-                                      </div>
-                                      <div className="text-sm text-purple-300">
-                                        <strong>Expected Output:</strong> {testCase.expected_output}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="flex items-center space-x-4 text-sm text-purple-400">
-                              <span>Points: {question.points}</span>
-                              <span>Difficulty: {question.difficulty}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-end space-x-3 mt-6">
-                    <Button variant="primary" onClick={() => setShowAIGeneratedQuestions(false)}>
-                      Cancel
-                    </Button>
-                    <Button variant="primary" onClick={handlePostTest}>
-                      Post the Test
-                    </Button>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
+            {/* AI Generated Questions Review Modal - Removed since AI generation is now handled directly */}
 
             {/* Assessment Results Modal */}
             {showAssessmentResults && (

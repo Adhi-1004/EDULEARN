@@ -25,6 +25,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Check if user's role is in allowed roles
   const userRole = user.role || "student";
+  
   if (allowedRoles.includes(userRole)) {
     return <>{children}</>;
   }

@@ -43,6 +43,15 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
   const [error, setError] = useState<Error | null>(null)
 
   const fetchNotifications = useCallback(async () => {
+    // Check if user is authenticated before making API calls
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      setLoading(false)
+      setNotifications([])
+      setUnreadCount(0)
+      return
+    }
+
     // Don't set loading to true on background polls
     // Only on the initial fetch
     if (notifications.length === 0) {
@@ -54,6 +63,13 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       setNotifications(data.notifications)
       setUnreadCount(data.unread_count)
     } catch (err: any) {
+      // Handle 403 errors gracefully (user not authenticated)
+      if (err.response?.status === 403) {
+        setNotifications([])
+        setUnreadCount(0)
+        setError(null) // Don't show error for auth issues
+        return
+      }
       setError(err)
       console.error("Hook failed to fetch notifications:", err)
     } finally {
@@ -132,6 +148,12 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
  * Get all notifications for the current user
  */
 export const getNotifications = async (): Promise<NotificationResponse> => {
+  // Check if user is authenticated
+  const token = localStorage.getItem('access_token')
+  if (!token) {
+    throw new Error('User not authenticated')
+  }
+  
   const response = await api.get("/notifications/")
   return response.data
 }
@@ -140,6 +162,12 @@ export const getNotifications = async (): Promise<NotificationResponse> => {
  * Mark a specific notification as read
  */
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+  // Check if user is authenticated
+  const token = localStorage.getItem('access_token')
+  if (!token) {
+    throw new Error('User not authenticated')
+  }
+  
   await api.post(`/notifications/${notificationId}/read`)
 }
 
@@ -147,6 +175,12 @@ export const markNotificationAsRead = async (notificationId: string): Promise<vo
  * Mark all notifications as read for the current user
  */
 export const markAllNotificationsAsRead = async (): Promise<void> => {
+  // Check if user is authenticated
+  const token = localStorage.getItem('access_token')
+  if (!token) {
+    throw new Error('User not authenticated')
+  }
+  
   await api.post("/notifications/mark-all-read")
 }
 
@@ -154,6 +188,12 @@ export const markAllNotificationsAsRead = async (): Promise<void> => {
  * Delete a specific notification
  */
 export const deleteNotification = async (notificationId: string): Promise<void> => {
+  // Check if user is authenticated
+  const token = localStorage.getItem('access_token')
+  if (!token) {
+    throw new Error('User not authenticated')
+  }
+  
   await api.delete(`/notifications/${notificationId}`)
 }
 
@@ -192,6 +232,10 @@ export const getNotificationIcon = (type: string): string => {
     assessment_completed: "✅",
     grade_released: "🎯",
     system: "⚙️",
+    assessment_assigned: "📝",
+    teacher_assessment_assigned: "📝",
+    result_available: "✅",
+    assessment_due: "⏰",
   }
   return iconMap[type] || "📢"
 }
