@@ -970,10 +970,10 @@ async def publish_assessment(assessment_id: str, user: UserModel = Depends(get_c
         if len(assessment.get("questions", [])) == 0:
             raise HTTPException(status_code=400, detail="Assessment must have at least one question")
         
-        # Update assessment status
+        # Update assessment status to active so it appears in upcoming endpoints
         await db.assessments.update_one(
             {"_id": ObjectId(assessment_id)},
-            {"$set": {"status": "published", "published_at": datetime.utcnow()}}
+            {"$set": {"status": "active", "is_active": True, "published_at": datetime.utcnow()}}
         )
         
         # Get assigned batches
@@ -989,11 +989,13 @@ async def publish_assessment(assessment_id: str, user: UserModel = Depends(get_c
                 # Create notifications for each student
                 notifications = []
                 for student_id in student_ids:
+                    # Prefer subject if topic is not present
+                    subject_or_topic = assessment.get("subject") or assessment.get("topic", "Assessment")
                     notification = {
                         "student_id": student_id,
                         "type": "assessment_assigned",
-                        "title": f"New Assessment: {assessment['title']}",
-                        "message": f"A new {assessment['difficulty']} assessment on {assessment['topic']} has been assigned to you.",
+                        "title": f"New Assessment: {assessment.get('title', 'Untitled')}",
+                        "message": f"A new {assessment.get('difficulty', 'medium')} assessment on {subject_or_topic} has been assigned to you.",
                         "assessment_id": assessment_id,
                         "created_at": datetime.utcnow(),
                         "is_read": False
@@ -1651,29 +1653,36 @@ async def get_teacher_assessments(user: UserModel = Depends(get_current_user)):
             print(f"❌ [TEACHER_ASSESSMENT] Error fetching student batches: {str(batch_error)}")
             return []
         
-        # Check if teacher_assessments collection exists
+        # Check if teacher_assessments collection exists; if not, fall back to regular assessments
         try:
             print(f"🔍 [TEACHER_ASSESSMENT] Checking collections...")
             collections = await db.list_collection_names()
-            if "teacher_assessments" not in collections:
-                print(f"⚠️ [TEACHER_ASSESSMENT] teacher_assessments collection does not exist")
-                return []
+            has_teacher_collection = "teacher_assessments" in collections
         except Exception as collection_error:
             print(f"❌ [TEACHER_ASSESSMENT] Error checking collections: {str(collection_error)}")
-            return []
+            has_teacher_collection = False
         
         # Find teacher assessments assigned to these batches
         try:
-            print(f"🔍 [TEACHER_ASSESSMENT] Querying teacher assessments...")
-            teacher_assessments = await db.teacher_assessments.find({
-                "batches": {"$in": batch_ids},
-                "is_active": True,
-                "status": "published"
-            }).to_list(length=None)
-            
-            print(f"📊 [TEACHER_ASSESSMENT] Found {len(teacher_assessments)} teacher assessments for batches {batch_ids}")
+            teacher_assessments = []
+            if has_teacher_collection:
+                print(f"🔍 [TEACHER_ASSESSMENT] Querying teacher assessments...")
+                teacher_assessments = await db.teacher_assessments.find({
+                    "batches": {"$in": batch_ids},
+                    "is_active": True,
+                    "status": "published"
+                }).to_list(length=None)
+                print(f"📊 [TEACHER_ASSESSMENT] Found {len(teacher_assessments)} teacher assessments for batches {batch_ids}")
+            else:
+                print(f"🔍 [TEACHER_ASSESSMENT] Falling back to assessments collection...")
+                teacher_assessments = await db.assessments.find({
+                    "assigned_batches": {"$in": batch_ids},
+                    "is_active": True,
+                    "status": "active"
+                }).to_list(length=None)
+                print(f"📊 [TEACHER_ASSESSMENT] Found {len(teacher_assessments)} fallback assessments for batches {batch_ids}")
         except Exception as query_error:
-            print(f"❌ [TEACHER_ASSESSMENT] Error querying teacher assessments: {str(query_error)}")
+            print(f"❌ [TEACHER_ASSESSMENT] Error querying assessments: {str(query_error)}")
             return []
         
         # Check if student has already submitted these assessments
@@ -1706,20 +1715,20 @@ async def get_teacher_assessments(user: UserModel = Depends(get_current_user)):
                 try:
                     formatted_assessments.append({
                         "id": str(assessment["_id"]),
-                        "title": assessment.get("title", "Untitled Assessment"),
-                        "description": f"Teacher-created assessment on {assessment.get('topic', 'General')}",
-                        "subject": assessment.get("topic", "General"),
+                        "title": assessment.get("title", assessment.get("subject", "Untitled Assessment")),
+                        "description": f"Teacher-created assessment on {assessment.get('topic', assessment.get('subject', 'General'))}",
+                        "subject": assessment.get("topic", assessment.get("subject", "General")),
                         "difficulty": assessment.get("difficulty", "medium"),
                         "time_limit": 30,  # Default 30 minutes for teacher assessments
                         "max_attempts": 1,
                         "question_count": assessment.get("question_count", 0),
-                        "created_by": assessment.get("teacher_id", "unknown"),
+                        "created_by": str(assessment.get("teacher_id", assessment.get("created_by", "unknown"))),
                         "created_at": assessment.get("created_at", datetime.utcnow()).isoformat(),
-                        "status": assessment.get("status", "published"),
+                        "status": assessment.get("status", "active"),
                         "type": "teacher",
                         "is_active": assessment.get("is_active", True),
                         "total_questions": assessment.get("question_count", 0),
-                        "assigned_batches": assessment.get("batches", [])
+                        "assigned_batches": assessment.get("batches", assessment.get("assigned_batches", []))
                     })
                 except Exception as format_error:
                     print(f"⚠️ [TEACHER_ASSESSMENT] Error formatting assessment {assessment.get('_id')}: {str(format_error)}")
@@ -1747,18 +1756,24 @@ async def get_teacher_assessment_details(assessment_id: str, user: UserModel = D
         
         print(f"🔍 [TEACHER_ASSESSMENT] Fetching details for assessment: {assessment_id}")
         
-        # Validate ObjectId
-        if not ObjectId.is_valid(assessment_id):
-            raise HTTPException(status_code=400, detail="Invalid assessment ID format")
+        # Validate ID format but don't fail hard; we'll try both ObjectId and string lookups
+        is_oid = ObjectId.is_valid(assessment_id)
         
-        # Check if teacher_assessments collection exists
+        # Determine storage and fetch with fallback
         collections = await db.list_collection_names()
-        if "teacher_assessments" not in collections:
-            print(f"⚠️ [TEACHER_ASSESSMENT] teacher_assessments collection does not exist")
-            raise HTTPException(status_code=404, detail="Assessment not found")
-        
-        # Get assessment details
-        assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+        assessment = None
+        if "teacher_assessments" in collections:
+            assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)}) if is_oid else None
+            if not assessment:
+                assessment = await db.teacher_assessments.find_one({"_id": assessment_id})
+        if not assessment:
+            assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)}) if is_oid else None
+            if not assessment:
+                assessment = await db.assessments.find_one({"_id": assessment_id})
+            if assessment:
+                assessment.setdefault("batches", assessment.get("assigned_batches", []))
+                assessment.setdefault("is_active", assessment.get("is_active", False))
+                assessment.setdefault("topic", assessment.get("subject", "General"))
         if not assessment:
             print(f"❌ [TEACHER_ASSESSMENT] Assessment {assessment_id} not found")
             raise HTTPException(status_code=404, detail="Assessment not found")
@@ -1766,7 +1781,15 @@ async def get_teacher_assessment_details(assessment_id: str, user: UserModel = D
         print(f"✅ [TEACHER_ASSESSMENT] Found assessment: {assessment.get('title', 'Untitled')}")
         
         # Check if student has access (is in one of the assigned batches)
-        student = await db.users.find_one({"_id": ObjectId(user.id)})
+        # Support both ObjectId and string user IDs in users collection
+        student = None
+        try:
+            if ObjectId.is_valid(str(user.id)):
+                student = await db.users.find_one({"_id": ObjectId(str(user.id))})
+        except Exception:
+            student = None
+        if not student:
+            student = await db.users.find_one({"_id": str(user.id)})
         if not student:
             print(f"❌ [TEACHER_ASSESSMENT] Student {user.id} not found")
             raise HTTPException(status_code=403, detail="Access denied")
@@ -1781,7 +1804,7 @@ async def get_teacher_assessment_details(assessment_id: str, user: UserModel = D
             raise HTTPException(status_code=403, detail="Access denied")
         
         batch_ids = [str(batch["_id"]) for batch in student_batches]
-        assessment_batches = assessment.get("batches", [])
+        assessment_batches = assessment.get("batches", assessment.get("assigned_batches", []))
         
         # Check if student is in any of the assessment's batches
         if not any(batch_id in assessment_batches for batch_id in batch_ids):
@@ -1804,17 +1827,19 @@ async def get_teacher_assessment_details(assessment_id: str, user: UserModel = D
                 raise HTTPException(status_code=400, detail="Assessment already submitted")
         
         # Return assessment details
+        created_at_val = assessment.get("created_at", datetime.utcnow())
+        created_at_iso = created_at_val.isoformat() if hasattr(created_at_val, 'isoformat') else str(created_at_val)
         return {
             "id": str(assessment["_id"]),
-            "title": assessment.get("title", "Untitled Assessment"),
-            "subject": assessment.get("topic", "General"),
+            "title": assessment.get("title", assessment.get("subject", "Untitled Assessment")),
+            "subject": assessment.get("topic", assessment.get("subject", "General")),
             "difficulty": assessment.get("difficulty", "medium"),
-            "question_count": assessment.get("question_count", 0),
-            "time_limit": 30,
-            "max_attempts": 1,
+            "question_count": assessment.get("question_count", len(assessment.get("questions", []))),
+            "time_limit": assessment.get("time_limit", 30),
+            "max_attempts": assessment.get("max_attempts", 1),
             "type": "teacher",
             "questions": assessment.get("questions", []),
-            "created_at": assessment.get("created_at", datetime.utcnow()).isoformat(),
+            "created_at": created_at_iso,
             "is_active": assessment.get("is_active", True)
         }
         
@@ -1836,8 +1861,15 @@ async def submit_teacher_assessment(
     try:
         db = await get_db()
         
-        # Get assessment details
-        assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+        # Get assessment details with fallback
+        assessment = None
+        collections = await get_db().list_collection_names() if hasattr(db, 'list_collection_names') else []
+        if "teacher_assessments" in collections:
+            assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+        if not assessment:
+            assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+            if assessment:
+                assessment.setdefault("topic", assessment.get("subject", "General"))
         if not assessment:
             raise HTTPException(status_code=404, detail="Assessment not found")
         

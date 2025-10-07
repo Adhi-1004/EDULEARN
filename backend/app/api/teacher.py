@@ -45,6 +45,23 @@ class TeacherDashboardResponse(BaseModel):
     recent_activities: List[Dict[str, Any]]
     performance_metrics: Dict[str, Any]
 
+# --- AI Student Reports Models ---
+class AIReportModel(BaseModel):
+    id: str
+    studentId: str
+    studentName: str
+    generatedAt: str
+    summary: str
+    strengths: List[str]
+    weaknesses: List[str]
+    recommendations: List[str]
+    performanceTrend: str
+    nextSteps: List[str]
+
+class GenerateReportRequest(BaseModel):
+    studentId: str
+    teacherId: str
+
 @router.get("/dashboard", response_model=TeacherDashboardResponse)
 async def get_teacher_dashboard(current_user: UserModel = Depends(require_teacher_or_admin)):
     """Get teacher dashboard overview"""
@@ -785,6 +802,82 @@ async def test_student_creation(current_user: UserModel = Depends(require_teache
             "message": f"Student creation test failed: {str(e)}",
             "error": str(e)
         }
+
+# --- AI Student Reports Endpoints ---
+@router.get("/ai-reports/{teacher_id}")
+async def get_ai_reports(teacher_id: str, current_user: UserModel = Depends(require_teacher_or_admin)):
+    """Return AI reports for a teacher's students (simple stub using stored docs if present)."""
+    try:
+        db = await get_db()
+        # Try to read stored reports if collection exists
+        reports = []
+        if hasattr(db, 'ai_student_reports'):
+            cursor = db.ai_student_reports.find({"teacherId": teacher_id})
+            docs = await cursor.to_list(length=1000)
+            for d in docs:
+                reports.append({
+                    "id": str(d.get("_id")),
+                    "studentId": d.get("studentId"),
+                    "studentName": d.get("studentName"),
+                    "generatedAt": (d.get("generatedAt") or datetime.utcnow()).isoformat(),
+                    "summary": d.get("summary", ""),
+                    "strengths": d.get("strengths", []),
+                    "weaknesses": d.get("weaknesses", []),
+                    "recommendations": d.get("recommendations", []),
+                    "performanceTrend": d.get("performanceTrend", "stable"),
+                    "nextSteps": d.get("nextSteps", []),
+                })
+        return reports
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch AI reports: {str(e)}")
+
+
+@router.post("/generate-student-report")
+async def generate_student_report(payload: GenerateReportRequest, current_user: UserModel = Depends(require_teacher_or_admin)):
+    """Generate and persist a simple AI report document for a student (placeholder logic)."""
+    try:
+        db = await get_db()
+
+        # Fetch student for name/email
+        student = await db.users.find_one({"_id": payload.studentId})
+        student_name = student.get("name") or student.get("username") or "Unknown Student" if student else "Unknown Student"
+
+        report_doc = {
+            "teacherId": payload.teacherId,
+            "studentId": payload.studentId,
+            "studentName": student_name,
+            "generatedAt": datetime.utcnow(),
+            "summary": f"{student_name} is showing consistent progress across recent assessments.",
+            "strengths": ["Problem Solving", "Consistency"],
+            "weaknesses": ["Time Management"],
+            "recommendations": ["Practice timed quizzes", "Revise past mistakes"],
+            "performanceTrend": "improving",
+            "nextSteps": ["Complete 3 practice sets", "Review key concepts"],
+        }
+
+        inserted_id = None
+        if hasattr(db, 'ai_student_reports'):
+            res = await db.ai_student_reports.insert_one(report_doc)
+            inserted_id = str(res.inserted_id)
+
+        response = {
+            "success": True,
+            "report": {
+                "id": inserted_id or str(ObjectId()),
+                "studentId": report_doc["studentId"],
+                "studentName": report_doc["studentName"],
+                "generatedAt": report_doc["generatedAt"].isoformat(),
+                "summary": report_doc["summary"],
+                "strengths": report_doc["strengths"],
+                "weaknesses": report_doc["weaknesses"],
+                "recommendations": report_doc["recommendations"],
+                "performanceTrend": report_doc["performanceTrend"],
+                "nextSteps": report_doc["nextSteps"],
+            }
+        }
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate student report: {str(e)}")
 
 # Teacher Assessment Management
 class TeacherAssessmentCreate(BaseModel):

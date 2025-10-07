@@ -101,6 +101,7 @@ class QuestionCreate(BaseModel):
     correct_answer: int
     explanation: Optional[str] = None
     difficulty: DifficultyLevel = DifficultyLevel.medium
+    points: int = 1
 
 class AssessmentCreate(BaseModel):
     title: str

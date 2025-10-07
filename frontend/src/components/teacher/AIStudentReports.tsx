@@ -6,6 +6,7 @@ import { motion } from "framer-motion"
 import Card from "../ui/Card"
 import Button from "../ui/Button"
 import LoadingSpinner from "../ui/LoadingSpinner"
+import Input from "../ui/Input"
 import api from "../../utils/api"
 
 interface Student {
@@ -39,6 +40,7 @@ const AIStudentReports: React.FC<AIStudentReportsProps> = ({ teacherId, students
   const [generatingReports, setGeneratingReports] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
 
   useEffect(() => {
     fetchExistingReports()
@@ -47,7 +49,7 @@ const AIStudentReports: React.FC<AIStudentReportsProps> = ({ teacherId, students
   const fetchExistingReports = async () => {
     try {
       setLoading(true)
-      const response = await api.get(`/api/teacher-dashboard/ai-reports/${teacherId}`)
+      const response = await api.get(`/api/teacher/ai-reports/${teacherId}`)
       setReports(response.data)
     } catch (err) {
       console.error("Failed to fetch AI reports:", err)
@@ -95,7 +97,7 @@ const AIStudentReports: React.FC<AIStudentReportsProps> = ({ teacherId, students
     try {
       setGeneratingReports((prev) => new Set(prev).add(studentId))
 
-      const response = await api.post(`/api/teacher-dashboard/generate-student-report`, {
+      const response = await api.post(`/api/teacher/generate-student-report`, {
         studentId,
         teacherId,
       })
@@ -166,12 +168,42 @@ const AIStudentReports: React.FC<AIStudentReportsProps> = ({ teacherId, students
     )
   }
 
+  // Build lookup for student info by id
+  const studentById = new Map(students.map((s) => [s.id, s]))
+
+  // Filter helpers
+  const filteredStudents = students.filter((s) => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q)
+  })
+
+  const filteredReports = reports.filter((r) => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    const student = studentById.get(r.studentId)
+    return (
+      r.studentName.toLowerCase().includes(q) ||
+      (student?.email?.toLowerCase()?.includes(q) ?? false)
+    )
+  })
+
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-fg mb-2">🤖 AI Student Reports</h2>
         <p className="text-muted-fg">Generate intelligent insights about your students' performance</p>
       </div>
+
+      {/* Search */}
+      <Card className="p-4">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search students by name or email..."
+          icon={<span>🔎</span>}
+        />
+      </Card>
 
       {error && (
         <Card className="p-4 bg-red-500/20 border-red-500/30">
@@ -186,7 +218,7 @@ const AIStudentReports: React.FC<AIStudentReportsProps> = ({ teacherId, students
 
       {/* Students List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {students.map((student, index) => {
+        {filteredStudents.map((student, index) => {
           const existingReport = reports.find((r) => r.studentId === student.id)
           const isGenerating = generatingReports.has(student.id)
 
@@ -245,14 +277,14 @@ const AIStudentReports: React.FC<AIStudentReportsProps> = ({ teacherId, students
               </Card>
             </motion.div>
           )
-        })}
+          })}
       </div>
 
       {/* Generated Reports */}
-      {reports.length > 0 && (
+      {filteredReports.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-xl font-semibold text-fg mb-4">Generated Reports</h3>
-          {reports.map((report, index) => (
+          {filteredReports.map((report, index) => (
             <motion.div
               key={report.id}
               initial={{ opacity: 0, y: 20 }}

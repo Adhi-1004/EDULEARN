@@ -408,34 +408,72 @@ async def get_detailed_result(
     try:
         db = await get_db()
         
-        # Get real result from database
+        # Try regular results collection first
         result = await db.results.find_one({"_id": ObjectId(result_id)})
+        result_source = "results"
+        
+        # Fall back to teacher assessments results if not found
+        if not result:
+            result = await db.teacher_assessment_results.find_one({"_id": ObjectId(result_id)})
+            result_source = "teacher_assessment_results" if result else result_source
+        
         if not result:
             raise HTTPException(status_code=404, detail="Result not found")
         
         # Verify user can access this result
-        result_user_id = result.get("user_id")
+        result_user_id = result.get("user_id") or result.get("student_id")
         if isinstance(result_user_id, ObjectId):
             result_user_id = str(result_user_id)
         
         if result_user_id != str(current_user.id) and current_user.role not in ["admin", "teacher"]:
             raise HTTPException(status_code=403, detail="Not authorized to access this result")
         
-        # Extract real data from the result
+        # If this is a teacher-assessment result, enrich with questions from the assessment
+        questions = result.get("questions", [])
+        user_answers = result.get("user_answers", result.get("answers", []))
+        topic = result.get("topic", "")
+        difficulty = result.get("difficulty", "medium")
+        time_taken = result.get("time_spent", result.get("time_taken", 0))
+        total_questions = result.get("total_questions", len(questions) if questions else 0)
+        
+        if result_source == "teacher_assessment_results":
+            assessment_id = result.get("assessment_id")
+            # Fetch the assessment to get questions
+            assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+            if not assessment:
+                assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+            if assessment:
+                questions = assessment.get("questions", questions)
+                topic = assessment.get("topic", assessment.get("subject", topic))
+                difficulty = assessment.get("difficulty", difficulty)
+                # default time limit in minutes -> convert to seconds if needed
+                if not time_taken:
+                    time_limit = assessment.get("time_limit", 30)
+                    time_taken = time_limit * 60
+                total_questions = len(questions)
+        
+        score = result.get("score", 0)
+        correct_answers = result.get("correct_answers", score)  # for teacher results, score equals correct count
+        submitted_at = result.get("submitted_at", datetime.utcnow())
+        if hasattr(submitted_at, "isoformat"):
+            submitted_iso = submitted_at.isoformat()
+        else:
+            submitted_iso = str(submitted_at)
+        
         real_result = {
             "id": str(result["_id"]),
-            "user_id": str(result.get("user_id")),
-            "score": result.get("score", 0),
-            "total_questions": result.get("total_questions", 0),
-            "questions": result.get("questions", []),
-            "user_answers": result.get("user_answers", []),
-            "topic": result.get("topic", ""),
-            "difficulty": result.get("difficulty", "medium"),
-            "time_taken": result.get("time_spent", 0),
-            "date": result.get("submitted_at", datetime.utcnow()).isoformat(),
-            "percentage": (result.get("score", 0) / result.get("total_questions", 1)) * 100,
-            "correct_answers": result.get("correct_answers", 0),
-            "incorrect_answers": result.get("total_questions", 0) - result.get("correct_answers", 0)
+            "user_id": str(result_user_id),
+            "score": score,
+            "total_questions": total_questions,
+            "questions": questions,
+            "user_answers": user_answers,
+            "topic": topic,
+            "difficulty": difficulty,
+            "time_taken": time_taken,
+            "date": submitted_iso,
+            "percentage": (score / (total_questions or 1)) * 100,
+            "correct_answers": correct_answers,
+            "incorrect_answers": (total_questions or 0) - correct_answers
         }
         
         # Generate question reviews with proper is_correct calculation

@@ -189,7 +189,8 @@ const Dashboard: React.FC = () => {
           />
         </svg>
       ),
-      color: "from-primary to-accent",
+      color: "from-emerald-500 to-green-400",
+      bgClass: "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15 hover:border-emerald-500/50",
     },
     {
       title: "Average Score",
@@ -199,7 +200,8 @@ const Dashboard: React.FC = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
         </svg>
       ),
-      color: "from-primary to-accent",
+      color: "from-indigo-500 to-violet-400",
+      bgClass: "bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/15 hover:border-indigo-500/50",
     },
     {
       title: "Total Questions",
@@ -214,7 +216,8 @@ const Dashboard: React.FC = () => {
           />
         </svg>
       ),
-      color: "from-primary to-accent",
+      color: "from-amber-500 to-yellow-400",
+      bgClass: "bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/15 hover:border-amber-500/50",
     },
     {
       title: "Topics Studied",
@@ -229,7 +232,8 @@ const Dashboard: React.FC = () => {
           />
         </svg>
       ),
-      color: "from-primary to-accent",
+      color: "from-fuchsia-500 to-pink-400",
+      bgClass: "bg-fuchsia-500/10 border-fuchsia-500/30 hover:bg-fuchsia-500/15 hover:border-fuchsia-500/50",
     },
   ]
 
@@ -305,7 +309,7 @@ const Dashboard: React.FC = () => {
                     Manage your account settings and view detailed statistics and progress insights.
                   </p>
                   <Link to="/profile">
-                    <Button variant="secondary" className="w-full">
+                    <Button variant="primary" className="w-full">
                       Go to Profile
                     </Button>
                   </Link>
@@ -338,6 +342,7 @@ const Dashboard: React.FC = () => {
                     value={stat.value}
                     icon={stat.icon}
                     color={stat.color}
+                    bgClass={stat.bgClass}
                     loading={loading}
                   />
                 </motion.div>

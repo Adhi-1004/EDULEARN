@@ -8,17 +8,19 @@ interface StatsCardProps {
   title: string
   value: number | string
   icon: React.ReactNode
+  /** Tailwind gradient classes e.g. "from-emerald-500 to-green-400" */
   color: string
+  /** Optional background/border classes e.g. "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15 hover:border-emerald-500/50" */
+  bgClass?: string
   loading?: boolean
   className?: string
 }
 
-const StatsCard: React.FC<StatsCardProps> = ({ title, value, icon, color, loading = false, className = "" }) => {
+const StatsCard: React.FC<StatsCardProps> = ({ title, value, icon, color, bgClass = "", loading = false, className = "" }) => {
   return (
-    <Card className={`p-6 text-center ${className}`} hover={true}>
+    <Card className={`p-6 text-center ${bgClass} ${className}`} hover={true}>
       <div
-        className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-white"
-        style={{ background: "linear-gradient(90deg, var(--primary), var(--accent))" }}
+        className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-white bg-gradient-to-r ${color}`}
       >
         {icon}
       </div>

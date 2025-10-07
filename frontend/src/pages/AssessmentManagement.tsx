@@ -282,13 +282,25 @@ const AssessmentManagement: React.FC = () => {
     }
   }
 
-  const handleSubmitAssessment = () => {
+  const handleSubmitAssessment = async () => {
     if (questions.length === 0) {
       showError("Error", "Please add at least one question")
       return
     }
-    // Redirect to batch assignment or next step
-    setShowQuestionForm(false)
+    if (!currentAssessment) {
+      showError("Error", "No assessment selected")
+      return
+    }
+    try {
+      // Publish the assessment so it is assigned to selected batches and visible to students
+      const publishUrl = `/api/assessments/${currentAssessment.id}/publish`
+      await api.post(publishUrl)
+      success("Published", "Assessment published to selected batches. Students will see it in Upcoming Tests.")
+      setShowQuestionForm(false)
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || err.message || "Failed to publish assessment"
+      showError("Error", msg)
+    }
   }
 
   const handleAddCodingQuestion = () => {
@@ -349,34 +361,34 @@ const AssessmentManagement: React.FC = () => {
               <Card className="p-6">
                 <h2 className="text-2xl font-bold text-purple-200 mb-6">Assessment Creation Tools</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="p-4 bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-lg border border-blue-500/30">
+                  <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
                     <h3 className="text-lg font-semibold text-blue-200 mb-2">AI-Generated Assessment</h3>
                     <p className="text-blue-300 text-sm mb-4">Use AI to generate MCQ assessments automatically</p>
-                    <Button variant="primary" size="sm" className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600" onClick={handleAIGenerate}>
+                    <Button variant="primary" size="sm" className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600" onClick={handleAIGenerate}>
                       AI Generate
                     </Button>
                   </div>
-                  <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
-                    <h3 className="text-lg font-semibold text-purple-200 mb-2">Custom MCQ Assessment</h3>
-                    <p className="text-purple-300 text-sm mb-4">Create multiple choice question assessments manually</p>
-                    <Button variant="primary" size="sm" className="w-full" onClick={handleCreateMCQ}>
+                  <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
+                    <h3 className="text-lg font-semibold text-blue-200 mb-2">Custom MCQ Assessment</h3>
+                    <p className="text-blue-300 text-sm mb-4">Create MCQ'S manually</p>
+                    <Button variant="primary" size="sm" className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600" onClick={handleCreateMCQ}>
                       Create MCQ
                     </Button>
                   </div>
-                  <div className="p-4 bg-green-900/20 rounded-lg border border-green-500/30">
-                    <h3 className="text-lg font-semibold text-green-200 mb-2">Coding Challenges</h3>
-                    <p className="text-green-300 text-sm mb-4">Create programming challenges and exercises</p>
-                    <Button variant="primary" size="sm" className="w-full" onClick={handleCreateChallenge}>
+                  <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
+                    <h3 className="text-lg font-semibold text-blue-200 mb-2">Coding Challenges</h3>
+                    <p className="text-blue-300 text-sm mb-4">Create programming challenges and exercises</p>
+                    <Button variant="primary" size="sm" className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600" onClick={handleCreateChallenge}>
                       Create Challenge
                     </Button>
                   </div>
-                  <div className="p-4 bg-orange-900/20 rounded-lg border border-orange-500/30">
-                    <h3 className="text-lg font-semibold text-orange-200 mb-2">Assessment Results</h3>
-                    <p className="text-orange-300 text-sm mb-4">View and analyze student performance</p>
+                  <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
+                    <h3 className="text-lg font-semibold text-blue-200 mb-2">Assessment Results</h3>
+                    <p className="text-blue-300 text-sm mb-4">View and analyze student performance</p>
                     <Button
                       variant="primary"
                       size="sm"
-                      className="w-full"
+                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
                       onClick={() => setShowAssessmentResults(true)}
                     >
                       View Results
