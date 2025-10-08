@@ -1685,23 +1685,30 @@ async def get_teacher_assessments(user: UserModel = Depends(get_current_user)):
             print(f"❌ [TEACHER_ASSESSMENT] Error querying assessments: {str(query_error)}")
             return []
         
-        # Check if student has already submitted these assessments
+        # Check if student has already submitted these assessments (both collections)
         submitted_assessments = []
+        submitted_ids = []
         try:
             if "teacher_assessment_results" in collections:
-                print(f"🔍 [TEACHER_ASSESSMENT] Checking submitted assessments...")
+                print(f"🔍 [TEACHER_ASSESSMENT] Checking submitted teacher assessments...")
                 submitted_assessments = await db.teacher_assessment_results.find({
                     "student_id": user.id
                 }).to_list(length=None)
+                submitted_ids.extend([sub.get("assessment_id") for sub in submitted_assessments if sub.get("assessment_id")])
             else:
                 print(f"⚠️ [TEACHER_ASSESSMENT] teacher_assessment_results collection not found")
         except Exception as submitted_error:
-            print(f"⚠️ [TEACHER_ASSESSMENT] Error fetching submitted assessments: {str(submitted_error)}")
-            submitted_assessments = []
+            print(f"⚠️ [TEACHER_ASSESSMENT] Error fetching teacher submissions: {str(submitted_error)}")
+        # Also include regular assessment submissions for fallback assessments
+        try:
+            regular_submissions = await db.assessment_submissions.find({
+                "student_id": user.id
+            }).to_list(length=None)
+            submitted_ids.extend([sub.get("assessment_id") for sub in regular_submissions if sub.get("assessment_id")])
+        except Exception as sub_err:
+            print(f"⚠️ [TEACHER_ASSESSMENT] Error fetching regular submissions: {str(sub_err)}")
         
         try:
-            submitted_ids = [sub["assessment_id"] for sub in submitted_assessments]
-            
             # Filter out already submitted assessments
             available_assessments = [
                 assessment for assessment in teacher_assessments 
@@ -1863,7 +1870,7 @@ async def submit_teacher_assessment(
         
         # Get assessment details with fallback
         assessment = None
-        collections = await get_db().list_collection_names() if hasattr(db, 'list_collection_names') else []
+        collections = await db.list_collection_names() if hasattr(db, 'list_collection_names') else []
         if "teacher_assessments" in collections:
             assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
         if not assessment:
@@ -2043,11 +2050,22 @@ async def get_student_upcoming_assessments(user: UserModel = Depends(get_current
         print(f"📊 [ASSESSMENT] Found {len(assessments)} assessments for batches {batch_ids}")
         
         # Check if student has already submitted these assessments
-        submitted_assessments = await db.assessment_submissions.find({
-            "student_id": user.id
-        }).to_list(length=None)
-        
-        submitted_ids = [str(sub["assessment_id"]) for sub in submitted_assessments]
+        submitted_ids = []
+        try:
+            submitted_assessments = await db.assessment_submissions.find({
+                "student_id": user.id
+            }).to_list(length=None)
+            submitted_ids.extend([str(sub.get("assessment_id")) for sub in submitted_assessments if sub.get("assessment_id")])
+        except Exception:
+            pass
+        # Also include teacher_assessment_results if any assessments are mirrored there
+        try:
+            teacher_submissions = await db.teacher_assessment_results.find({
+                "student_id": user.id
+            }).to_list(length=None)
+            submitted_ids.extend([str(sub.get("assessment_id")) for sub in teacher_submissions if sub.get("assessment_id")])
+        except Exception:
+            pass
         
         # Filter out already submitted assessments
         upcoming_assessments = [
@@ -2156,11 +2174,16 @@ async def submit_assessment_answers(
         if batch_id not in assessment.get("assigned_batches", []):
             raise HTTPException(status_code=403, detail="Assessment not assigned to your batch")
         
-        # Check if already submitted
+        # Check if already submitted (in both teacher and regular result collections)
         existing_submission = await db.assessment_submissions.find_one({
             "assessment_id": assessment_id,
             "student_id": user.id
         })
+        if not existing_submission:
+            existing_submission = await db.teacher_assessment_results.find_one({
+                "assessment_id": assessment_id,
+                "student_id": user.id
+            })
         
         if existing_submission:
             raise HTTPException(status_code=400, detail="Assessment already submitted")
@@ -2177,7 +2200,7 @@ async def submit_assessment_answers(
         percentage = (score / len(questions)) * 100 if questions else 0
         time_taken = submission_data.get("time_taken", 0)
         
-        # Create submission record
+        # Create submission record and ensure upcoming endpoints filter it out
         submission_doc = {
             "assessment_id": assessment_id,
             "student_id": user.id,

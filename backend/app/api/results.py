@@ -142,8 +142,16 @@ async def get_user_results(
         results = []
         
         # Get from db.results collection (general test results)
-        results_cursor = db.results.find({"user_id": ObjectId(user_id)}).sort("submitted_at", -1)
-        db_results = await results_cursor.to_list(length=None)
+        db_results = []
+        try:
+            if ObjectId.is_valid(user_id):
+                results_cursor = db.results.find({"user_id": ObjectId(user_id)}).sort("submitted_at", -1)
+                db_results = await results_cursor.to_list(length=None)
+        except Exception:
+            db_results = []
+        # Also try string user_id in case results were stored as strings
+        if not db_results:
+            db_results = await db.results.find({"user_id": user_id}).sort("submitted_at", -1).to_list(length=None)
         
         for result in db_results:
             score = result.get("score", 0)
@@ -165,7 +173,7 @@ async def get_user_results(
                 date=result.get("submitted_at", datetime.utcnow())
             ))
         
-        # Get from db.assessment_results collection (assessment submissions)
+        # Get from db.assessment_results collection (legacy)
         assessment_results_cursor = db.assessment_results.find({"student_id": user_id}).sort("submitted_at", -1)
         assessment_results = await assessment_results_cursor.to_list(length=None)
         
@@ -189,7 +197,7 @@ async def get_user_results(
                 date=result.get("submitted_at", datetime.utcnow())
             ))
         
-        # Get from db.assessment_submissions collection (assessment submissions)
+        # Get from db.assessment_submissions collection (current regular assessments)
         submission_results_cursor = db.assessment_submissions.find({"student_id": user_id}).sort("submitted_at", -1)
         submission_results = await submission_results_cursor.to_list(length=None)
         
@@ -217,6 +225,50 @@ async def get_user_results(
                 date=result.get("submitted_at", datetime.utcnow())
             ))
         
+        # Get from db.teacher_assessment_results collection (teacher-assigned assessments)
+        try:
+            teacher_results_cursor = db.teacher_assessment_results.find({"student_id": user_id}).sort("submitted_at", -1)
+            teacher_results = await teacher_results_cursor.to_list(length=None)
+        except Exception:
+            teacher_results = []
+        for t_result in teacher_results:
+            score = t_result.get("score", 0)
+            total_questions = t_result.get("total_questions", 0)
+            percentage = (score / total_questions * 100) if total_questions > 0 else 0
+            # Try to enrich with assessment info
+            title = "Assessment"
+            topic = ""
+            difficulty = "medium"
+            assessment_id = t_result.get("assessment_id")
+            if assessment_id:
+                try:
+                    assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+                except Exception:
+                    assessment = None
+                if not assessment:
+                    try:
+                        assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+                    except Exception:
+                        assessment = None
+                if assessment:
+                    title = assessment.get("title", title)
+                    topic = assessment.get("topic", assessment.get("subject", topic))
+                    difficulty = assessment.get("difficulty", difficulty)
+            results.append(TestResult(
+                id=str(t_result["_id"]),
+                test_name=title,
+                score=score,
+                total_questions=total_questions,
+                correct_answers=score,
+                completed_at=t_result.get("submitted_at", datetime.utcnow()),
+                duration=t_result.get("time_taken", 0),
+                topic=topic,
+                difficulty=difficulty,
+                percentage=percentage,
+                time_taken=t_result.get("time_taken", 0),
+                date=t_result.get("submitted_at", datetime.utcnow())
+            ))
+
         # Sort all results by completion date (most recent first)
         results.sort(key=lambda x: x.completed_at, reverse=True)
         
@@ -417,6 +469,11 @@ async def get_detailed_result(
             result = await db.teacher_assessment_results.find_one({"_id": ObjectId(result_id)})
             result_source = "teacher_assessment_results" if result else result_source
         
+        # Fall back to assessment submissions if still not found (regular teacher-created assessments)
+        if not result:
+            result = await db.assessment_submissions.find_one({"_id": ObjectId(result_id)})
+            result_source = "assessment_submissions" if result else result_source
+        
         if not result:
             raise HTTPException(status_code=404, detail="Result not found")
         
@@ -452,6 +509,18 @@ async def get_detailed_result(
                     time_taken = time_limit * 60
                 total_questions = len(questions)
         
+        # If assessment_submissions, reconstruct from assessments
+        if result_source == "assessment_submissions":
+            assessment_id = result.get("assessment_id")
+            assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+            if assessment:
+                questions = assessment.get("questions", questions)
+                topic = assessment.get("subject", topic)
+                difficulty = assessment.get("difficulty", difficulty)
+                total_questions = assessment.get("question_count", len(questions))
+            # ensure user_answers array exists
+            user_answers = result.get("answers", user_answers)
+        
         score = result.get("score", 0)
         correct_answers = result.get("correct_answers", score)  # for teacher results, score equals correct count
         submitted_at = result.get("submitted_at", datetime.utcnow())
@@ -479,23 +548,27 @@ async def get_detailed_result(
         # Generate question reviews with proper is_correct calculation
         question_reviews = []
         for i, question in enumerate(real_result["questions"]):
-            user_answer = real_result["user_answers"][i] if i < len(real_result["user_answers"]) else ""
+            user_answer_raw = real_result["user_answers"][i] if i < len(real_result["user_answers"]) else ""
+            options = question.get("options", [])
             
-            # Handle both string and integer correct answers
+            # Normalize correct answer text
             correct_answer = question.get("answer", "")
             correct_answer_index = question.get("correct_answer", -1)
+            if isinstance(correct_answer_index, int) and 0 <= correct_answer_index < len(options):
+                correct_answer = options[correct_answer_index]
             
-            if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
-                options = question.get("options", [])
-                if correct_answer_index < len(options):
-                    correct_answer = options[correct_answer_index]
+            # Normalize user answer to text
+            if isinstance(user_answer_raw, int) and 0 <= user_answer_raw < len(options):
+                user_answer = options[user_answer_raw]
+            else:
+                user_answer = str(user_answer_raw)
             
             is_correct = user_answer == correct_answer
             
             question_reviews.append({
                 "question_index": i,
                 "question": question["question"],
-                "options": question["options"],
+                "options": options,
                 "correct_answer": correct_answer,
                 "user_answer": user_answer,
                 "is_correct": is_correct,

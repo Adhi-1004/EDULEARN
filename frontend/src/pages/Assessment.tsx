@@ -257,20 +257,25 @@ const Assessment: React.FC = () => {
         
         try {
           // Try teacher assessment submit endpoint first
-          await api.post(`/api/assessments/teacher/${id}/submit`, submission)
+          const res = await api.post(`/api/assessments/teacher/${id}/submit`, submission)
+          const resultId = res.data?.result_id
+          success("Success", `Test completed! Your score: ${score}/${assessment?.question_count} (${percentage}%)`)
+          setTestCompleted(true)
+          if (resultId) {
+            navigate(`/test-result/${resultId}`)
+            return
+          }
         } catch (error) {
           // Fallback to regular assessment submit endpoint
-          await api.post(`/api/assessments/${id}/submit`, submission)
+          const res = await api.post(`/api/assessments/${id}/submit`, submission)
+          const resultId = res.data?.submission_id
+          success("Success", `Test completed! Your score: ${score}/${assessment?.question_count} (${percentage}%)`)
+          setTestCompleted(true)
+          if (resultId) {
+            navigate(`/test-result/${resultId}`)
+            return
+          }
         }
-        
-        success("Success", `Test completed! Your score: ${score}/${assessment?.question_count} (${percentage}%)`)
-        
-        setTestCompleted(true)
-        
-        // Navigate to results after a delay
-        setTimeout(() => {
-          navigate(`/test-result/${id}`)
-        }, 2000)
         
       } else {
         // Submit to student-generated assessment endpoint (existing system)
