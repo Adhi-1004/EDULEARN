@@ -408,7 +408,7 @@ const Assessment: React.FC = () => {
               <p className="text-blue-300 text-sm mt-2">Created by Teacher</p>
             )}
             {assessmentType === 'student' && (
-              <p className="text-purple-300 text-sm mt-2">AI-Generated Assessment</p>
+              <p className="text-blue-300 text-sm mt-2">AI-Generated Assessment</p>
             )}
           </motion.div>
 
@@ -423,7 +423,7 @@ const Assessment: React.FC = () => {
                 <div className="text-gray-300">Minutes</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-400 mb-2">{assessment.difficulty}</div>
+                <div className="text-3xl font-bold text-blue-400 mb-2">{assessment.difficulty}</div>
                 <div className="text-gray-300">Difficulty</div>
               </div>
               <div className="text-center">

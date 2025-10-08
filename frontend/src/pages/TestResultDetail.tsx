@@ -177,7 +177,7 @@ const TestResultDetail: React.FC = () => {
                 <div className="text-gray-300">Time Taken</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-400 mb-2">{result.difficulty}</div>
+                <div className="text-2xl font-bold text-blue-400 mb-2">{result.difficulty}</div>
                 <div className="text-gray-300">Difficulty</div>
               </div>
             </div>
@@ -228,57 +228,123 @@ const TestResultDetail: React.FC = () => {
           >
             <Card className="p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Question Review</h3>
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {questionReviews.map((question, index) => (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 * index }}
-                    className={`p-4 rounded-lg border ${
-                      question.is_correct 
-                        ? "border-green-500/30 bg-green-900/20" 
-                        : "border-red-500/30 bg-red-900/20"
-                    }`}
+                    className="backdrop-blur-xl border rounded-2xl shadow-2xl overflow-hidden bg-gradient-to-br from-blue-900/20 via-cyan-900/10 to-blue-900/20 border-blue-500/30"
                   >
-                    <div className="flex items-start space-x-3 mb-3">
-                      {question.is_correct ? (
-                        <div className="w-5 h-5 text-green-400 mt-1 flex-shrink-0">✓</div>
-                      ) : (
-                        <div className="w-5 h-5 text-red-400 mt-1 flex-shrink-0">✗</div>
-                      )}
-                      <div className="flex-1">
-                        <h4 className="text-white font-medium mb-3">
-                          Question {index + 1}: {question.question}
-                        </h4>
+                    {/* Header */}
+                    <div className="p-6 border-b border-blue-500/20">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <h4 className="text-xl font-semibold text-blue-200">
+                              Question {index + 1} of {questionReviews.length}
+                            </h4>
+                            <div className="flex items-center space-x-2 mt-1">
+                              {question.is_correct ? (
+                                <div className="flex items-center space-x-1 text-green-400">
+                                  <span className="text-lg">✓</span>
+                                  <span className="text-sm font-medium">Correct</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-1 text-red-400">
+                                  <span className="text-lg">✗</span>
+                                  <span className="text-sm font-medium">Incorrect</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-                        <div className="space-y-2">
-                          {question.options.map((option, optIndex) => (
+                    {/* Question Content */}
+                    <div className="p-8">
+                      <div className="p-6 rounded-xl mb-8 border bg-blue-900/20 border-blue-500/30">
+                        <p className="text-xl leading-relaxed text-blue-100 font-sans">
+                          {question.question}
+                        </p>
+                      </div>
+
+                      {/* Options */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {question.options.map((option, optIndex) => {
+                          const isCorrectAnswer = option === question.correct_answer
+                          const isUserAnswer = option === question.user_answer
+                          const isWrongUserAnswer = isUserAnswer && !question.is_correct
+                          
+                          return (
                             <div
                               key={optIndex}
-                              className={`p-2 rounded text-sm ${
-                                option === question.correct_answer
-                                  ? "bg-green-800/30 text-green-300 border border-green-500/30"
-                                  : option === question.user_answer && !question.is_correct
-                                    ? "bg-red-800/30 text-red-300 border border-red-500/30"
-                                    : "bg-gray-800/30 text-gray-300"
-                              }`}
+                              className={`
+                                group relative p-6 rounded-xl text-left transition-all duration-300 overflow-hidden
+                                ${isCorrectAnswer 
+                                  ? "bg-green-900/30 border-2 border-green-500/50 shadow-lg shadow-green-500/20" 
+                                  : isWrongUserAnswer
+                                    ? "bg-red-900/30 border-2 border-red-500/50 shadow-lg shadow-red-500/20"
+                                    : "bg-gray-800/30 border border-gray-600/30"
+                                }
+                              `}
                             >
-                              {option === question.correct_answer && "✓ "}
-                              {option === question.user_answer && !question.is_correct && "✗ "}
-                              {option}
+                              <div className="flex items-center space-x-4 relative z-10">
+                                <div className={`
+                                  w-10 h-10 rounded-full flex items-center justify-center font-bold text-white
+                                  ${isCorrectAnswer 
+                                    ? "bg-gradient-to-r from-green-500 to-green-600" 
+                                    : isWrongUserAnswer
+                                      ? "bg-gradient-to-r from-red-500 to-red-600"
+                                      : "bg-gradient-to-r from-gray-500 to-gray-600"
+                                  }
+                                `}>
+                                  {String.fromCharCode(65 + optIndex)}
+                                </div>
+                                <span className={`
+                                  flex-1 font-medium font-sans
+                                  ${isCorrectAnswer 
+                                    ? "text-green-200" 
+                                    : isWrongUserAnswer
+                                      ? "text-red-200"
+                                      : "text-gray-300"
+                                  }
+                                `}>
+                                  {option}
+                                </span>
+                                {isCorrectAnswer && (
+                                  <div className="text-green-400 text-xl font-bold">✓</div>
+                                )}
+                                {isWrongUserAnswer && (
+                                  <div className="text-red-400 text-xl font-bold">✗</div>
+                                )}
+                              </div>
                             </div>
-                          ))}
-                        </div>
-
-                        {question.explanation && (
-                          <div className="mt-3 p-3 bg-gray-800/30 rounded border border-gray-600/30">
-                            <p className="text-sm text-gray-300">
-                              <strong>Explanation:</strong> {question.explanation}
-                            </p>
-                          </div>
-                        )}
+                          )
+                        })}
                       </div>
+
+                      {/* Explanation */}
+                      {question.explanation && (
+                        <div className="mt-6 p-4 bg-blue-800/20 rounded-xl border border-blue-500/30">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <span className="text-blue-400 text-sm">💡</span>
+                            </div>
+                            <div>
+                              <h5 className="text-blue-200 font-semibold mb-2">Explanation</h5>
+                              <p className="text-blue-300 text-sm leading-relaxed">
+                                {question.explanation}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 ))}

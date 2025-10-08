@@ -63,7 +63,7 @@ const ProgressRing: React.FC<ProgressRingProps> = ({
       {showPercentage && (
         <div className="absolute inset-0 flex items-center justify-center">
           <motion.span
-            className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400"
+            className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.5, type: "spring", stiffness: 200 }}

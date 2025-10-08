@@ -136,7 +136,7 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
   const progress = ((currentQuestionIndex + 1) / assessment.questions.length) * 100;
 
   return (
-    <div className="min-h-screen pt-20 px-4 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <div className="min-h-screen pt-20 px-4 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <motion.div
@@ -163,7 +163,7 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
           {/* Progress Bar */}
           <div className="w-full bg-purple-800/30 rounded-full h-2">
             <motion.div
-              className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full"
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.3 }}

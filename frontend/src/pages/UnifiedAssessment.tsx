@@ -607,7 +607,7 @@ const UnifiedAssessment: React.FC = () => {
                   </motion.div>
 
                   <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-                    <Card className="p-6 text-center bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+                    <Card className="p-6 text-center bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
                       <div className="text-3xl font-bold text-purple-600 capitalize">{analytics.skill_level}</div>
                       <div className="text-sm text-muted-foreground font-medium">Skill Level</div>
                     </Card>

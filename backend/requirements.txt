@@ -61,6 +61,8 @@ fastapi-mail==1.4.1
 
 # File upload and processing
 aiofiles==23.2.1
+pandas==2.1.4
+openpyxl==3.1.2
 
 # Rate limiting
 slowapi==0.1.9

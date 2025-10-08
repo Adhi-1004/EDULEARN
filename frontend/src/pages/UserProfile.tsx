@@ -94,7 +94,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
       title: "Average Score",
       value: `${stats.averageScore}%`,
       icon: "📈",
-      color: "from-purple-500 to-pink-500",
+      color: "from-blue-500 to-cyan-500",
     },
     {
       title: "Best Score",

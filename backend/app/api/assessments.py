@@ -318,10 +318,24 @@ def generate_mcq_question(topic: str, difficulty: str, question_num: int):
     # Get questions for the topic, or use a default set
     questions = topic_questions.get(topic.lower(), topic_questions["array"])
     
-    # Use a combination of question number and topic to ensure variety
+    # Use a combination of question number, topic, and timestamp to ensure variety
     import random
-    random.seed(hash(f"{topic}_{question_num}"))
-    selected_question = random.choice(questions)
+    from datetime import datetime
+    random.seed(hash(f"{topic}_{question_num}_{datetime.utcnow().timestamp()}"))
+    
+    # Ensure we don't repeat questions by tracking used indices
+    if not hasattr(generate_mcq_question, '_used_indices'):
+        generate_mcq_question._used_indices = set()
+    
+    available_indices = [i for i in range(len(questions)) if i not in generate_mcq_question._used_indices]
+    if not available_indices:
+        # Reset if all questions used
+        generate_mcq_question._used_indices.clear()
+        available_indices = list(range(len(questions)))
+    
+    selected_idx = random.choice(available_indices)
+    generate_mcq_question._used_indices.add(selected_idx)
+    selected_question = questions[selected_idx]
     
     return {
         "type": "mcq",
@@ -1199,10 +1213,34 @@ async def submit_assessment(
                 else:
                     correct_answer = question.get("answer", "")
                 
+                # If correct answer is just a letter (A, B, C, D), find the matching option
+                if len(correct_answer) == 1 and correct_answer.isalpha():
+                    letter = correct_answer.upper()
+                    options = question.get("options", [])
+                    for option in options:
+                        if option.startswith(f"{letter})"):
+                            correct_answer = option
+                            break
+                
                 if user_answer == correct_answer:
                     score += question.get("points", 1)
         
         percentage = (score / sum(q.get("points", 1) for q in questions)) * 100 if questions else 0
+        
+        # Convert user answers to text format for question review
+        user_answers_text = []
+        for i, question in enumerate(questions):
+            if i < len(submission.answers):
+                user_answer_raw = submission.answers[i]
+                options = question.get("options", [])
+                
+                # Convert to text if it's an index
+                if isinstance(user_answer_raw, int) and 0 <= user_answer_raw < len(options):
+                    user_answers_text.append(options[user_answer_raw])
+                else:
+                    user_answers_text.append(str(user_answer_raw))
+            else:
+                user_answers_text.append("")
         
         # Create result
         result_doc = {
@@ -1215,7 +1253,9 @@ async def submit_assessment(
             "time_taken": submission.time_taken,
             "submitted_at": datetime.utcnow(),
             "attempt_number": len(existing_results) + 1,
-            "answers": submission.answers
+            "answers": submission.answers,  # Keep original format
+            "user_answers": user_answers_text,  # Add text format for review
+            "questions": questions  # Store questions for review
         }
         
         result = await db.assessment_results.insert_one(result_doc)
@@ -1895,11 +1935,53 @@ async def submit_teacher_assessment(
         score = 0
         
         for i, question in enumerate(questions):
-            if i < len(answers) and answers[i] == question.get("correct_answer", -1):
-                score += 1
+            if i < len(answers):
+                user_answer = answers[i]
+                correct_answer_index = question.get("correct_answer", -1)
+                correct_answer = ""
+                options = question.get("options", [])
+                
+                # Handle both string and integer correct answers
+                if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
+                    if correct_answer_index < len(options):
+                        correct_answer = options[correct_answer_index]
+                else:
+                    correct_answer = question.get("answer", "")
+                
+                # If correct answer is just a letter (A, B, C, D), find the matching option
+                if len(correct_answer) == 1 and correct_answer.isalpha():
+                    letter = correct_answer.upper()
+                    for option in options:
+                        if option.startswith(f"{letter})"):
+                            correct_answer = option
+                            break
+                
+                # Convert user answer to text if it's an index
+                if isinstance(user_answer, int) and 0 <= user_answer < len(options):
+                    user_answer_text = options[user_answer]
+                else:
+                    user_answer_text = str(user_answer)
+                
+                if user_answer_text == correct_answer:
+                    score += 1
         
         percentage = (score / len(questions)) * 100 if questions else 0
         time_taken = submission_data.get("time_taken", 0)
+        
+        # Convert user answers to text format for question review
+        user_answers_text = []
+        for i, question in enumerate(questions):
+            if i < len(answers):
+                user_answer_raw = answers[i]
+                options = question.get("options", [])
+                
+                # Convert to text if it's an index
+                if isinstance(user_answer_raw, int) and 0 <= user_answer_raw < len(options):
+                    user_answers_text.append(options[user_answer_raw])
+                else:
+                    user_answers_text.append(str(user_answer_raw))
+            else:
+                user_answers_text.append("")
         
         # Create result record
         result_doc = {
@@ -1910,7 +1992,9 @@ async def submit_teacher_assessment(
             "total_questions": len(questions),
             "percentage": percentage,
             "time_taken": time_taken,
-            "answers": answers,
+            "answers": answers,  # Keep original format
+            "user_answers": user_answers_text,  # Add text format for review
+            "questions": questions,  # Store questions for review
             "submitted_at": datetime.utcnow(),
             "created_at": datetime.utcnow()
         }
@@ -1989,33 +2073,84 @@ async def submit_assessment(submission_data: dict, user: UserModel = Depends(get
 
 @router.get("/{assessment_id}/results")
 async def get_assessment_results(assessment_id: str, user: UserModel = Depends(require_teacher)):
-    """Get results for a specific assessment - Teacher only"""
+    """Get results for a specific assessment - Teacher only.
+    Aggregates from assessment_submissions and teacher_assessment_results.
+    """
     try:
         db = await get_db()
-        
-        # Get all submissions for this assessment
-        submissions = await db.assessment_submissions.find({
-            "assessment_id": assessment_id
-        }).to_list(length=None)
-        
-        # Get student details for each submission
+
+        # Normalize id formats (support ObjectId and string ids stored in DB)
+        id_filters = [{"assessment_id": assessment_id}]
+        try:
+            if ObjectId.is_valid(assessment_id):
+                id_filters.append({"assessment_id": str(ObjectId(assessment_id))})
+        except Exception:
+            pass
+
+        # Gather submissions from regular assessments
+        regular_submissions = []
+        try:
+            regular_submissions = await db.assessment_submissions.find({"$or": id_filters}).to_list(length=None)
+        except Exception:
+            regular_submissions = []
+
+        # Gather submissions from teacher assessments
+        teacher_submissions = []
+        try:
+            teacher_submissions = await db.teacher_assessment_results.find({"$or": id_filters}).to_list(length=None)
+        except Exception:
+            teacher_submissions = []
+
+        # Merge and format
+        all_submissions = []
+        for sub in regular_submissions:
+            all_submissions.append({
+                "student_id": sub.get("student_id"),
+                "score": sub.get("score", 0),
+                "percentage": sub.get("percentage", 0),
+                "time_taken": sub.get("time_taken", 0),
+                "submitted_at": sub.get("submitted_at"),
+                "total_questions": sub.get("total_questions", len(sub.get("answers", [])))
+            })
+        for sub in teacher_submissions:
+            all_submissions.append({
+                "student_id": sub.get("student_id"),
+                "score": sub.get("score", 0),
+                "percentage": sub.get("percentage", 0),
+                "time_taken": sub.get("time_taken", 0),
+                "submitted_at": sub.get("submitted_at"),
+                "total_questions": sub.get("total_questions", 0)
+            })
+
+        # Attach student details
         results = []
-        for submission in submissions:
-            student = await db.users.find_one({"_id": ObjectId(submission["student_id"])})
-            if student:
-                results.append({
-                    "student_id": str(student["_id"]),
-                    "student_name": student.get("name", "Unknown"),
-                    "student_email": student.get("email", ""),
-                    "score": submission["score"],
-                    "percentage": submission["percentage"],
-                    "time_taken": submission["time_taken"],
-                    "submitted_at": submission["submitted_at"].isoformat(),
-                    "total_questions": len(submission["answers"])
-                })
-        
+        for sub in all_submissions:
+            student = None
+            sid = sub.get("student_id")
+            # try both ObjectId and string
+            try:
+                if sid and ObjectId.is_valid(str(sid)):
+                    student = await db.users.find_one({"_id": ObjectId(str(sid))})
+            except Exception:
+                student = None
+            if not student and sid:
+                student = await db.users.find_one({"_id": str(sid)})
+
+            results.append({
+                "student_id": str(student.get("_id", sid)) if student else str(sid),
+                "student_name": student.get("name") or student.get("username") if student else "Unknown",
+                "student_email": student.get("email") if student else "",
+                "score": sub.get("score", 0),
+                "percentage": sub.get("percentage", 0),
+                "time_taken": sub.get("time_taken", 0),
+                "submitted_at": (sub.get("submitted_at") or datetime.utcnow()).isoformat(),
+                "total_questions": sub.get("total_questions", 0)
+            })
+
+        # Sort by submitted_at desc
+        results.sort(key=lambda r: r.get("submitted_at", ""), reverse=True)
         return results
-        
+
     except Exception as e:
         print(f"❌ [ASSESSMENT] Error fetching assessment results: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -2194,17 +2329,61 @@ async def submit_assessment_answers(
         score = 0
         
         for i, question in enumerate(questions):
-            if i < len(answers) and answers[i] == question.get("correct_answer", -1):
-                score += 1
+            if i < len(answers):
+                user_answer = answers[i]
+                correct_answer_index = question.get("correct_answer", -1)
+                correct_answer = ""
+                options = question.get("options", [])
+                
+                # Handle both string and integer correct answers
+                if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
+                    if correct_answer_index < len(options):
+                        correct_answer = options[correct_answer_index]
+                else:
+                    correct_answer = question.get("answer", "")
+                
+                # If correct answer is just a letter (A, B, C, D), find the matching option
+                if len(correct_answer) == 1 and correct_answer.isalpha():
+                    letter = correct_answer.upper()
+                    for option in options:
+                        if option.startswith(f"{letter})"):
+                            correct_answer = option
+                            break
+                
+                # Convert user answer to text if it's an index
+                if isinstance(user_answer, int) and 0 <= user_answer < len(options):
+                    user_answer_text = options[user_answer]
+                else:
+                    user_answer_text = str(user_answer)
+                
+                if user_answer_text == correct_answer:
+                    score += 1
         
         percentage = (score / len(questions)) * 100 if questions else 0
         time_taken = submission_data.get("time_taken", 0)
+        
+        # Convert user answers to text format for question review
+        user_answers_text = []
+        for i, question in enumerate(questions):
+            if i < len(answers):
+                user_answer_raw = answers[i]
+                options = question.get("options", [])
+                
+                # Convert to text if it's an index
+                if isinstance(user_answer_raw, int) and 0 <= user_answer_raw < len(options):
+                    user_answers_text.append(options[user_answer_raw])
+                else:
+                    user_answers_text.append(str(user_answer_raw))
+            else:
+                user_answers_text.append("")
         
         # Create submission record and ensure upcoming endpoints filter it out
         submission_doc = {
             "assessment_id": assessment_id,
             "student_id": user.id,
-            "answers": answers,
+            "answers": answers,  # Keep original format
+            "user_answers": user_answers_text,  # Add text format for review
+            "questions": questions,  # Store questions for review
             "score": score,
             "percentage": round(percentage, 2),
             "time_taken": time_taken,

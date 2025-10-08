@@ -49,8 +49,8 @@ const TeacherDashboard: React.FC = () => {
     return (
       <div className="min-h-screen pt-20 px-4 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-purple-200 mb-4">Loading...</h1>
-          <p className="text-purple-300">Please wait while we load your dashboard.</p>
+          <h1 className="text-2xl font-bold text-blue-200 mb-4">Loading...</h1>
+          <p className="text-blue-300">Please wait while we load your dashboard.</p>
         </div>
       </div>
     )
@@ -134,8 +134,8 @@ const TeacherDashboard: React.FC = () => {
         <AnimatedBackground />
         <div className="min-h-screen pt-20 px-4 flex items-center justify-center relative z-10">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-purple-200 mb-4">Loading Teacher Dashboard...</h1>
-            <p className="text-purple-300">Please wait while we load your data.</p>
+            <h1 className="text-2xl font-bold text-blue-200 mb-4">Loading Teacher Dashboard...</h1>
+            <p className="text-blue-300">Please wait while we load your data.</p>
           </div>
         </div>
       </>
@@ -154,8 +154,8 @@ const TeacherDashboard: React.FC = () => {
         >
           <Card className="p-6 mb-6">
             <motion.div variants={ANIMATION_VARIANTS.slideDown} className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-purple-200 mb-2">Teacher Dashboard</h1>
-              <p className="text-purple-300 text-base mb-4">
+              <h1 className="text-3xl font-bold text-blue-200 mb-2">Teacher Dashboard</h1>
+              <p className="text-blue-300 text-base mb-4">
                 Welcome back, {user?.name || user?.email || "Teacher"}!
               </p>
             </motion.div>
@@ -181,14 +181,14 @@ const TeacherDashboard: React.FC = () => {
                   </div>
               </div>
 
-              <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-lg p-3">
+              <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-purple-300 text-xs font-medium">Active Batches</p>
-                    <p className="text-xl font-bold text-purple-200">{batches.filter((b) => b.id !== "all").length}</p>
+                    <p className="text-blue-300 text-xs font-medium">Active Batches</p>
+                    <p className="text-xl font-bold text-blue-200">{batches.filter((b) => b.id !== "all").length}</p>
                   </div>
-                  <div className="w-6 h-6 bg-purple-500/30 rounded-full flex items-center justify-center">
-                    <svg className="w-3 h-3 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-6 h-6 bg-blue-500/30 rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
                     </div>
@@ -240,14 +240,14 @@ const TeacherDashboard: React.FC = () => {
               <motion.div variants={ANIMATION_VARIANTS.slideLeft}>
                 <Card className="p-5 h-full">
                   <div className="flex items-center mb-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center mr-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center mr-3">
                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-purple-200">Student Management</h3>
+                    <h3 className="text-lg font-semibold text-blue-200">Student Management</h3>
                   </div>
-                  <p className="text-purple-300 mb-4 text-sm leading-relaxed">
+                  <p className="text-blue-300 mb-4 text-sm leading-relaxed">
                     View and manage all your students, track their progress, and provide feedback.
                   </p>
                   <Button variant="primary" size="sm" className="w-full" onClick={handleNavigateToStudentManagement}>
@@ -265,9 +265,9 @@ const TeacherDashboard: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-purple-200">Assessment Management</h3>
+                    <h3 className="text-lg font-semibold text-blue-200">Assessment Management</h3>
                   </div>
-                  <p className="text-purple-300 mb-4 text-sm leading-relaxed">
+                  <p className="text-blue-300 mb-4 text-sm leading-relaxed">
                     Create custom assessments and coding challenges for your students.
                   </p>
                   <Button variant="primary" size="sm" className="w-full" onClick={handleNavigateToAssessmentManagement}>

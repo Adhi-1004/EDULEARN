@@ -11,6 +11,7 @@ import Input from "../components/ui/Input"
 import AnimatedBackground from "../components/AnimatedBackground"
 import BatchPerformanceControl from "../components/teacher/BatchPerformanceControl"
 import AIStudentReports from "../components/teacher/AIStudentReports"
+import { BulkUploadModal } from "../components/BulkUploadModal"
 import api from "../utils/api"
 import { ANIMATION_VARIANTS } from "../utils/constants"
 
@@ -59,14 +60,17 @@ const StudentManagement: React.FC = () => {
   const [selectedStudentForDetails, setSelectedStudentForDetails] = useState<Student | null>(null)
   const [showBatchPerformance, setShowBatchPerformance] = useState(false)
   const [showAIReports, setShowAIReports] = useState(false)
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false)
+  const [bulkUploadBatchId, setBulkUploadBatchId] = useState<string | null>(null)
+  const [bulkUploadBatchName, setBulkUploadBatchName] = useState<string>("")
 
   // Early return if user is not available
   if (!user) {
     return (
       <div className="min-h-screen pt-20 px-4 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-purple-200 mb-4">Loading...</h1>
-          <p className="text-purple-300">Please wait while we load your dashboard.</p>
+          <h1 className="text-2xl font-bold text-blue-200 mb-4">Loading...</h1>
+          <p className="text-blue-300">Please wait while we load your dashboard.</p>
         </div>
       </div>
     )
@@ -141,6 +145,20 @@ const StudentManagement: React.FC = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleBulkUploadSuccess = (response: any) => {
+    success(`Successfully uploaded ${response.successful_imports} students!`)
+    setShowBulkUploadModal(false)
+    setBulkUploadBatchId(null)
+    setBulkUploadBatchName("")
+    fetchDashboardData()
+  }
+
+  const openBulkUploadModal = (batchId: string, batchName: string) => {
+    setBulkUploadBatchId(batchId)
+    setBulkUploadBatchName(batchName)
+    setShowBulkUploadModal(true)
   }
 
   const handleCreateBatch = async () => {
@@ -432,8 +450,8 @@ const StudentManagement: React.FC = () => {
         <AnimatedBackground />
         <div className="min-h-screen pt-20 px-4 flex items-center justify-center relative z-10">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-purple-200 mb-4">Loading Student Management...</h1>
-            <p className="text-purple-300">Please wait while we load your data.</p>
+            <h1 className="text-2xl font-bold text-blue-200 mb-4">Loading Student Management...</h1>
+            <p className="text-blue-300">Please wait while we load your data.</p>
           </div>
         </div>
       </>
@@ -452,8 +470,8 @@ const StudentManagement: React.FC = () => {
         >
           <Card className="p-8 mb-8">
             <motion.div variants={ANIMATION_VARIANTS.slideDown} className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-purple-200 mb-2">Student Management</h1>
-              <p className="text-purple-300 text-lg mb-4">
+              <h1 className="text-4xl font-bold text-blue-200 mb-2">Student Management</h1>
+              <p className="text-blue-300 text-lg mb-4">
                 Manage students, batches, and assignments
               </p>
             </motion.div>
@@ -479,14 +497,14 @@ const StudentManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-lg p-4">
+              <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-purple-300 text-sm font-medium">Active Batches</p>
-                    <p className="text-2xl font-bold text-purple-200">{batches.filter((b) => b.id !== "all").length}</p>
+                    <p className="text-blue-300 text-sm font-medium">Active Batches</p>
+                    <p className="text-2xl font-bold text-blue-200">{batches.filter((b) => b.id !== "all").length}</p>
                   </div>
-                  <div className="w-8 h-8 bg-purple-500/30 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-8 h-8 bg-blue-500/30 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
                   </div>
@@ -517,7 +535,7 @@ const StudentManagement: React.FC = () => {
             <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
               <Card className="p-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-purple-200 mb-4 md:mb-0">Student Batches</h2>
+                  <h2 className="text-2xl font-bold text-blue-200 mb-4 md:mb-0">Student Batches</h2>
                   <div className="flex space-x-3">
                     <Button variant="primary" onClick={() => setShowCreateBatch(true)}>
                       Create Batch
@@ -526,8 +544,8 @@ const StudentManagement: React.FC = () => {
                 </div>
 
                 {showCreateBatch && (
-                  <div className="mb-6 p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
-                    <h3 className="text-lg font-semibold text-purple-200 mb-3">Create New Batch</h3>
+                  <div className="mb-6 p-4 bg-blue-900/20 rounded-lg border border-blue-500/30">
+                    <h3 className="text-lg font-semibold text-blue-200 mb-3">Create New Batch</h3>
                     <div className="flex flex-col sm:flex-row gap-3">
                       <Input
                         type="text"
@@ -560,14 +578,14 @@ const StudentManagement: React.FC = () => {
                       key={batch.id}
                       className={`p-4 transition-all duration-300 rounded-lg border ${
                         selectedBatch === batch.id
-                          ? "border-purple-400 bg-purple-900/30"
-                          : "border-purple-500/30 hover:border-purple-400/50 hover:bg-purple-900/20"
+                          ? "border-blue-400 bg-blue-900/30"
+                          : "border-blue-500/30 hover:border-blue-400/50 hover:bg-blue-900/20"
                       }`}
                     >
                       <div className="cursor-pointer" onClick={() => setSelectedBatch(batch.id)}>
-                        <h3 className="font-semibold text-purple-200">{batch.name}</h3>
-                        <p className="text-purple-300 text-sm">{batch.studentCount} students</p>
-                        <p className="text-purple-400 text-xs mt-1">
+                        <h3 className="font-semibold text-blue-200">{batch.name}</h3>
+                        <p className="text-blue-300 text-sm">{batch.studentCount} students</p>
+                        <p className="text-blue-400 text-xs mt-1">
                           Created: {new Date(batch.createdAt).toLocaleDateString()}
                         </p>
                       </div>
@@ -586,8 +604,7 @@ const StudentManagement: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setTargetBatchId(batch.id)
-                            setShowBatchAssignmentModal(true)
+                            openBulkUploadModal(batch.id, batch.name)
                           }}
                           className="w-full"
                         >
@@ -597,8 +614,8 @@ const StudentManagement: React.FC = () => {
 
                       {/* Add Student Form */}
                       {showAddStudent === batch.id && (
-                        <div className="mt-4 p-3 bg-purple-900/20 rounded-lg border border-purple-500/30">
-                          <h4 className="text-sm font-semibold text-purple-200 mb-3">Add Student to {batch.name}</h4>
+                        <div className="mt-4 p-3 bg-blue-900/20 rounded-lg border border-blue-500/30">
+                          <h4 className="text-sm font-semibold text-blue-200 mb-3">Add Student to {batch.name}</h4>
                           <div className="space-y-3">
                             <Input
                               type="email"
@@ -649,7 +666,7 @@ const StudentManagement: React.FC = () => {
             <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
               <Card className="p-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-purple-200 mb-4 md:mb-0">Student Management</h2>
+                  <h2 className="text-2xl font-bold text-blue-200 mb-4 md:mb-0">Student Management</h2>
                   <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                     <Input
                       type="text"
@@ -671,13 +688,13 @@ const StudentManagement: React.FC = () => {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-purple-500/30">
-                        <th className="text-left py-3 px-4 text-purple-300 font-semibold">Student</th>
-                        <th className="text-left py-3 px-4 text-purple-300 font-semibold">Email</th>
-                        <th className="text-left py-3 px-4 text-purple-300 font-semibold">Progress</th>
-                        <th className="text-left py-3 px-4 text-purple-300 font-semibold">Last Active</th>
-                        <th className="text-left py-3 px-4 text-purple-300 font-semibold">Batch</th>
-                        <th className="text-center py-3 px-4 text-purple-300 font-semibold">Details</th>
+                      <tr className="border-b border-blue-500/30">
+                        <th className="text-left py-3 px-4 text-blue-300 font-semibold">Student</th>
+                        <th className="text-left py-3 px-4 text-blue-300 font-semibold">Email</th>
+                        <th className="text-left py-3 px-4 text-blue-300 font-semibold">Progress</th>
+                        <th className="text-left py-3 px-4 text-blue-300 font-semibold">Last Active</th>
+                        <th className="text-left py-3 px-4 text-blue-300 font-semibold">Batch</th>
+                        <th className="text-center py-3 px-4 text-blue-300 font-semibold">Details</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -690,27 +707,27 @@ const StudentManagement: React.FC = () => {
                             transition={{ delay: index * 0.05 }}
                             className="border-b border-purple-500/20 hover:bg-purple-900/10"
                           >
-                            <td className="py-3 px-4 text-purple-200">{student.name || "Unknown"}</td>
-                            <td className="py-3 px-4 text-purple-300">{student.email || "No email"}</td>
+                            <td className="py-3 px-4 text-blue-200">{student.name || "Unknown"}</td>
+                            <td className="py-3 px-4 text-blue-300">{student.email || "No email"}</td>
                             <td className="py-3 px-4">
                               <div className="flex items-center">
                                 <div className="w-24 bg-purple-900/50 rounded-full h-2 mr-2">
                                   <div
-                                    className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full"
+                                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full"
                                     style={{ width: `${student.progress || 0}%` }}
                                   ></div>
                                 </div>
-                                <span className="text-purple-300 text-sm">{student.progress || 0}%</span>
+                                <span className="text-blue-300 text-sm">{student.progress || 0}%</span>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-purple-300">
+                            <td className="py-3 px-4 text-blue-300">
                               {student.lastActive ? new Date(student.lastActive).toLocaleDateString() : "Never"}
                             </td>
                             <td className="py-3 px-4">
                               <select
                                 value={student.batchId || ""}
                                 onChange={(e) => handleBatchChangeFromDropdown(student.id, e.target.value)}
-                                className="px-3 py-2 bg-purple-900/30 backdrop-blur-md border border-purple-500/50 rounded-lg text-purple-200 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 text-sm hover:bg-purple-800/40 transition-colors"
+                                className="px-3 py-2 bg-blue-900/30 backdrop-blur-md border border-purple-500/50 rounded-lg text-blue-200 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 text-sm hover:bg-purple-800/40 transition-colors"
                               >
                                 <option value="">Unassigned</option>
                                 {batches
@@ -730,7 +747,7 @@ const StudentManagement: React.FC = () => {
                                 aria-label="Toggle student details"
                               >
                                 <svg
-                                  className={`w-5 h-5 text-purple-400 transition-transform ${
+                                  className={`w-5 h-5 text-blue-400 transition-transform ${
                                     expandedStudentId === student.id ? "rotate-180" : ""
                                   }`}
                                   fill="none"
@@ -757,15 +774,15 @@ const StudentManagement: React.FC = () => {
                                   animate={{ opacity: 1, y: 0 }}
                                   exit={{ opacity: 0, y: -20 }}
                                   transition={{ duration: 0.4, ease: "easeInOut" }}
-                                  className="bg-gradient-to-r from-purple-800/20 to-blue-800/20 border-t border-purple-500/30 shadow-lg"
+                                  className="bg-gradient-to-r from-blue-800/20 to-blue-900/20 border-t border-blue-500/30 shadow-lg"
                                 >
                                   <div className="p-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                       {/* Student Information */}
                                       <div className="space-y-3">
-                                        <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center">
+                                        <h4 className="text-lg font-semibold text-blue-200 mb-4 flex items-center">
                                           <svg
-                                            className="w-5 h-5 mr-2 text-purple-400"
+                                            className="w-5 h-5 mr-2 text-blue-400"
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24"
@@ -780,25 +797,25 @@ const StudentManagement: React.FC = () => {
                                           Student Information
                                         </h4>
                                         <div className="space-y-2">
-                                          <div className="flex justify-between items-center py-2 px-3 bg-purple-900/30 rounded-lg">
-                                            <span className="text-purple-300 font-medium">Name:</span>
-                                            <span className="text-purple-200">{student.name || "Unknown"}</span>
+                                          <div className="flex justify-between items-center py-2 px-3 bg-blue-900/30 rounded-lg">
+                                            <span className="text-blue-300 font-medium">Name:</span>
+                                            <span className="text-blue-200">{student.name || "Unknown"}</span>
                                           </div>
-                                          <div className="flex justify-between items-center py-2 px-3 bg-purple-900/30 rounded-lg">
-                                            <span className="text-purple-300 font-medium">Email:</span>
-                                            <span className="text-purple-200">{student.email || "No email"}</span>
+                                          <div className="flex justify-between items-center py-2 px-3 bg-blue-900/30 rounded-lg">
+                                            <span className="text-blue-300 font-medium">Email:</span>
+                                            <span className="text-blue-200">{student.email || "No email"}</span>
                                           </div>
-                                          <div className="flex justify-between items-center py-2 px-3 bg-purple-900/30 rounded-lg">
-                                            <span className="text-purple-300 font-medium">Current Batch:</span>
-                                            <span className="text-purple-200">{student.batch || "Unassigned"}</span>
+                                          <div className="flex justify-between items-center py-2 px-3 bg-blue-900/30 rounded-lg">
+                                            <span className="text-blue-300 font-medium">Current Batch:</span>
+                                            <span className="text-blue-200">{student.batch || "Unassigned"}</span>
                                           </div>
-                                          <div className="flex justify-between items-center py-2 px-3 bg-purple-900/30 rounded-lg">
-                                            <span className="text-purple-300 font-medium">Progress:</span>
-                                            <span className="text-purple-200">{student.progress || 0}%</span>
+                                          <div className="flex justify-between items-center py-2 px-3 bg-blue-900/30 rounded-lg">
+                                            <span className="text-blue-300 font-medium">Progress:</span>
+                                            <span className="text-blue-200">{student.progress || 0}%</span>
                                           </div>
-                                          <div className="flex justify-between items-center py-2 px-3 bg-purple-900/30 rounded-lg">
-                                            <span className="text-purple-300 font-medium">Last Active:</span>
-                                            <span className="text-purple-200">
+                                          <div className="flex justify-between items-center py-2 px-3 bg-blue-900/30 rounded-lg">
+                                            <span className="text-blue-300 font-medium">Last Active:</span>
+                                            <span className="text-blue-200">
                                               {student.lastActive
                                                 ? new Date(student.lastActive).toLocaleDateString()
                                                 : "Never"}
@@ -809,7 +826,7 @@ const StudentManagement: React.FC = () => {
 
                                       {/* Performance Metrics */}
                                       <div className="space-y-3">
-                                        <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center">
+                                        <h4 className="text-lg font-semibold text-blue-200 mb-4 flex items-center">
                                           <svg
                                             className="w-5 h-5 mr-2 text-blue-400"
                                             fill="none"
@@ -826,18 +843,18 @@ const StudentManagement: React.FC = () => {
                                           Performance Overview
                                         </h4>
                                         <div className="space-y-3">
-                                          <div className="bg-purple-900/30 rounded-lg p-3">
+                                          <div className="bg-blue-900/30 rounded-lg p-3">
                                             <div className="flex justify-between items-center mb-2">
-                                              <span className="text-purple-300 text-sm font-medium">
+                                              <span className="text-blue-300 text-sm font-medium">
                                                 Overall Progress
                                               </span>
-                                              <span className="text-purple-200 font-bold">
+                                              <span className="text-blue-200 font-bold">
                                                 {student.progress || 0}%
                                               </span>
                                             </div>
                                             <div className="w-full bg-purple-900/50 rounded-full h-3">
                                               <motion.div
-                                                className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full"
+                                                className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full"
                                                 initial={{ width: 0 }}
                                                 animate={{ width: `${student.progress || 0}%` }}
                                                 transition={{ duration: 0.8, ease: "easeOut" }}
@@ -860,7 +877,7 @@ const StudentManagement: React.FC = () => {
 
                                       {/* Actions */}
                                       <div className="space-y-3">
-                                        <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center">
+                                        <h4 className="text-lg font-semibold text-blue-200 mb-4 flex items-center">
                                           <svg
                                             className="w-5 h-5 mr-2 text-green-400"
                                             fill="none"
@@ -887,7 +904,7 @@ const StudentManagement: React.FC = () => {
                                             variant="primary"
                                             size="sm"
                                             onClick={() => handleOpenStudentDetails(student)}
-                                            className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                                            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
                                           >
                                             <svg
                                               className="w-4 h-4 mr-2"
@@ -914,7 +931,7 @@ const StudentManagement: React.FC = () => {
                                             variant="outline"
                                             size="sm"
                                             onClick={() => handleOpenBatchChangeModal(student)}
-                                            className="w-full border-purple-500/50 text-purple-200 hover:bg-purple-800/30"
+                                            className="w-full border-purple-500/50 text-blue-200 hover:bg-purple-800/30"
                                           >
                                             <svg
                                               className="w-4 h-4 mr-2"
@@ -971,7 +988,7 @@ const StudentManagement: React.FC = () => {
                   </table>
 
                   {filteredStudents.length === 0 && (
-                    <div className="text-center py-8 text-purple-300">No students found matching your criteria.</div>
+                    <div className="text-center py-8 text-blue-300">No students found matching your criteria.</div>
                   )}
                 </div>
               </Card>
@@ -992,9 +1009,9 @@ const StudentManagement: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-semibold text-purple-200">Batch Performance</h3>
+                    <h3 className="text-xl font-semibold text-blue-200">Batch Performance</h3>
                   </div>
-                  <p className="text-purple-300 mb-6 leading-relaxed">
+                  <p className="text-blue-300 mb-6 leading-relaxed">
                     Monitor batch performance at a glance with AI-powered insights and analytics.
                   </p>
                   <Button 
@@ -1010,14 +1027,14 @@ const StudentManagement: React.FC = () => {
               <motion.div variants={ANIMATION_VARIANTS.slideRight}>
                 <Card className="p-6 h-full">
                   <div className="flex items-center mb-4">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center mr-4">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-pink-500 to-blue-500 flex items-center justify-center mr-4">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-semibold text-purple-200">AI Student Reports</h3>
+                    <h3 className="text-xl font-semibold text-blue-200">AI Student Reports</h3>
                   </div>
-                  <p className="text-purple-300 mb-6 leading-relaxed">
+                  <p className="text-blue-300 mb-6 leading-relaxed">
                     Generate AI-powered student performance reports with personalized insights.
                   </p>
                   <Button variant="primary" className="w-full" onClick={() => setShowAIReports(!showAIReports)}>
@@ -1060,13 +1077,13 @@ const StudentManagement: React.FC = () => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-purple-900/95 backdrop-blur-md border border-purple-500/30 rounded-xl p-6 w-full max-w-2xl mx-4"
+            className="bg-purple-900/95 backdrop-blur-md border border-blue-500/30 rounded-xl p-6 w-full max-w-2xl mx-4"
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-purple-200">Bulk Student Assignment</h3>
+              <h3 className="text-2xl font-bold text-blue-200">Bulk Student Assignment</h3>
               <button
                 onClick={handleCloseBatchAssignment}
-                className="text-purple-400 hover:text-purple-200 transition-colors"
+                className="text-blue-400 hover:text-blue-200 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1076,11 +1093,11 @@ const StudentManagement: React.FC = () => {
 
             <div className="space-y-6">
               <div>
-                <label className="block text-purple-300 font-medium mb-2">Select Target Batch</label>
+                <label className="block text-blue-300 font-medium mb-2">Select Target Batch</label>
                 <select
                   value={targetBatchId}
                   onChange={(e) => setTargetBatchId(e.target.value)}
-                  className="w-full px-4 py-3 bg-purple-800/30 border border-purple-500/50 rounded-lg text-purple-200 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                  className="w-full px-4 py-3 bg-purple-800/30 border border-purple-500/50 rounded-lg text-blue-200 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                 >
                   <option value="">Select a batch</option>
                   {batches
@@ -1095,13 +1112,13 @@ const StudentManagement: React.FC = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <label className="text-purple-300 font-medium">Select Students</label>
+                  <label className="text-blue-300 font-medium">Select Students</label>
                   <div className="flex space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleSelectAllStudents}
-                      className="text-purple-200 border-purple-500/50 hover:bg-purple-800/30"
+                      className="text-blue-200 border-purple-500/50 hover:bg-purple-800/30"
                     >
                       Select All
                     </Button>
@@ -1109,7 +1126,7 @@ const StudentManagement: React.FC = () => {
                       variant="outline"
                       size="sm"
                       onClick={handleClearAllStudents}
-                      className="text-purple-200 border-purple-500/50 hover:bg-purple-800/30"
+                      className="text-blue-200 border-purple-500/50 hover:bg-purple-800/30"
                     >
                       Clear All
                     </Button>
@@ -1135,15 +1152,15 @@ const StudentManagement: React.FC = () => {
                         key={student.id}
                         className={`p-3 rounded-lg border transition-colors cursor-pointer ${
                           selectedStudentsForBatch.includes(student.id)
-                            ? "border-purple-400 bg-purple-800/30"
-                            : "border-purple-500/30 hover:border-purple-400/50 hover:bg-purple-900/20"
+                            ? "border-blue-400 bg-purple-800/30"
+                            : "border-blue-500/30 hover:border-blue-400/50 hover:bg-blue-900/20"
                         }`}
                         onClick={() => handleStudentSelection(student.id)}
                       >
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-purple-200 font-medium">{student.name}</p>
-                            <p className="text-purple-300 text-sm">{student.email}</p>
+                            <p className="text-blue-200 font-medium">{student.name}</p>
+                            <p className="text-blue-300 text-sm">{student.email}</p>
                           </div>
                           <div className="flex items-center">
                             <input
@@ -1163,7 +1180,7 @@ const StudentManagement: React.FC = () => {
                 <Button
                   variant="outline"
                   onClick={handleCloseBatchAssignment}
-                  className="border-purple-500/50 text-purple-200 hover:bg-purple-800/30"
+                  className="border-purple-500/50 text-blue-200 hover:bg-purple-800/30"
                 >
                   Cancel
                 </Button>
@@ -1171,7 +1188,7 @@ const StudentManagement: React.FC = () => {
                   variant="primary"
                   onClick={handleBulkAssignToBatch}
                   disabled={!targetBatchId || selectedStudentsForBatch.length === 0}
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
                 >
                   Assign {selectedStudentsForBatch.length} Students
                 </Button>
@@ -1188,13 +1205,13 @@ const StudentManagement: React.FC = () => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-purple-900/95 backdrop-blur-md border border-purple-500/30 rounded-xl p-6 w-full max-w-md mx-4"
+            className="bg-purple-900/95 backdrop-blur-md border border-blue-500/30 rounded-xl p-6 w-full max-w-md mx-4"
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-purple-200">Change Student Batch</h3>
+              <h3 className="text-xl font-bold text-blue-200">Change Student Batch</h3>
               <button
                 onClick={handleCloseBatchChangeModal}
-                className="text-purple-400 hover:text-purple-200 transition-colors"
+                className="text-blue-400 hover:text-blue-200 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1204,16 +1221,16 @@ const StudentManagement: React.FC = () => {
 
             <div className="space-y-4">
               <div>
-                <p className="text-purple-300 mb-2">Student: <span className="text-purple-200 font-medium">{selectedStudentForBatchChange.name}</span></p>
-                <p className="text-purple-300 mb-4">Email: <span className="text-purple-200">{selectedStudentForBatchChange.email}</span></p>
+                <p className="text-blue-300 mb-2">Student: <span className="text-blue-200 font-medium">{selectedStudentForBatchChange.name}</span></p>
+                <p className="text-blue-300 mb-4">Email: <span className="text-blue-200">{selectedStudentForBatchChange.email}</span></p>
               </div>
 
               <div>
-                <label className="block text-purple-300 font-medium mb-2">New Batch</label>
+                <label className="block text-blue-300 font-medium mb-2">New Batch</label>
                 <select
                   value={newBatchId}
                   onChange={(e) => setNewBatchId(e.target.value)}
-                  className="w-full px-4 py-3 bg-purple-800/30 border border-purple-500/50 rounded-lg text-purple-200 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                  className="w-full px-4 py-3 bg-purple-800/30 border border-purple-500/50 rounded-lg text-blue-200 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                 >
                   <option value="">Unassigned</option>
                   {batches
@@ -1230,14 +1247,14 @@ const StudentManagement: React.FC = () => {
                 <Button
                   variant="outline"
                   onClick={handleCloseBatchChangeModal}
-                  className="border-purple-500/50 text-purple-200 hover:bg-purple-800/30"
+                  className="border-purple-500/50 text-blue-200 hover:bg-purple-800/30"
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="primary"
                   onClick={handleChangeStudentBatch}
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
                 >
                   Change Batch
                 </Button>
@@ -1254,13 +1271,13 @@ const StudentManagement: React.FC = () => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-purple-900/95 backdrop-blur-md border border-purple-500/30 rounded-xl p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto"
+            className="bg-purple-900/95 backdrop-blur-md border border-blue-500/30 rounded-xl p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-purple-200">Student Details</h3>
+              <h3 className="text-2xl font-bold text-blue-200">Student Details</h3>
               <button
                 onClick={() => setShowStudentDetailsModal(false)}
-                className="text-purple-400 hover:text-purple-200 transition-colors"
+                className="text-blue-400 hover:text-blue-200 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1271,27 +1288,27 @@ const StudentManagement: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="bg-purple-800/30 rounded-lg p-4">
-                  <h4 className="text-lg font-semibold text-purple-200 mb-3">Basic Information</h4>
+                  <h4 className="text-lg font-semibold text-blue-200 mb-3">Basic Information</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-purple-300">Name:</span>
-                      <span className="text-purple-200">{selectedStudentForDetails.name}</span>
+                      <span className="text-blue-300">Name:</span>
+                      <span className="text-blue-200">{selectedStudentForDetails.name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-purple-300">Email:</span>
-                      <span className="text-purple-200">{selectedStudentForDetails.email}</span>
+                      <span className="text-blue-300">Email:</span>
+                      <span className="text-blue-200">{selectedStudentForDetails.email}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-purple-300">Current Batch:</span>
-                      <span className="text-purple-200">{selectedStudentForDetails.batch || "Unassigned"}</span>
+                      <span className="text-blue-300">Current Batch:</span>
+                      <span className="text-blue-200">{selectedStudentForDetails.batch || "Unassigned"}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-purple-300">Progress:</span>
-                      <span className="text-purple-200">{selectedStudentForDetails.progress || 0}%</span>
+                      <span className="text-blue-300">Progress:</span>
+                      <span className="text-blue-200">{selectedStudentForDetails.progress || 0}%</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-purple-300">Last Active:</span>
-                      <span className="text-purple-200">
+                      <span className="text-blue-300">Last Active:</span>
+                      <span className="text-blue-200">
                         {selectedStudentForDetails.lastActive
                           ? new Date(selectedStudentForDetails.lastActive).toLocaleDateString()
                           : "Never"}
@@ -1303,16 +1320,16 @@ const StudentManagement: React.FC = () => {
 
               <div className="space-y-4">
                 <div className="bg-purple-800/30 rounded-lg p-4">
-                  <h4 className="text-lg font-semibold text-purple-200 mb-3">Performance Overview</h4>
+                  <h4 className="text-lg font-semibold text-blue-200 mb-3">Performance Overview</h4>
                   <div className="space-y-3">
                     <div>
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-purple-300">Overall Progress</span>
-                        <span className="text-purple-200 font-bold">{selectedStudentForDetails.progress || 0}%</span>
+                        <span className="text-blue-300">Overall Progress</span>
+                        <span className="text-blue-200 font-bold">{selectedStudentForDetails.progress || 0}%</span>
                       </div>
                       <div className="w-full bg-purple-900/50 rounded-full h-3">
                         <div
-                          className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full"
+                          className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full"
                           style={{ width: `${selectedStudentForDetails.progress || 0}%` }}
                         ></div>
                       </div>
@@ -1336,7 +1353,7 @@ const StudentManagement: React.FC = () => {
               <Button
                 variant="outline"
                 onClick={() => setShowStudentDetailsModal(false)}
-                className="border-purple-500/50 text-purple-200 hover:bg-purple-800/30"
+                className="border-purple-500/50 text-blue-200 hover:bg-purple-800/30"
               >
                 Close
               </Button>
@@ -1346,13 +1363,28 @@ const StudentManagement: React.FC = () => {
                   setShowStudentDetailsModal(false)
                   handleOpenBatchChangeModal(selectedStudentForDetails)
                 }}
-                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
               >
                 Change Batch
               </Button>
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* Bulk Upload Modal */}
+      {showBulkUploadModal && bulkUploadBatchId && (
+        <BulkUploadModal
+          isOpen={showBulkUploadModal}
+          onClose={() => {
+            setShowBulkUploadModal(false)
+            setBulkUploadBatchId(null)
+            setBulkUploadBatchName("")
+          }}
+          batchId={bulkUploadBatchId}
+          batchName={bulkUploadBatchName}
+          onSuccess={handleBulkUploadSuccess}
+        />
       )}
     </>
   )

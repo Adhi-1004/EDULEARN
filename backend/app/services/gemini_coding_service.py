@@ -1593,12 +1593,25 @@ try {{
         count: int = 10,
         store_in_db: bool = True
     ) -> List[Dict[str, Any]]:
-        """Generate MCQ questions using Gemini AI"""
+        """Generate unique MCQ questions using Gemini AI"""
         try:
             if not self.available:
                 return self._get_fallback_mcq_questions(topic, difficulty, count)
             
-            prompt = f"""Generate {count} multiple choice questions about {topic} with {difficulty} difficulty level.
+            # Get existing questions to avoid duplicates
+            existing_questions = await self._get_existing_questions(topic, difficulty)
+            existing_question_texts = [q.get("question", "") for q in existing_questions]
+            
+            # Create uniqueness prompt
+            uniqueness_context = ""
+            if existing_question_texts:
+                uniqueness_context = f"""
+IMPORTANT: Avoid generating questions similar to these existing ones:
+{chr(10).join(f"- {q}" for q in existing_question_texts[:5])}
+
+Generate completely NEW and UNIQUE questions that are different from the above."""
+            
+            prompt = f"""Generate {count} UNIQUE multiple choice questions about {topic} with {difficulty} difficulty level.
 
 Requirements:
 - Each question must have exactly 4 options (A, B, C, D)
@@ -1606,6 +1619,11 @@ Requirements:
 - Difficulty should be appropriate for {difficulty} level
 - Questions should be clear and unambiguous
 - Cover different aspects of {topic}
+- Questions must be COMPLETELY UNIQUE and not similar to existing questions
+- Use varied question formats (definitions, scenarios, calculations, comparisons, etc.)
+- Include questions about different subtopics within {topic}
+
+{uniqueness_context}
 
 Return ONLY a valid JSON array in this exact format:
 [
@@ -1685,75 +1703,213 @@ Important: Return ONLY the JSON array, no other text or formatting."""
             return self._get_fallback_mcq_questions(topic, difficulty, count)
     
     def _get_fallback_mcq_questions(self, topic: str, difficulty: str, count: int) -> List[Dict[str, Any]]:
-        """Get fallback MCQ questions when AI is not available"""
+        """Get fallback MCQ questions when AI is not available - with enhanced variety"""
+        import random
+        from datetime import datetime
+        
         print(f"⚠️ [GEMINI] Using fallback questions for {topic} ({difficulty})")
         
-        # Generate more realistic fallback questions based on topic
+        # Expanded question pool with much more variety
         fallback_questions = []
+        
+        # Comprehensive topic-specific question pools
+        topic_questions = {
+            "python": [
+                {
+                    "question": "What is the correct syntax to create a list in Python?",
+                    "options": ["list = []", "list = {}", "list = ()", "list = []"],
+                    "correct": 0,
+                    "explanation": "Lists in Python are created using square brackets []"
+                },
+                {
+                    "question": "Which keyword is used to define a function in Python?",
+                    "options": ["function", "def", "define", "func"],
+                    "correct": 1,
+                    "explanation": "The 'def' keyword is used to define functions in Python"
+                },
+                {
+                    "question": "What does the 'print()' function do in Python?",
+                    "options": ["Displays output", "Reads input", "Calculates values", "Stores data"],
+                    "correct": 0,
+                    "explanation": "The print() function displays output to the console"
+                },
+                {
+                    "question": "Which data type is used to store a sequence of characters in Python?",
+                    "options": ["string", "int", "float", "boolean"],
+                    "correct": 0,
+                    "explanation": "Strings are used to store sequences of characters"
+                },
+                {
+                    "question": "What is the result of 5 // 2 in Python?",
+                    "options": ["2.5", "2", "3", "2.0"],
+                    "correct": 1,
+                    "explanation": "The // operator performs floor division, returning 2"
+                },
+                {
+                    "question": "What does the len() function return?",
+                    "options": ["The last element", "The length of a sequence", "The sum of elements", "The average"],
+                    "correct": 1,
+                    "explanation": "len() returns the number of items in a sequence or collection"
+                },
+                {
+                    "question": "Which method is used to add an element to the end of a list?",
+                    "options": ["add()", "append()", "insert()", "extend()"],
+                    "correct": 1,
+                    "explanation": "append() adds a single element to the end of a list"
+                },
+                {
+                    "question": "What is the result of 5 % 2 in Python?",
+                    "options": ["2.5", "1", "2", "0"],
+                    "correct": 1,
+                    "explanation": "The % operator returns the remainder of division, so 5 % 2 = 1"
+                }
+            ],
+            "javascript": [
+                {
+                    "question": "What is the correct way to declare a variable in JavaScript?",
+                    "options": ["var x = 5", "variable x = 5", "v x = 5", "declare x = 5"],
+                    "correct": 0,
+                    "explanation": "Variables in JavaScript are declared using 'var', 'let', or 'const'"
+                },
+                {
+                    "question": "Which operator is used for strict equality in JavaScript?",
+                    "options": ["==", "===", "=", "!="],
+                    "correct": 1,
+                    "explanation": "The === operator checks for strict equality (value and type)"
+                },
+                {
+                    "question": "What is the result of typeof null in JavaScript?",
+                    "options": ["null", "undefined", "object", "string"],
+                    "correct": 2,
+                    "explanation": "typeof null returns 'object' due to a historical bug in JavaScript"
+                },
+                {
+                    "question": "Which method is used to add an element to the end of an array?",
+                    "options": ["push()", "add()", "append()", "insert()"],
+                    "correct": 0,
+                    "explanation": "push() adds one or more elements to the end of an array"
+                }
+            ],
+            "array": [
+                {
+                    "question": "What is the time complexity of accessing an element by index in an array?",
+                    "options": ["O(1)", "O(n)", "O(log n)", "O(n²)"],
+                    "correct": 0,
+                    "explanation": "Array access by index is O(1) because it uses direct memory addressing"
+                },
+                {
+                    "question": "What is the space complexity of an array with n elements?",
+                    "options": ["O(1)", "O(n)", "O(log n)", "O(n²)"],
+                    "correct": 1,
+                    "explanation": "An array with n elements requires O(n) space to store all elements"
+                },
+                {
+                    "question": "What is the time complexity of linear search in an unsorted array?",
+                    "options": ["O(1)", "O(log n)", "O(n)", "O(n²)"],
+                    "correct": 2,
+                    "explanation": "Linear search checks each element sequentially, taking O(n) time in worst case"
+                },
+                {
+                    "question": "What is the time complexity of binary search in a sorted array?",
+                    "options": ["O(1)", "O(log n)", "O(n)", "O(n²)"],
+                    "correct": 1,
+                    "explanation": "Binary search eliminates half the search space each iteration, taking O(log n) time"
+                }
+            ]
+        }
+        
+        # Get questions for the topic or use a default set
+        questions = topic_questions.get(topic.lower(), topic_questions["python"])
+        
+        # If we need more questions than available, expand the pool
+        if count > len(questions):
+            # Duplicate and modify questions to create more variety
+            expanded_questions = questions.copy()
+            for i in range(count - len(questions)):
+                base_question = questions[i % len(questions)]
+                # Create variation by modifying the question slightly
+                modified_question = base_question.copy()
+                modified_question["question"] = f"{base_question['question']} (Variant {i+1})"
+                expanded_questions.append(modified_question)
+            questions = expanded_questions
+        
+        # Generate questions with better variety using timestamp-based seeding
+        used_indices = set()
         for i in range(count):
-            if topic.lower() in ["python", "python programming"]:
-                questions = [
-                    "What is the correct syntax to create a list in Python?",
-                    "Which keyword is used to define a function in Python?",
-                    "What does the 'print()' function do in Python?",
-                    "Which data type is used to store a sequence of characters in Python?",
-                    "What is the result of 5 // 2 in Python?"
-                ]
-                options_sets = [
-                    ["list = []", "list = {}", "list = ()", "list = []"],
-                    ["function", "def", "define", "func"],
-                    ["Displays output", "Reads input", "Calculates values", "Stores data"],
-                    ["string", "int", "float", "boolean"],
-                    ["2.5", "2", "3", "2.0"]
-                ]
-                correct_answers = [0, 1, 0, 0, 1]  # Indices of correct answers
-                explanations = [
-                    "Lists in Python are created using square brackets []",
-                    "The 'def' keyword is used to define functions in Python",
-                    "The print() function displays output to the console",
-                    "Strings are used to store sequences of characters",
-                    "The // operator performs floor division, returning 2"
-                ]
-            else:
-                questions = [
-                    f"What is a key concept in {topic}?",
-                    f"Which approach is commonly used in {topic}?",
-                    f"What is the primary benefit of {topic}?",
-                    f"Which tool is essential for {topic}?",
-                    f"What is the main challenge in {topic}?"
-                ]
-                options_sets = [
-                    ["Fundamental principle", "Basic concept", "Core idea", "Key element"],
-                    ["Standard method", "Common practice", "Typical approach", "Regular technique"],
-                    ["Improved efficiency", "Better performance", "Enhanced quality", "Increased productivity"],
-                    ["Essential tool", "Required instrument", "Necessary device", "Important equipment"],
-                    ["Main difficulty", "Primary obstacle", "Key challenge", "Major hurdle"]
-                ]
-                correct_answers = [0, 1, 2, 0, 2]  # Indices of correct answers
-                explanations = [
-                    f"This represents a fundamental principle in {topic}",
-                    f"This is a commonly used approach in {topic}",
-                    f"This is a primary benefit of working with {topic}",
-                    f"This tool is essential for {topic}",
-                    f"This is the main challenge when working with {topic}"
-                ]
+            # Use timestamp and topic for better randomization
+            random.seed(hash(f"{topic}_{difficulty}_{datetime.utcnow().timestamp()}_{i}_{len(used_indices)}"))
             
-            q_idx = i % len(questions)
-            correct_index = correct_answers[q_idx]
-            correct_answer_text = options_sets[q_idx][correct_index]
+            # Ensure we don't repeat questions
+            available_indices = [idx for idx in range(len(questions)) if idx not in used_indices]
+            if not available_indices:
+                # If all questions used, reset and continue
+                used_indices.clear()
+                available_indices = list(range(len(questions)))
+            
+            selected_idx = random.choice(available_indices)
+            used_indices.add(selected_idx)
+            selected_question = questions[selected_idx]
             
             fallback_questions.append({
                 "id": f"q{i+1}",
-                "question": questions[q_idx],
-                "options": options_sets[q_idx],
-                "answer": correct_answer_text,  # Actual option text
-                "correct_answer": correct_index,  # Index of correct answer
-                "explanation": explanations[q_idx],
+                "question": selected_question["question"],
+                "options": selected_question["options"],
+                "answer": selected_question["options"][selected_question["correct"]],
+                "correct_answer": selected_question["correct"],
+                "explanation": selected_question["explanation"],
                 "difficulty": difficulty,
                 "topic": topic
             })
         
         return fallback_questions
+
+    async def _get_existing_questions(self, topic: str, difficulty: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Get existing questions for a topic and difficulty to avoid duplicates"""
+        try:
+            from app.db.session import get_db
+            
+            db = await get_db()
+            
+            # Query existing questions from multiple collections
+            existing_questions = []
+            
+            # Check ai_questions collection
+            ai_questions = await db.ai_questions.find({
+                "topic": {"$regex": topic, "$options": "i"},
+                "difficulty": difficulty,
+                "status": "active"
+            }).limit(limit).to_list(length=None)
+            existing_questions.extend(ai_questions)
+            
+            # Check assessments collection for questions
+            assessments = await db.assessments.find({
+                "subject": {"$regex": topic, "$options": "i"},
+                "difficulty": difficulty,
+                "questions": {"$exists": True, "$ne": []}
+            }).limit(limit).to_list(length=None)
+            
+            for assessment in assessments:
+                for question in assessment.get("questions", []):
+                    if question.get("question"):
+                        existing_questions.append(question)
+            
+            # Check teacher_assessments collection
+            teacher_assessments = await db.teacher_assessments.find({
+                "topic": {"$regex": topic, "$options": "i"},
+                "difficulty": difficulty,
+                "questions": {"$exists": True, "$ne": []}
+            }).limit(limit).to_list(length=None)
+            
+            for assessment in teacher_assessments:
+                for question in assessment.get("questions", []):
+                    if question.get("question"):
+                        existing_questions.append(question)
+            
+            return existing_questions[:limit]
+            
+        except Exception as e:
+            print(f"⚠️ [GEMINI] Error getting existing questions: {str(e)}")
+            return []
 
     async def _store_ai_questions_in_db(self, questions: List[Dict[str, Any]], topic: str, difficulty: str):
         """Store AI-generated questions in the database"""

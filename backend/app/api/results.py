@@ -548,20 +548,52 @@ async def get_detailed_result(
         # Generate question reviews with proper is_correct calculation
         question_reviews = []
         for i, question in enumerate(real_result["questions"]):
-            user_answer_raw = real_result["user_answers"][i] if i < len(real_result["user_answers"]) else ""
+            # Get user answer from different possible fields
+            user_answer_raw = ""
+            if "user_answers" in real_result and i < len(real_result["user_answers"]):
+                user_answer_raw = real_result["user_answers"][i]
+            elif "answers" in real_result and i < len(real_result["answers"]):
+                user_answer_raw = real_result["answers"][i]
+            
             options = question.get("options", [])
             
             # Normalize correct answer text
-            correct_answer = question.get("answer", "")
+            correct_answer = ""
             correct_answer_index = question.get("correct_answer", -1)
+            
+            # Handle different ways correct answer might be stored
             if isinstance(correct_answer_index, int) and 0 <= correct_answer_index < len(options):
                 correct_answer = options[correct_answer_index]
+            elif "answer" in question:
+                correct_answer = question["answer"]
+            elif "correct" in question:
+                correct_answer = question["correct"]
+            
+            # If correct answer is just a letter (A, B, C, D), find the matching option
+            if len(correct_answer) == 1 and correct_answer.isalpha():
+                letter = correct_answer.upper()
+                for option in options:
+                    if option.startswith(f"{letter})"):
+                        correct_answer = option
+                        break
             
             # Normalize user answer to text
+            user_answer = ""
             if isinstance(user_answer_raw, int) and 0 <= user_answer_raw < len(options):
                 user_answer = options[user_answer_raw]
+            elif isinstance(user_answer_raw, str):
+                user_answer = user_answer_raw
             else:
-                user_answer = str(user_answer_raw)
+                user_answer = str(user_answer_raw) if user_answer_raw else ""
+            
+            # Debug logging
+            print(f"[DEBUG] Question {i+1}:")
+            print(f"  Options: {options}")
+            print(f"  Correct answer index: {correct_answer_index}")
+            print(f"  Correct answer text: '{correct_answer}'")
+            print(f"  User answer raw: '{user_answer_raw}'")
+            print(f"  User answer text: '{user_answer}'")
+            print(f"  Is correct: {user_answer == correct_answer}")
             
             is_correct = user_answer == correct_answer
             

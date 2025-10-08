@@ -152,10 +152,10 @@ const EnhancedAdminDashboard: React.FC = () => {
             <nav className="flex space-x-2 overflow-x-auto">
               {[
                 { id: "overview", label: "Overview", icon: BarChart3, color: "blue" },
-                { id: "users", label: "User Management", icon: Users, color: "green" },
-                { id: "analytics", label: "System Analytics", icon: TrendingUp, color: "purple" },
-                { id: "content", label: "Content Oversight", icon: BookOpen, color: "orange" },
-                { id: "settings", label: "Settings", icon: Settings, color: "gray" },
+                { id: "users", label: "User Management", icon: Users, color: "blue" },
+                { id: "analytics", label: "System Analytics", icon: TrendingUp, color: "blue" },
+                { id: "content", label: "Content Oversight", icon: BookOpen, color: "blue" },
+                { id: "settings", label: "Settings", icon: Settings, color: "blue" },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -219,8 +219,8 @@ const EnhancedAdminDashboard: React.FC = () => {
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                 <Card className="bg-card rounded-xl p-2 border border-border hover:bg-card-hover transition-all duration-300">
                   <div className="flex items-center">
-                    <div className="p-3 bg-purple-500/20 rounded-xl">
-                      <BookOpen className="h-6 w-6 text-purple-400" />
+                    <div className="p-3 bg-blue-500/20 rounded-xl">
+                      <BookOpen className="h-6 w-6 text-blue-400" />
                     </div>
                     <div className="ml-4">
                       <p className="text-sm font-medium text-foreground">Total Content</p>
@@ -299,10 +299,10 @@ const EnhancedAdminDashboard: React.FC = () => {
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
-                        <Activity className="h-5 w-5 text-purple-400 mr-2" />
+                        <Activity className="h-5 w-5 text-blue-400 mr-2" />
                         <span className="text-sm text-foreground">Performance</span>
                       </div>
-                      <span className="text-sm font-medium text-purple-400">Optimal</span>
+                      <span className="text-sm font-medium text-blue-400">Optimal</span>
                     </div>
                   </div>
                 </Card>
@@ -339,7 +339,7 @@ const EnhancedAdminDashboard: React.FC = () => {
                     onClick={() => setActiveTab("content")}
                     className="flex items-center p-4 border border-border rounded-lg hover:bg-card-hover transition-all duration-200 group"
                   >
-                    <BookOpen className="h-5 w-5 text-purple-400 mr-3 group-hover:scale-110 transition-transform" />
+                    <BookOpen className="h-5 w-5 text-blue-400 mr-3 group-hover:scale-110 transition-transform" />
                     <div className="text-left">
                       <div className="font-medium text-foreground">Content Library</div>
                       <div className="text-sm text-muted-foreground">Manage content</div>

@@ -62,8 +62,8 @@ const AssessmentManagement: React.FC = () => {
     return (
       <div className="min-h-screen pt-20 px-4 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-purple-200 mb-4">Loading...</h1>
-          <p className="text-purple-300">Please wait while we load your dashboard.</p>
+          <h1 className="text-2xl font-bold text-blue-200 mb-4">Loading...</h1>
+          <p className="text-blue-300">Please wait while we load your dashboard.</p>
         </div>
       </div>
     )
@@ -329,8 +329,8 @@ const AssessmentManagement: React.FC = () => {
         <AnimatedBackground />
         <div className="min-h-screen pt-20 px-4 flex items-center justify-center relative z-10">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-purple-200 mb-4">Loading Assessment Management...</h1>
-            <p className="text-purple-300">Please wait while we load your data.</p>
+            <h1 className="text-2xl font-bold text-blue-200 mb-4">Loading Assessment Management...</h1>
+            <p className="text-blue-300">Please wait while we load your data.</p>
           </div>
         </div>
       </>
@@ -349,8 +349,8 @@ const AssessmentManagement: React.FC = () => {
         >
           <Card className="p-8 mb-8">
             <motion.div variants={ANIMATION_VARIANTS.slideDown} className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-purple-200 mb-2">Assessment Management</h1>
-              <p className="text-purple-300 text-lg mb-4">
+              <h1 className="text-4xl font-bold text-blue-200 mb-2">Assessment Management</h1>
+              <p className="text-blue-300 text-lg mb-4">
                 Create, manage, and analyze assessments
               </p>
             </motion.div>
@@ -359,7 +359,7 @@ const AssessmentManagement: React.FC = () => {
             {/* Assessment Creation Tools */}
             <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
               <Card className="p-6">
-                <h2 className="text-2xl font-bold text-purple-200 mb-6">Assessment Creation Tools</h2>
+                <h2 className="text-2xl font-bold text-blue-200 mb-6">Assessment Creation Tools</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
                     <h3 className="text-lg font-semibold text-blue-200 mb-2">AI-Generated Assessment</h3>
@@ -411,11 +411,11 @@ const AssessmentManagement: React.FC = () => {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+                  className="bg-black/20 backdrop-blur-md border border-blue-500/30 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-purple-200">
+                    <h2 className="text-2xl font-bold text-blue-200">
                       {showMCQForm && "Create MCQ Assessment"}
                       {showChallengeForm && "Create Coding Challenge"}
                       {showAIGenerateForm && "AI-Generate Assessment"}
@@ -427,7 +427,7 @@ const AssessmentManagement: React.FC = () => {
                   
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-purple-200 font-medium mb-2">Assessment Title *</label>
+                      <label className="block text-blue-200 font-medium mb-2">Assessment Title *</label>
                       <Input
                         type="text"
                         value={assessmentTitle}
@@ -438,7 +438,7 @@ const AssessmentManagement: React.FC = () => {
                     </div>
                     
                     <div>
-                      <label className="block text-purple-200 font-medium mb-2">Topic *</label>
+                      <label className="block text-blue-200 font-medium mb-2">Topic *</label>
                       <Input
                         type="text"
                         value={assessmentTopic}
@@ -450,20 +450,20 @@ const AssessmentManagement: React.FC = () => {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-purple-200 font-medium mb-2">Difficulty</label>
+                        <label className="block text-blue-200 font-medium mb-2">Difficulty</label>
                         <select
                           value={assessmentDifficulty}
                           onChange={(e) => setAssessmentDifficulty(e.target.value)}
-                          className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400"
+                          className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-blue-500/30 rounded-lg text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
                         >
-                          <option value="easy" className="bg-black text-purple-200">Easy</option>
-                          <option value="medium" className="bg-black text-purple-200">Medium</option>
-                          <option value="hard" className="bg-black text-purple-200">Hard</option>
+                          <option value="easy" className="bg-black text-blue-200">Easy</option>
+                          <option value="medium" className="bg-black text-blue-200">Medium</option>
+                          <option value="hard" className="bg-black text-blue-200">Hard</option>
                         </select>
                       </div>
                       
                       <div>
-                        <label className="block text-purple-200 font-medium mb-2">Number of Questions</label>
+                        <label className="block text-blue-200 font-medium mb-2">Number of Questions</label>
                         <Input
                           type="number"
                           value={questionCount}
@@ -581,9 +581,9 @@ const AssessmentManagement: React.FC = () => {
                     )}
                     
                     {showMCQForm && (
-                      <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/30">
-                        <h3 className="text-lg font-semibold text-purple-200 mb-2">MCQ Assessment Features</h3>
-                        <ul className="text-purple-300 text-sm space-y-1">
+                      <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-500/30">
+                        <h3 className="text-lg font-semibold text-blue-200 mb-2">MCQ Assessment Features</h3>
+                        <ul className="text-blue-300 text-sm space-y-1">
                           <li>• Multiple choice questions with 4 options</li>
                           <li>• Automatic grading and scoring</li>
                           <li>• Detailed explanations for each answer</li>
@@ -651,15 +651,15 @@ const AssessmentManagement: React.FC = () => {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                  className="bg-black/20 backdrop-blur-md border border-blue-500/30 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center mb-6">
                     <div>
-                      <h2 className="text-2xl font-bold text-purple-200">
+                      <h2 className="text-2xl font-bold text-blue-200">
                         Add Questions to "{currentAssessment.title}"
                       </h2>
-                      <p className="text-purple-300">
+                      <p className="text-blue-300">
                         {questions.length} of {currentAssessment.questionCount} questions added
                       </p>
                     </div>
@@ -672,20 +672,20 @@ const AssessmentManagement: React.FC = () => {
                     {/* Question Form - Only show for MCQ and AI assessments */}
                     {currentAssessment.type !== "challenge" && (
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-purple-200">Add New Question</h3>
+                        <h3 className="text-lg font-semibold text-blue-200">Add New Question</h3>
 
                         <div>
-                          <label className="block text-purple-200 font-medium mb-2">Question *</label>
+                          <label className="block text-blue-200 font-medium mb-2">Question *</label>
                           <textarea
                             value={currentQuestion.question}
                             onChange={(e) => setCurrentQuestion({ ...currentQuestion, question: e.target.value })}
                             placeholder="Enter your question here..."
-                            className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 h-24 resize-none"
+                            className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-blue-500/30 rounded-lg text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 h-24 resize-none"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-purple-200 font-medium mb-2">Options *</label>
+                          <label className="block text-blue-200 font-medium mb-2">Options *</label>
                           {currentQuestion.options.map((option, index) => (
                             <div key={index} className="flex items-center mb-2">
                               <input
@@ -711,12 +711,12 @@ const AssessmentManagement: React.FC = () => {
                         </div>
 
                         <div>
-                          <label className="block text-purple-200 font-medium mb-2">Explanation</label>
+                          <label className="block text-blue-200 font-medium mb-2">Explanation</label>
                           <textarea
                             value={currentQuestion.explanation}
                             onChange={(e) => setCurrentQuestion({ ...currentQuestion, explanation: e.target.value })}
                             placeholder="Explain why this is the correct answer..."
-                            className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-purple-500/30 rounded-lg text-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 h-20 resize-none"
+                            className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-blue-500/30 rounded-lg text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 h-20 resize-none"
                           />
                         </div>
 
@@ -729,22 +729,22 @@ const AssessmentManagement: React.FC = () => {
                     {/* Questions List - Only show for MCQ and AI assessments */}
                     {currentAssessment.type !== "challenge" && (
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-purple-200">Added Questions ({questions.length})</h3>
+                        <h3 className="text-lg font-semibold text-blue-200">Added Questions ({questions.length})</h3>
 
                         <div className="max-h-96 overflow-y-auto space-y-3">
                           {questions.map((q, index) => (
                             <div
                               key={q.id}
-                              className="p-3 bg-black/20 backdrop-blur-md rounded-lg border border-purple-500/30"
+                              className="p-3 bg-black/20 backdrop-blur-md rounded-lg border border-blue-500/30"
                             >
-                              <p className="text-purple-200 font-medium mb-2">
+                              <p className="text-blue-200 font-medium mb-2">
                                 Q{index + 1}: {q.question}
                               </p>
                               <div className="space-y-1">
                                 {q.options.map((option: string, optIndex: number) => (
                                   <div
                                     key={optIndex}
-                                    className={`text-sm ${optIndex === q.correct_answer ? "text-green-300 font-medium" : "text-purple-300"}`}
+                                    className={`text-sm ${optIndex === q.correct_answer ? "text-green-300 font-medium" : "text-blue-300"}`}
                                   >
                                     {optIndex === q.correct_answer ? "✓ " : "  "}
                                     {option}
@@ -768,8 +768,8 @@ const AssessmentManagement: React.FC = () => {
                     {/* Coding Challenge Section - Only show for coding challenges */}
                     {currentAssessment?.type === "challenge" && (
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-purple-200">Coding Challenge Questions</h3>
-                        <p className="text-purple-300">
+                        <h3 className="text-lg font-semibold text-blue-200">Coding Challenge Questions</h3>
+                        <p className="text-blue-300">
                           Add coding questions with problem statements, test cases, and constraints.
                         </p>
 

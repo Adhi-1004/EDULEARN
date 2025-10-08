@@ -63,7 +63,7 @@ const features: Feature[] = [
         />
       </svg>
     ),
-    color: "from-purple-500 to-pink-500",
+    color: "from-blue-500 to-cyan-500",
   },
   {
     title: "Batch Management",
@@ -312,7 +312,7 @@ const LandingPage: React.FC = () => {
                 className="text-center"
               >
                 <Card className="p-8 bg-card hover:scale-105 transition-all duration-300 border border-border">
-                  <div className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-4">
+                  <div className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 mb-4">
                     {step.step}
                   </div>
                   <h3 className="text-2xl font-bold text-white mb-4">{step.title}</h3>
@@ -346,7 +346,7 @@ const LandingPage: React.FC = () => {
               >
                 <Card className="p-8 bg-card hover:scale-105 transition-all duration-300 border border-border">
                   <div className="flex items-center justify-center mb-6">
-                    <div className="p-4 rounded-full bg-gradient-to-r from-purple-500/20 to-blue-500/20">
+                    <div className="p-4 rounded-full bg-gradient-to-r from-blue-500/20 to-cyan-500/20">
                       {stat.icon}
                     </div>
                   </div>

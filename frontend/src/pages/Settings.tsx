@@ -67,7 +67,7 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setMode("casual")}
-                className={`px-4 py-2 rounded-xl font-medium transition-all duration-300 ${mode === "casual" ? (colorScheme === "dark" ? "bg-purple-600 text-white" : "bg-purple-600 text-white") : colorScheme === "dark" ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                className={`px-4 py-2 rounded-xl font-medium transition-all duration-300 ${mode === "casual" ? (colorScheme === "dark" ? "bg-blue-600 text-white" : "bg-blue-600 text-white") : colorScheme === "dark" ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
               >
                 Casual
               </button>
@@ -87,7 +87,7 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setColorScheme("light")}
-                className={`px-4 py-2 rounded-xl font-medium transition-all duration-300 flex items-center space-x-2 ${colorScheme === "light" ? "bg-yellow-500 text-white" : colorScheme === "dark" ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                className={`px-4 py-2 rounded-xl font-medium transition-all duration-300 flex items-center space-x-2 ${colorScheme === "light" ? "bg-blue-500 text-white" : colorScheme === "dark" ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path
@@ -100,7 +100,7 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
               </button>
               <button
                 onClick={() => setColorScheme("dark")}
-                className={`px-4 py-2 rounded-xl font-medium transition-all duration-300 flex items-center space-x-2 ${colorScheme === "dark" ? (mode === "professional" ? "bg-gray-600 text-white" : "bg-purple-600 text-white") : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                className={`px-4 py-2 rounded-xl font-medium transition-all duration-300 flex items-center space-x-2 ${colorScheme === "dark" ? (mode === "professional" ? "bg-gray-600 text-white" : "bg-blue-600 text-white") : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
@@ -127,7 +127,7 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
                 onChange={(e) => setNotifications((prev) => ({ ...prev, email: e.target.checked }))}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             </label>
           ),
         },
@@ -142,7 +142,7 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
                 onChange={(e) => setNotifications((prev) => ({ ...prev, assessment: e.target.checked }))}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             </label>
           ),
         },
@@ -163,7 +163,7 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
                 onChange={(e) => setPrivacy((prev) => ({ ...prev, profileVisible: e.target.checked }))}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             </label>
           ),
         },
@@ -178,7 +178,7 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
                 onChange={(e) => setPrivacy((prev) => ({ ...prev, analytics: e.target.checked }))}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             </label>
           ),
         },
@@ -206,7 +206,7 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
                 <div className="flex items-center space-x-3 mb-6">
                   <span className="text-2xl">{section.icon}</span>
                   <h2
-                    className={`text-xl font-semibold ${mode === "professional" ? "font-serif" : "font-sans"} ${mode === "professional" ? (colorScheme === "dark" ? "text-gray-200" : "text-gray-800") : colorScheme === "dark" ? "text-purple-200" : "text-purple-800"}`}
+                    className={`text-xl font-semibold ${mode === "professional" ? "font-serif" : "font-sans"} ${mode === "professional" ? (colorScheme === "dark" ? "text-gray-200" : "text-gray-800") : colorScheme === "dark" ? "text-blue-200" : "text-blue-800"}`}
                   >
                     {section.title}
                   </h2>
@@ -219,16 +219,16 @@ const Settings: React.FC<SettingsProps> = ({ user }) => {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: sectionIndex * 0.1 + settingIndex * 0.05 }}
-                      className={`flex items-center justify-between p-4 rounded-xl transition-all duration-300 ${mode === "professional" ? (colorScheme === "dark" ? "bg-gray-800/20 border border-gray-600/30 hover:bg-gray-800/30" : "bg-gray-50/50 border border-gray-200/50 hover:bg-gray-50/80") : colorScheme === "dark" ? "bg-purple-900/20 border border-purple-500/30 hover:bg-purple-900/30" : "bg-purple-50/50 border border-purple-200/50 hover:bg-purple-50/80"}`}
+                      className={`flex items-center justify-between p-4 rounded-xl transition-all duration-300 ${mode === "professional" ? (colorScheme === "dark" ? "bg-gray-800/20 border border-gray-600/30 hover:bg-gray-800/30" : "bg-gray-50/50 border border-gray-200/50 hover:bg-gray-50/80") : colorScheme === "dark" ? "bg-blue-900/20 border border-blue-500/30 hover:bg-blue-900/30" : "bg-blue-50/50 border border-blue-200/50 hover:bg-blue-50/80"}`}
                     >
                       <div className="flex-1">
                         <h3
-                          className={`font-medium mb-1 ${mode === "professional" ? (colorScheme === "dark" ? "text-gray-200" : "text-gray-800") : colorScheme === "dark" ? "text-purple-200" : "text-purple-800"}`}
+                        className={`font-medium mb-1 ${mode === "professional" ? (colorScheme === "dark" ? "text-gray-200" : "text-gray-800") : colorScheme === "dark" ? "text-blue-200" : "text-blue-800"}`}
                         >
                           {setting.label}
                         </h3>
                         <p
-                          className={`text-sm ${mode === "professional" ? (colorScheme === "dark" ? "text-gray-400" : "text-gray-600") : colorScheme === "dark" ? "text-purple-300" : "text-purple-600"}`}
+                          className={`text-sm ${mode === "professional" ? (colorScheme === "dark" ? "text-gray-400" : "text-gray-600") : colorScheme === "dark" ? "text-blue-300" : "text-blue-600"}`}
                         >
                           {setting.description}
                         </p>

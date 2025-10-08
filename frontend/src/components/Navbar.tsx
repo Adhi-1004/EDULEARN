@@ -214,10 +214,10 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
                         colorScheme === "dark"
                           ? mode === "professional"
                             ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800/30"
-                            : "text-purple-200 hover:text-blue-400 hover:bg-purple-900/20"
+                            : "text-blue-200 hover:text-blue-400 hover:bg-blue-900/20"
                           : mode === "professional"
                             ? "text-gray-600 hover:text-gray-800 hover:bg-gray-100/30"
-                            : "text-purple-700 hover:text-blue-600 hover:bg-purple-100/30"
+                            : "text-blue-700 hover:text-blue-600 hover:bg-blue-100/30"
                       }`}
                     >
                       <Bell className="h-6 w-6" />
@@ -330,13 +330,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
               ) : (
                 <Link
                   to="/signup"
-                  className={`px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 ${
-                    mode === "professional"
-                      ? colorScheme === "dark"
-                        ? "bg-gradient-to-r from-gray-700 to-gray-800 text-white hover:from-gray-600 hover:to-gray-700"
-                        : "bg-gradient-to-r from-gray-800 to-gray-900 text-white hover:from-gray-700 hover:to-gray-800"
-                      : "bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white hover:from-blue-600 hover:via-purple-600 hover:to-pink-600"
-                  }`}
+                  className={`px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600`}
                 >
                   Sign Up
                 </Link>
@@ -353,11 +347,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
               className={`p-2 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                 colorScheme === "dark"
                   ? mode === "professional"
-                    ? "text-purple-200 hover:text-blue-400 hover:bg-purple-900/20 focus:ring-purple-500"
-                    : "text-purple-200 hover:text-blue-400 hover:bg-purple-900/20 focus:ring-purple-500"
+                    ? "text-blue-200 hover:text-blue-400 hover:bg-blue-900/20 focus:ring-blue-500"
+                    : "text-blue-200 hover:text-blue-400 hover:bg-blue-900/20 focus:ring-blue-500"
                   : mode === "professional"
-                    ? "text-purple-700 hover:text-blue-600 hover:bg-purple-100/30 focus:ring-purple-400"
-                    : "text-purple-700 hover:text-blue-600 hover:bg-purple-100/30 focus:ring-purple-400"
+                    ? "text-blue-700 hover:text-blue-600 hover:bg-blue-100/30 focus:ring-blue-400"
+                    : "text-blue-700 hover:text-blue-600 hover:bg-blue-100/30 focus:ring-blue-400"
               }`}
               aria-label="Toggle menu"
             >
@@ -404,17 +398,17 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
                         ? colorScheme === "dark"
                           ? mode === "professional"
                             ? "text-gray-200 bg-gray-800/50"
-                            : "text-blue-400 bg-purple-800/30"
+                            : "text-blue-400 bg-blue-800/30"
                           : mode === "professional"
                             ? "text-gray-800 bg-gray-100/50"
-                            : "text-blue-600 bg-purple-100/50"
+                            : "text-blue-600 bg-blue-100/50"
                         : colorScheme === "dark"
                           ? mode === "professional"
                             ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800/30"
-                            : "text-purple-200 hover:text-blue-400 hover:bg-purple-800/20"
+                            : "text-blue-200 hover:text-blue-400 hover:bg-blue-800/20"
                           : mode === "professional"
                             ? "text-gray-600 hover:text-gray-800 hover:bg-gray-100/30"
-                            : "text-purple-700 hover:text-blue-600 hover:bg-purple-100/30"
+                            : "text-blue-700 hover:text-blue-600 hover:bg-blue-100/30"
                     }`}
                     onClick={() => setIsMenuOpen(false)}
                   >
@@ -448,7 +442,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
                         ? colorScheme === "dark"
                           ? "bg-gradient-to-r from-gray-700 to-gray-800 text-white"
                           : "bg-gradient-to-r from-gray-800 to-gray-900 text-white"
-                        : "bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white hover:from-blue-600 hover:via-purple-600 hover:to-pink-600"
+                        : "bg-gradient-to-r from-blue-500 via-blue-600 to-cyan-500 text-white hover:from-blue-600 hover:via-blue-700 hover:to-cyan-600"
                     }`}
                     onClick={() => setIsMenuOpen(false)}
                   >

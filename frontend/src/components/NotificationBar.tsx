@@ -78,7 +78,7 @@ const NotificationBar: React.FC = () => {
       case "batch_removal":
         return <Users className="w-5 h-5 text-red-400" />
       default:
-        return <AlertCircle className="w-5 h-5 text-purple-400" />
+        return <AlertCircle className="w-5 h-5 text-blue-400" />
     }
   }
   
@@ -96,7 +96,7 @@ const NotificationBar: React.FC = () => {
       case "batch_removal":
         return "border-red-500/30 bg-red-900/20"
       default:
-        return "border-purple-500/30 bg-purple-900/20"
+        return "border-blue-500/30 bg-blue-900/20"
     }
   }
 
@@ -161,7 +161,7 @@ const NotificationBar: React.FC = () => {
                       key={notification.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all hover:bg-purple-800/50 ${
+                      className={`p-3 rounded-lg border cursor-pointer transition-all hover:bg-blue-800/50 ${
                         notification.is_read ? "opacity-60" : "opacity-100"
                       } ${getNotificationColor(notification.type)}`}
                       onClick={() => handleNotificationClick(notification)}
@@ -171,7 +171,7 @@ const NotificationBar: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <h4 className={`text-sm font-medium ${
-                                notification.is_read ? "text-purple-300" : "text-purple-200"
+                                notification.is_read ? "text-blue-300" : "text-blue-200"
                               }`}
                             >
                               {notification.title}
@@ -180,10 +180,10 @@ const NotificationBar: React.FC = () => {
                               <div className="w-2 h-2 bg-blue-400 rounded-full flex-shrink-0" />
                             )}
                           </div>
-                          <p className="text-xs text-purple-400 mt-1">
+                          <p className="text-xs text-blue-400 mt-1">
                             {notification.message}
                           </p>
-                          <p className="text-xs text-purple-500 mt-1">
+                          <p className="text-xs text-blue-500 mt-1">
                             {new Date(notification.created_at).toLocaleString()}
                           </p>
                         </div>

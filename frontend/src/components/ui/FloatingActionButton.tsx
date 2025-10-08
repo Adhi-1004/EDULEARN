@@ -45,7 +45,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
                   setIsOpen(false);
                 }}
                 className={`flex items-center space-x-3 px-4 py-3 rounded-full shadow-lg backdrop-blur-xl border border-white/10 hover:scale-105 transition-all duration-300 ${
-                  action.color || 'bg-gradient-to-r from-purple-500 to-pink-500'
+                  action.color || 'bg-gradient-to-r from-blue-500 to-cyan-500'
                 } text-white`}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -60,7 +60,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
 
       <motion.button
         onClick={toggleOpen}
-        className="w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full shadow-lg flex items-center justify-center text-white hover:shadow-xl transition-all duration-300"
+        className="w-14 h-14 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full shadow-lg flex items-center justify-center text-white hover:shadow-xl transition-all duration-300"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         animate={{ rotate: isOpen ? 45 : 0 }}

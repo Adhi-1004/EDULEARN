@@ -70,7 +70,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
       <div className={`
         backdrop-blur-xl border rounded-2xl shadow-2xl overflow-hidden
         ${colorScheme === 'dark' 
-          ? 'bg-gradient-to-br from-purple-900/20 via-pink-900/10 to-blue-900/20 border-purple-500/30' 
+          ? 'bg-gradient-to-br from-blue-900/20 via-cyan-900/10 to-blue-900/20 border-blue-500/30' 
           : 'bg-gradient-to-br from-white/80 via-purple-50/50 to-pink-50/50 border-purple-200/50'
         }
       `}>
@@ -85,8 +85,8 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                 className={`
                   w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg
                   ${colorScheme === 'dark' 
-                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
-                    : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' 
+                    : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
                   }
                 `}
                 initial={{ scale: 0 }}

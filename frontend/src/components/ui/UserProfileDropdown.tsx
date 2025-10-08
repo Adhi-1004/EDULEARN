@@ -67,8 +67,8 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogou
               ? 'bg-gray-800/50 hover:bg-gray-700/50 text-gray-200 focus:ring-gray-500'
               : 'bg-gray-100/50 hover:bg-gray-200/50 text-gray-800 focus:ring-gray-400'
             : colorScheme === 'dark'
-              ? 'bg-purple-900/30 hover:bg-purple-800/40 text-purple-200 focus:ring-purple-500'
-              : 'bg-purple-100/50 hover:bg-purple-200/50 text-purple-800 focus:ring-purple-400'
+              ? 'bg-blue-900/30 hover:bg-blue-800/40 text-blue-200 focus:ring-blue-500'
+              : 'bg-blue-100/50 hover:bg-blue-200/50 text-blue-800 focus:ring-blue-400'
           }
         `}
         whileHover={{ scale: 1.02 }}
@@ -80,7 +80,7 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogou
             ? colorScheme === 'dark'
               ? 'bg-gray-600 text-gray-200'
               : 'bg-gray-700 text-white'
-            : 'bg-gradient-to-br from-purple-500 to-pink-500 text-white'
+            : 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white'
           }
         `}>
           {getInitials(user.name || user.username || 'User')}
@@ -112,10 +112,10 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogou
               ${colorScheme === 'dark'
                 ? mode === 'professional'
                   ? 'bg-gray-800/95 border-gray-600/50'
-                  : 'bg-purple-900/95 border-purple-500/30'
+                  : 'bg-blue-900/95 border-blue-500/30'
                 : mode === 'professional'
                   ? 'bg-white/95 border-gray-200/50'
-                  : 'bg-white/95 border-purple-200/30'
+                  : 'bg-white/95 border-blue-200/30'
               }
             `}
           >
@@ -128,13 +128,13 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogou
                   className={`
                     flex items-center space-x-3 px-4 py-3 text-sm transition-all duration-200
                     ${mode === 'professional' ? 'font-serif' : 'font-sans'}
-                    ${colorScheme === 'dark'
+                  ${colorScheme === 'dark'
                       ? mode === 'professional'
                         ? 'text-gray-200 hover:bg-gray-700/50'
-                        : 'text-purple-200 hover:bg-purple-800/30'
+                        : 'text-blue-200 hover:bg-blue-800/30'
                       : mode === 'professional'
                         ? 'text-gray-700 hover:bg-gray-100/50'
-                        : 'text-purple-700 hover:bg-purple-100/50'
+                        : 'text-blue-700 hover:bg-blue-100/50'
                     }
                   `}
                 >
@@ -146,8 +146,8 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogou
               <div className={`
                 my-1 border-t
                 ${colorScheme === 'dark'
-                  ? mode === 'professional' ? 'border-gray-600/50' : 'border-purple-500/30'
-                  : mode === 'professional' ? 'border-gray-200/50' : 'border-purple-200/30'
+                  ? mode === 'professional' ? 'border-gray-600/50' : 'border-blue-500/30'
+                  : mode === 'professional' ? 'border-gray-200/50' : 'border-blue-200/30'
                 }
               `} />
               
