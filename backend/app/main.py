@@ -146,6 +146,7 @@ from .api.notifications import router as notifications_router
 from .api.results import router as results_router
 from .api.topics import router as topics_router
 from .api.bulk_students import router as bulk_students_router
+from .api.bulk_teachers import router as bulk_teachers_router
 
 # Include backward compatibility routes (without /api prefix)
 app.include_router(auth_router, prefix="/auth", tags=["Authentication (Legacy)"])
@@ -158,6 +159,7 @@ app.include_router(notifications_router, prefix="/notifications", tags=["Notific
 app.include_router(results_router, prefix="/results", tags=["Results (Legacy)"])
 app.include_router(topics_router, prefix="/topics", tags=["Topics (Legacy)"])
 app.include_router(bulk_students_router, prefix="/bulk-students", tags=["Bulk Students"])
+app.include_router(bulk_teachers_router, prefix="/bulk-teachers", tags=["Bulk Teachers"])
 
 # Add /db/questions endpoint for backward compatibility
 @app.get("/db/questions")

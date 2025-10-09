@@ -21,6 +21,7 @@ from ..models.models import (
 from ..dependencies import get_current_user_id, get_current_user
 from ..dependencies import require_student, require_teacher, require_admin
 from ..services.gemini_coding_service import gemini_coding_service
+from ..services.judge0_execution_service import judge0_execution_service
 
 router = APIRouter()
 
@@ -251,23 +252,31 @@ async def execute_code(
 ):
     """Execute code with test cases"""
     try:
-        print(f"⚡ [CODING] User {user_id} executing {request.language} code")
-        
-        # Execute code using Gemini service
-        execution_result = gemini_coding_service.execute_code(
-            code=request.code,
+        print(f"⚡ [CODING] User {user_id} executing {request.language} code via Judge0")
+        # Use Judge0 for deterministic execution against provided test cases
+        judge_results = judge0_execution_service.run_tests(
             language=request.language,
-            test_cases=request.test_cases,
-            time_limit=request.time_limit,
-            memory_limit=request.memory_limit
+            code=request.code,
+            test_cases=request.test_cases or []
         )
-        
-        print(f"[OK] [CODING] Code execution completed - Success: {execution_result['success']}")
-        
-        return {
-            "success": True,
-            "execution_result": execution_result
+
+        passed = sum(1 for r in judge_results if r.get("passed"))
+        total = len(judge_results)
+        exec_time_ms = int(sum((r.get("execution_time") or 0) for r in judge_results))
+        mem_used_kb = int(max((r.get("memory") or 0) for r in judge_results)) if judge_results else 0
+
+        execution_result = {
+            "success": passed == total and total > 0,
+            "execution_time": exec_time_ms,
+            "memory_used": mem_used_kb,
+            "results": judge_results,
+            "output": "\n".join([r.get("output", "") for r in judge_results if r.get("output")]),
+            "error": None if passed == total else next((r.get("error") for r in judge_results if r.get("error")), None),
         }
+
+        print(f"[OK] [CODING] Judge0 execution completed - Passed {passed}/{total}")
+
+        return {"success": True, "execution_result": execution_result}
         
     except Exception as e:
         print(f"[ERROR] [CODING] Code execution failed: {str(e)}")
@@ -296,12 +305,24 @@ async def submit_solution(
         # Combine visible and hidden test cases
         all_test_cases = problem["test_cases"] + problem["hidden_test_cases"]
         
-        # Execute code with all test cases
-        execution_result = gemini_coding_service.execute_code(
-            code=solution.code,
+        # Execute code with all test cases via Judge0
+        judge_results = judge0_execution_service.run_tests(
             language=solution.language,
+            code=solution.code,
             test_cases=all_test_cases
         )
+
+        passed = sum(1 for r in judge_results if r.get("passed"))
+        total = len(judge_results)
+        exec_time_ms = int(sum((r.get("execution_time") or 0) for r in judge_results))
+        mem_used_kb = int(max((r.get("memory") or 0) for r in judge_results)) if judge_results else 0
+
+        execution_result = {
+            "success": passed == total and total > 0,
+            "execution_time": exec_time_ms,
+            "memory_used": mem_used_kb,
+            "results": judge_results,
+        }
         
         # Determine status
         if execution_result["success"]:

@@ -14,6 +14,7 @@ from ..schemas.schemas import (
 from ..dependencies import require_teacher, require_admin, require_teacher_or_admin, require_student
 from ..dependencies import get_current_user
 from ..models.models import UserModel
+from .notifications import create_assessment_completion_notification
 import os
 
 router = APIRouter(tags=["assessments"])
@@ -752,6 +753,475 @@ async def get_teacher_assessments(user: UserModel = Depends(get_current_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/teacher/class-performance")
+async def get_class_performance_overview(user: UserModel = Depends(require_teacher)):
+    """Get class performance overview for all students - Teacher only"""
+    try:
+        db = await get_db()
+        
+        # Get all students
+        students = await db.users.find({"role": "student"}).to_list(length=None)
+        
+        class_performance = []
+        total_students = len(students)
+        
+        for student in students:
+            student_id = str(student["_id"])
+            
+            # Get student's assessment results
+            all_results = []
+            
+            # Regular assessments
+            regular_submissions = await db.assessment_submissions.find({"student_id": student_id}).to_list(length=None)
+            for submission in regular_submissions:
+                assessment = await db.assessments.find_one({"_id": ObjectId(submission["assessment_id"])})
+                if assessment:
+                    all_results.append({
+                        "score": submission.get("score", 0),
+                        "total": submission.get("total_questions", 0),
+                        "percentage": submission.get("percentage", 0),
+                        "subject": assessment.get("subject", ""),
+                        "submitted_at": submission.get("submitted_at")
+                    })
+            
+            # Teacher assessments
+            teacher_submissions = await db.teacher_assessment_results.find({"student_id": student_id}).to_list(length=None)
+            for submission in teacher_submissions:
+                assessment_id = submission.get("assessment_id")
+                assessment = None
+                if assessment_id:
+                    try:
+                        assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+                    except Exception:
+                        assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+                
+                if assessment:
+                    all_results.append({
+                        "score": submission.get("score", 0),
+                        "total": submission.get("total_questions", 0),
+                        "percentage": submission.get("percentage", 0),
+                        "subject": assessment.get("topic", assessment.get("subject", "")),
+                        "submitted_at": submission.get("submitted_at")
+                    })
+            
+            # AI assessments
+            ai_results = await db.results.find({"user_id": student_id}).to_list(length=None)
+            for result in ai_results:
+                all_results.append({
+                    "score": result.get("score", 0),
+                    "total": result.get("total_questions", 0),
+                    "percentage": (result.get("score", 0) / result.get("total_questions", 1)) * 100,
+                    "subject": result.get("topic", ""),
+                    "submitted_at": result.get("submitted_at")
+                })
+            
+            # Calculate performance metrics
+            total_assessments = len(all_results)
+            if total_assessments > 0:
+                average_score = sum([r["percentage"] for r in all_results]) / total_assessments
+                recent_scores = [r["percentage"] for r in sorted(all_results, key=lambda x: x.get("submitted_at", datetime.min), reverse=True)[:5]]
+                recent_average = sum(recent_scores) / len(recent_scores) if recent_scores else 0
+                
+                # Subject breakdown
+                subjects = {}
+                for result in all_results:
+                    subject = result.get("subject", "Unknown")
+                    if subject not in subjects:
+                        subjects[subject] = []
+                    subjects[subject].append(result["percentage"])
+                
+                subject_averages = {}
+                for subject, scores in subjects.items():
+                    subject_averages[subject] = sum(scores) / len(scores)
+                
+                class_performance.append({
+                    "student_id": student_id,
+                    "student_name": student.get("name") or student.get("username", ""),
+                    "student_email": student.get("email", ""),
+                    "batch": student.get("batch_name", ""),
+                    "batch_id": student.get("batch_id", ""),
+                    "total_assessments": total_assessments,
+                    "average_score": round(average_score, 2),
+                    "recent_average": round(recent_average, 2),
+                    "subject_averages": subject_averages,
+                    "last_activity": max([r.get("submitted_at", datetime.min) for r in all_results]) if all_results else None,
+                    "performance_trend": "improving" if recent_average > average_score else "declining" if recent_average < average_score else "stable"
+                })
+        
+        # Sort by average score (highest first)
+        class_performance.sort(key=lambda x: x["average_score"], reverse=True)
+        
+        # Calculate class statistics
+        if class_performance:
+            class_average = sum([s["average_score"] for s in class_performance]) / len(class_performance)
+            top_performers = class_performance[:3]
+            struggling_students = [s for s in class_performance if s["average_score"] < 60]
+        else:
+            class_average = 0
+            top_performers = []
+            struggling_students = []
+        
+        return {
+            "success": True,
+            "class_statistics": {
+                "total_students": total_students,
+                "class_average": round(class_average, 2),
+                "top_performers": top_performers,
+                "struggling_students": struggling_students,
+                "students_with_recent_activity": len([s for s in class_performance if s.get("last_activity") and (datetime.utcnow() - s["last_activity"]).days <= 7])
+            },
+            "student_performance": class_performance
+        }
+        
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error fetching class performance: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/teacher/student-results/{student_id}")
+async def get_student_detailed_results(
+    student_id: str, 
+    user: UserModel = Depends(require_teacher)
+):
+    """Get detailed results for a specific student across all assessments - Teacher only"""
+    try:
+        db = await get_db()
+        
+        # Get student info
+        student = None
+        try:
+            if ObjectId.is_valid(student_id):
+                student = await db.users.find_one({"_id": ObjectId(student_id)})
+        except Exception:
+            pass
+        if not student:
+            student = await db.users.find_one({"_id": student_id})
+        
+        if not student:
+            raise HTTPException(status_code=404, detail="Student not found")
+        
+        # Get all assessment results for this student
+        all_results = []
+        
+        # 1. Regular assessment submissions
+        regular_submissions = await db.assessment_submissions.find({"student_id": student_id}).sort("submitted_at", -1).to_list(length=None)
+        for submission in regular_submissions:
+            assessment = await db.assessments.find_one({"_id": ObjectId(submission["assessment_id"])})
+            if assessment:
+                all_results.append({
+                    "result_id": str(submission["_id"]),
+                    "assessment_id": str(submission["assessment_id"]),
+                    "assessment_title": assessment.get("title", "Assessment"),
+                    "assessment_type": "regular",
+                    "subject": assessment.get("subject", ""),
+                    "difficulty": assessment.get("difficulty", "medium"),
+                    "score": submission.get("score", 0),
+                    "total_questions": submission.get("total_questions", 0),
+                    "percentage": submission.get("percentage", 0),
+                    "time_taken": submission.get("time_taken", 0),
+                    "submitted_at": submission.get("submitted_at"),
+                    "questions": submission.get("questions", []),
+                    "user_answers": submission.get("answers", []),
+                    "is_completed": True
+                })
+        
+        # 2. Teacher assessment results
+        teacher_submissions = await db.teacher_assessment_results.find({"student_id": student_id}).sort("submitted_at", -1).to_list(length=None)
+        for submission in teacher_submissions:
+            assessment_id = submission.get("assessment_id")
+            assessment = None
+            if assessment_id:
+                try:
+                    assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+                except Exception:
+                    assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+            
+            if assessment:
+                all_results.append({
+                    "result_id": str(submission["_id"]),
+                    "assessment_id": str(assessment_id),
+                    "assessment_title": assessment.get("title", "Assessment"),
+                    "assessment_type": "teacher_assigned",
+                    "subject": assessment.get("topic", assessment.get("subject", "")),
+                    "difficulty": assessment.get("difficulty", "medium"),
+                    "score": submission.get("score", 0),
+                    "total_questions": submission.get("total_questions", 0),
+                    "percentage": submission.get("percentage", 0),
+                    "time_taken": submission.get("time_taken", 0),
+                    "submitted_at": submission.get("submitted_at"),
+                    "questions": submission.get("questions", []),
+                    "user_answers": submission.get("user_answers", []),
+                    "is_completed": True
+                })
+        
+        # 3. AI-generated assessment results
+        ai_results = await db.results.find({"user_id": student_id}).sort("submitted_at", -1).to_list(length=None)
+        for result in ai_results:
+            all_results.append({
+                "result_id": str(result["_id"]),
+                "assessment_id": "ai_generated",
+                "assessment_title": result.get("test_name", "AI Assessment"),
+                "assessment_type": "ai_generated",
+                "subject": result.get("topic", ""),
+                "difficulty": result.get("difficulty", "medium"),
+                "score": result.get("score", 0),
+                "total_questions": result.get("total_questions", 0),
+                "percentage": (result.get("score", 0) / result.get("total_questions", 1)) * 100,
+                "time_taken": result.get("time_spent", 0),
+                "submitted_at": result.get("submitted_at"),
+                "questions": result.get("questions", []),
+                "user_answers": result.get("user_answers", []),
+                "is_completed": True
+            })
+        
+        # 4. Coding assessment results
+        coding_results = await db.coding_solutions.find({"student_id": student_id}).sort("submitted_at", -1).to_list(length=None)
+        for result in coding_results:
+            problem = await db.coding_problems.find_one({"_id": ObjectId(result["problem_id"])})
+            if problem:
+                all_results.append({
+                    "result_id": str(result["_id"]),
+                    "assessment_id": str(result["problem_id"]),
+                    "assessment_title": problem.get("title", "Coding Problem"),
+                    "assessment_type": "coding",
+                    "subject": "Programming",
+                    "difficulty": problem.get("difficulty", "medium"),
+                    "score": result.get("score", 0),
+                    "total_questions": 1,  # Coding problems are typically single problems
+                    "percentage": (result.get("score", 0) / result.get("max_score", 1)) * 100,
+                    "time_taken": result.get("execution_time", 0),
+                    "submitted_at": result.get("submitted_at"),
+                    "code": result.get("code", ""),
+                    "language": result.get("language", ""),
+                    "test_results": result.get("test_results", []),
+                    "is_completed": True
+                })
+        
+        # Sort by submission date (most recent first)
+        all_results.sort(key=lambda x: x.get("submitted_at", datetime.min), reverse=True)
+        
+        # Calculate performance insights
+        total_assessments = len(all_results)
+        completed_assessments = len([r for r in all_results if r.get("is_completed", False)])
+        average_score = sum([r.get("percentage", 0) for r in all_results]) / total_assessments if total_assessments > 0 else 0
+        
+        # Subject-wise performance
+        subject_performance = {}
+        for result in all_results:
+            subject = result.get("subject", "Unknown")
+            if subject not in subject_performance:
+                subject_performance[subject] = {"total": 0, "scores": [], "count": 0}
+            subject_performance[subject]["count"] += 1
+            subject_performance[subject]["scores"].append(result.get("percentage", 0))
+            subject_performance[subject]["total"] += result.get("percentage", 0)
+        
+        # Calculate averages for each subject
+        for subject in subject_performance:
+            subject_performance[subject]["average"] = subject_performance[subject]["total"] / subject_performance[subject]["count"]
+        
+        return {
+            "success": True,
+            "student": {
+                "id": str(student["_id"]),
+                "name": student.get("name") or student.get("username", ""),
+                "email": student.get("email", ""),
+                "batch": student.get("batch_name", ""),
+                "batch_id": student.get("batch_id", "")
+            },
+            "results": all_results,
+            "performance_insights": {
+                "total_assessments": total_assessments,
+                "completed_assessments": completed_assessments,
+                "average_score": round(average_score, 2),
+                "subject_performance": subject_performance,
+                "recent_activity": all_results[:5]  # Last 5 assessments
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error fetching student results: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/teacher/assessment-analytics/{assessment_id}")
+async def get_assessment_analytics(
+    assessment_id: str, 
+    user: UserModel = Depends(require_teacher)
+):
+    """Get detailed analytics for a specific assessment - Teacher only"""
+    try:
+        db = await get_db()
+        
+        # Get assessment details
+        assessment = None
+        try:
+            assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+        except Exception:
+            pass
+        
+        if not assessment:
+            assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+        
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        # Get all submissions for this assessment
+        all_submissions = []
+        
+        # Regular assessment submissions
+        regular_submissions = await db.assessment_submissions.find({"assessment_id": assessment_id}).to_list(length=None)
+        for submission in regular_submissions:
+            student = await db.users.find_one({"_id": ObjectId(submission["student_id"])})
+            if student:
+                all_submissions.append({
+                    "student_id": str(submission["student_id"]),
+                    "student_name": student.get("name") or student.get("username", ""),
+                    "student_email": student.get("email", ""),
+                    "batch": student.get("batch_name", ""),
+                    "score": submission.get("score", 0),
+                    "total_questions": submission.get("total_questions", 0),
+                    "percentage": submission.get("percentage", 0),
+                    "time_taken": submission.get("time_taken", 0),
+                    "submitted_at": submission.get("submitted_at"),
+                    "answers": submission.get("answers", []),
+                    "questions": submission.get("questions", [])
+                })
+        
+        # Teacher assessment results
+        teacher_submissions = await db.teacher_assessment_results.find({"assessment_id": assessment_id}).to_list(length=None)
+        for submission in teacher_submissions:
+            student = await db.users.find_one({"_id": ObjectId(submission["student_id"])})
+            if student:
+                all_submissions.append({
+                    "student_id": str(submission["student_id"]),
+                    "student_name": student.get("name") or student.get("username", ""),
+                    "student_email": student.get("email", ""),
+                    "batch": student.get("batch_name", ""),
+                    "score": submission.get("score", 0),
+                    "total_questions": submission.get("total_questions", 0),
+                    "percentage": submission.get("percentage", 0),
+                    "time_taken": submission.get("time_taken", 0),
+                    "submitted_at": submission.get("submitted_at"),
+                    "answers": submission.get("user_answers", []),
+                    "questions": submission.get("questions", [])
+                })
+        
+        if not all_submissions:
+            return {
+                "success": True,
+                "assessment": {
+                    "id": str(assessment["_id"]),
+                    "title": assessment.get("title", "Assessment"),
+                    "subject": assessment.get("topic", assessment.get("subject", "")),
+                    "difficulty": assessment.get("difficulty", "medium"),
+                    "total_questions": len(assessment.get("questions", []))
+                },
+                "analytics": {
+                    "total_submissions": 0,
+                    "average_score": 0,
+                    "completion_rate": 0,
+                    "question_analysis": [],
+                    "batch_performance": {},
+                    "time_analysis": {}
+                },
+                "submissions": []
+            }
+        
+        # Calculate analytics
+        total_submissions = len(all_submissions)
+        average_score = sum([s["percentage"] for s in all_submissions]) / total_submissions
+        
+        # Question-wise analysis
+        questions = assessment.get("questions", [])
+        question_analysis = []
+        for i, question in enumerate(questions):
+            correct_count = 0
+            total_attempts = 0
+            
+            for submission in all_submissions:
+                if i < len(submission.get("answers", [])):
+                    total_attempts += 1
+                    user_answer = submission["answers"][i]
+                    correct_answer = question.get("answer", "")
+                    correct_answer_index = question.get("correct_answer", -1)
+                    
+                    # Handle different answer formats
+                    if isinstance(correct_answer_index, int) and 0 <= correct_answer_index < len(question.get("options", [])):
+                        correct_answer = question["options"][correct_answer_index]
+                    
+                    if user_answer == correct_answer:
+                        correct_count += 1
+            
+            accuracy = (correct_count / total_attempts * 100) if total_attempts > 0 else 0
+            question_analysis.append({
+                "question_index": i,
+                "question_text": question.get("question", ""),
+                "correct_answer": correct_answer,
+                "total_attempts": total_attempts,
+                "correct_attempts": correct_count,
+                "accuracy": round(accuracy, 2),
+                "difficulty_level": "easy" if accuracy >= 80 else "medium" if accuracy >= 60 else "hard"
+            })
+        
+        # Batch-wise performance
+        batch_performance = {}
+        for submission in all_submissions:
+            batch = submission.get("batch", "No Batch")
+            if batch not in batch_performance:
+                batch_performance[batch] = {"scores": [], "count": 0}
+            batch_performance[batch]["scores"].append(submission["percentage"])
+            batch_performance[batch]["count"] += 1
+        
+        for batch in batch_performance:
+            scores = batch_performance[batch]["scores"]
+            batch_performance[batch]["average"] = sum(scores) / len(scores)
+            batch_performance[batch]["highest"] = max(scores)
+            batch_performance[batch]["lowest"] = min(scores)
+        
+        # Time analysis
+        time_taken = [s["time_taken"] for s in all_submissions if s["time_taken"] > 0]
+        time_analysis = {}
+        if time_taken:
+            time_analysis = {
+                "average_time": sum(time_taken) / len(time_taken),
+                "fastest_completion": min(time_taken),
+                "slowest_completion": max(time_taken),
+                "median_time": sorted(time_taken)[len(time_taken) // 2]
+            }
+        
+        return {
+            "success": True,
+            "assessment": {
+                "id": str(assessment["_id"]),
+                "title": assessment.get("title", "Assessment"),
+                "subject": assessment.get("topic", assessment.get("subject", "")),
+                "difficulty": assessment.get("difficulty", "medium"),
+                "total_questions": len(questions),
+                "time_limit": assessment.get("time_limit", 30)
+            },
+            "analytics": {
+                "total_submissions": total_submissions,
+                "average_score": round(average_score, 2),
+                "completion_rate": 100,  # All submissions are completed
+                "question_analysis": question_analysis,
+                "batch_performance": batch_performance,
+                "time_analysis": time_analysis,
+                "score_distribution": {
+                    "excellent": len([s for s in all_submissions if s["percentage"] >= 90]),
+                    "good": len([s for s in all_submissions if 80 <= s["percentage"] < 90]),
+                    "average": len([s for s in all_submissions if 60 <= s["percentage"] < 80]),
+                    "poor": len([s for s in all_submissions if s["percentage"] < 60])
+                }
+            },
+            "submissions": all_submissions
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error fetching assessment analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/{assessment_id}/questions", response_model=QuestionResponse)
 async def add_question_to_assessment(
     assessment_id: str, 
@@ -1271,6 +1741,16 @@ async def submit_assessment(
             "is_read": False
         }
         await db.notifications.insert_one(notification)
+        
+        # Create assessment completion notifications
+        teacher_id = assessment.get("created_by")
+        await create_assessment_completion_notification(
+            db, 
+            str(user.id), 
+            assessment['title'], 
+            percentage, 
+            teacher_id
+        )
         
         # Update user gamification data
         await update_user_progress(db, str(user.id), score, percentage, total_questions)
@@ -2013,6 +2493,16 @@ async def submit_teacher_assessment(
         }
         await db.notifications.insert_one(notification)
         
+        # Create assessment completion notifications
+        teacher_id = assessment.get("created_by")
+        await create_assessment_completion_notification(
+            db, 
+            str(user.id), 
+            assessment['title'], 
+            percentage, 
+            teacher_id
+        )
+        
         return {
             "success": True,
             "result_id": str(result.inserted_id),
@@ -2453,4 +2943,5 @@ async def get_student_assessment_history(user: UserModel = Depends(get_current_u
     except Exception as e:
         print(f"❌ [ASSESSMENT] Error fetching assessment history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 

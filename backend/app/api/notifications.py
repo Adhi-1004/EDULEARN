@@ -14,6 +14,49 @@ from ..dependencies import get_current_user
 
 router = APIRouter(tags=["notifications"])
 
+async def create_assessment_completion_notification(
+    db: AsyncIOMotorDatabase,
+    student_id: str,
+    assessment_title: str,
+    score: float,
+    teacher_id: str = None
+):
+    """Create notification for assessment completion"""
+    try:
+        # Create notification for the student
+        student_notification = {
+            "user_id": student_id,
+            "type": "success",
+            "title": "Assessment Completed",
+            "message": f"You completed '{assessment_title}' with a score of {score:.1f}%",
+            "priority": "normal",
+            "is_read": False,
+            "created_at": datetime.utcnow(),
+            "read_at": None
+        }
+        
+        await db.notifications.insert_one(student_notification)
+        
+        # Create notification for the teacher if teacher_id is provided
+        if teacher_id:
+            teacher_notification = {
+                "user_id": teacher_id,
+                "type": "info",
+                "title": "Student Assessment Completed",
+                "message": f"A student completed '{assessment_title}' with a score of {score:.1f}%",
+                "priority": "normal",
+                "is_read": False,
+                "created_at": datetime.utcnow(),
+                "read_at": None
+            }
+            
+            await db.notifications.insert_one(teacher_notification)
+        
+        print(f"✅ [NOTIFICATIONS] Created assessment completion notifications for student {student_id}")
+        
+    except Exception as e:
+        print(f"❌ [NOTIFICATIONS] Failed to create assessment completion notification: {str(e)}")
+
 @router.get("/")
 async def get_notifications(
     db: AsyncIOMotorDatabase = Depends(get_db),

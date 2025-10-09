@@ -174,7 +174,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
       console.log("🧪 [EXECUTION] Using test cases:", testCases.length)
       console.log("🧪 [EXECUTION] Test cases:", testCases)
 
-      const response = await api.post("/api/execute/execute", {
+      const response = await api.post("/api/coding/execute", {
         code: codeToExecute,
         language,
         test_cases: testCases,
@@ -184,12 +184,13 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
 
       console.log("🔍 [EXECUTION] Response:", response.data)
 
-      if (response.data.success) {
-        const results = response.data.results || []
+      const exec = response.data.execution_result || response.data
+      if (response.data.success && exec) {
+        const results = exec.results || []
         setTestResults(results)
 
-        const passed = response.data.passed_tests || 0
-        const total = response.data.total_tests || 0
+        const passed = results.filter((r: any) => r.passed).length
+        const total = results.length
 
         console.log(`📊 [EXECUTION] Results: ${passed}/${total} passed`)
 
@@ -218,7 +219,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
         })
       } else {
         console.error("❌ [EXECUTION] Execution failed:", response.data)
-        const errorMessage = response.data.error || response.data.error_message || "Execution failed"
+        const errorMessage = exec?.error || response.data.error || response.data.error_message || "Execution failed"
         const errorDetails = response.data.details || ""
         showError(`Execution failed: ${errorMessage}${errorDetails ? `\nDetails: ${errorDetails}` : ""}`)
       }
@@ -268,7 +269,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
       console.log("📤 [SUBMISSION] Using test cases:", testCasesToUse.length)
       console.log("📤 [SUBMISSION] Test cases:", testCasesToUse)
 
-      const testResponse = await api.post("/api/execute/execute", {
+      const testResponse = await api.post("/api/coding/execute", {
         code: codeToExecute,
         language,
         test_cases: testCasesToUse,
@@ -276,18 +277,19 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
         use_judge0: useJudge0,
       })
 
-      if (!testResponse.data.success) {
+      const exec = testResponse.data.execution_result || testResponse.data
+      if (!testResponse.data.success || !exec) {
         showError("Code failed test cases. Please fix your solution.")
-        setTestResults(testResponse.data.results || [])
+        setTestResults(exec?.results || [])
         return
       }
 
-      const passedTests = testResponse.data.passed_tests || 0
-      const totalTests = testResponse.data.total_tests || 0
+      const passedTests = (exec.results || []).filter((r: any) => r.passed).length
+      const totalTests = (exec.results || []).length
 
       if (passedTests < totalTests) {
         showError(`Only ${passedTests}/${totalTests} test cases passed. Please fix your solution before submitting.`)
-        setTestResults(testResponse.data.results || [])
+        setTestResults(exec.results || [])
         return
       }
 
@@ -510,8 +512,8 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
               variants={ANIMATION_VARIANTS.slideLeft}
               initial="initial"
               animate="animate"
-              className="overflow-y-auto"
-              style={{ height: "calc(100vh - 140px)", minHeight: "600px" }}
+              className="overflow-visible"
+              style={{ minHeight: "600px" }}
             >
               <div className="p-6 h-full">
                 {/* Description */}
@@ -707,8 +709,8 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                   <div
                     className="border border-purple-500/20 rounded-lg overflow-hidden"
                     style={{
-                      height: "calc(100vh - 280px)",
                       minHeight: "500px",
+                      maxHeight: "70vh",
                       flex: "1 1 auto",
                     }}
                   >

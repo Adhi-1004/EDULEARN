@@ -139,7 +139,7 @@ func main() {
       if (onExecute) {
         await onExecute(code);
       } else {
-        const response = await fetch('/api/execute/execute', {
+        const response = await fetch('/api/coding/execute', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -148,11 +148,23 @@ func main() {
           body: JSON.stringify({
             code,
             language,
-            timeout: 10
+            timeout: 10,
+            test_cases: []
           })
         });
 
-        const result: ExecutionResult = await response.json();
+        const payload = await response.json();
+        const exec = payload.execution_result || payload;
+        const result: ExecutionResult = {
+          success: !!payload.success,
+          output: exec?.output,
+          error: exec?.error,
+          execution_time: exec?.execution_time || 0,
+          memory_used: exec?.memory_used || 0,
+          results: exec?.results || [],
+          passed_tests: (exec?.results || []).filter((r: any) => r.passed).length,
+          total_tests: (exec?.results || []).length
+        };
         setExecutionResult(result);
 
         if (result.success) {
@@ -189,7 +201,7 @@ func main() {
       if (onTest) {
         await onTest(code, testCases);
       } else {
-        const response = await fetch('/api/execute/test', {
+        const response = await fetch('/api/coding/execute', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -203,7 +215,18 @@ func main() {
           })
         });
 
-        const result: ExecutionResult = await response.json();
+        const payload = await response.json();
+        const exec = payload.execution_result || payload;
+        const result: ExecutionResult = {
+          success: !!payload.success,
+          output: exec?.output,
+          error: exec?.error,
+          execution_time: exec?.execution_time || 0,
+          memory_used: exec?.memory_used || 0,
+          results: exec?.results || [],
+          passed_tests: (exec?.results || []).filter((r: any) => r.passed).length,
+          total_tests: (exec?.results || []).length
+        };
         setExecutionResult(result);
 
         if (result.success) {
@@ -231,7 +254,7 @@ func main() {
     setSelectedTab('debug');
 
     try {
-      const response = await fetch('/api/execute/debug', {
+      const response = await fetch('/api/coding/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -240,12 +263,23 @@ func main() {
         body: JSON.stringify({
           code,
           language,
-          breakpoints,
-          input_data: ''
+          test_cases: [],
+          timeout: 10
         })
       });
 
-      const result = await response.json();
+      const payload = await response.json();
+      const exec = payload.execution_result || payload;
+      const result: ExecutionResult = {
+        success: !!payload.success,
+        output: exec?.output,
+        error: exec?.error,
+        execution_time: exec?.execution_time || 0,
+        memory_used: exec?.memory_used || 0,
+        results: exec?.results || [],
+        passed_tests: (exec?.results || []).filter((r: any) => r.passed).length,
+        total_tests: (exec?.results || []).length
+      };
       setExecutionResult(result);
       setVariables(result.variables || {});
       setCallStack(result.call_stack || []);

@@ -610,6 +610,26 @@ const StudentManagement: React.FC = () => {
                         >
                           Bulk Add Students
                         </Button>
+                        {batch.id !== "all" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              if (!confirm(`Delete batch "${batch.name}"? This will unassign it from assessments and remove it from students.`)) return
+                              try {
+                                await api.delete(`/api/teacher/batches/${batch.id}`)
+                                success("Batch deleted successfully")
+                                await fetchDashboardData()
+                              } catch (err: any) {
+                                const m = err.response?.data?.detail || err.message || "Failed to delete batch"
+                                showError("Error", m)
+                              }
+                            }}
+                            className="w-full text-red-400 hover:text-red-200"
+                          >
+                            Delete Batch
+                          </Button>
+                        )}
                       </div>
 
                       {/* Add Student Form */}

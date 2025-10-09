@@ -24,6 +24,7 @@ import CodingPlatform from "./pages/CodingPlatform"
 import CodingProblemPage from "./pages/CodingProblem"
 import UnifiedAssessment from "./pages/UnifiedAssessment"
 import TeacherDashboard from "./pages/TeacherDashboard"
+import TeacherResultsDashboard from "./pages/TeacherResultsDashboard"
 import StudentManagement from "./pages/StudentManagement"
 import AssessmentManagement from "./pages/AssessmentManagement"
 import EnhancedAdminDashboard from "./components/admin/EnhancedAdminDashboard"
@@ -114,6 +115,14 @@ const AppRouter: React.FC<{ user: any; setUser: any; logout: any }> = ({ user, s
                   element={
                     <ProtectedRoute allowedRoles={["teacher"]}>
                       <AssessmentManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teacher/results-dashboard"
+                  element={
+                    <ProtectedRoute allowedRoles={["teacher"]}>
+                      <TeacherResultsDashboard />
                     </ProtectedRoute>
                   }
                 />

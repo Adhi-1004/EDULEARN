@@ -10,6 +10,8 @@ import { motion } from "framer-motion"
 import { UserPlus, Search, Download, Upload, Edit, Trash2, Eye, TrendingUp, Award } from "lucide-react"
 import { useToast } from "../../contexts/ToastContext"
 import api from "../../utils/api"
+import BulkTeacherUploadModal from "./BulkTeacherUploadModal"
+import { BulkTeacherUploadResponse } from "../../api/bulkTeacherService"
 
 interface User {
   id: string
@@ -50,6 +52,7 @@ const UserManagement: React.FC = () => {
   const [showUserDetails, setShowUserDetails] = useState(false)
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
+  const [showBulkTeacherModal, setShowBulkTeacherModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
   const [sortBy, setSortBy] = useState("activity_score")
@@ -234,11 +237,11 @@ const UserManagement: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setShowBulkImport(true)}
+            onClick={() => setShowBulkTeacherModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
             <Upload className="h-4 w-4" />
-            Import CSV
+            Bulk Upload Teachers
           </button>
 
           <div className="flex gap-1">
@@ -544,6 +547,22 @@ const UserManagement: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bulk Teacher Upload Modal */}
+      {showBulkTeacherModal && (
+        <BulkTeacherUploadModal
+          isOpen={showBulkTeacherModal}
+          onClose={() => setShowBulkTeacherModal(false)}
+          onSuccess={(res: BulkTeacherUploadResponse) => {
+            success(
+              "Bulk teacher upload completed",
+              `Created ${res.successful_imports}, failed ${res.failed_imports}`
+            )
+            setShowBulkTeacherModal(false)
+            fetchUsers()
+          }}
+        />
       )}
     </div>
   )

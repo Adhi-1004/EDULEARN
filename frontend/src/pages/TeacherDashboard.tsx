@@ -9,6 +9,7 @@ import { useAuth } from "../hooks/useAuth"
 import Card from "../components/ui/Card"
 import Button from "../components/ui/Button"
 import AnimatedBackground from "../components/AnimatedBackground"
+import RealTimeNotifications from "../components/teacher/RealTimeNotifications"
 import api from "../utils/api"
 import { ANIMATION_VARIANTS } from "../utils/constants"
 
@@ -38,10 +39,17 @@ const TeacherDashboard: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
   const [loading, setLoading] = useState(true)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
 
   // Fetch dashboard data when the component mounts
   useEffect(() => {
     fetchDashboardData()
+    fetchNotificationCount()
+    
+    // Set up polling for notifications
+    const interval = setInterval(fetchNotificationCount, 30000) // Poll every 30 seconds
+    return () => clearInterval(interval)
   }, [])
 
   // Early return if user is not available
@@ -128,6 +136,21 @@ const TeacherDashboard: React.FC = () => {
     navigate('/teacher/assessment-management')
   }
 
+  const handleNavigateToResultsDashboard = () => {
+    navigate('/teacher/results-dashboard')
+  }
+
+  const fetchNotificationCount = async () => {
+    try {
+      const response = await api.get("/api/notifications/")
+      if (response.data.unread_count !== undefined) {
+        setUnreadNotifications(response.data.unread_count)
+      }
+    } catch (err) {
+      console.error("❌ [TEACHER] Failed to fetch notification count:", err)
+    }
+  }
+
   if (loading) {
     return (
       <>
@@ -154,10 +177,27 @@ const TeacherDashboard: React.FC = () => {
         >
           <Card className="p-6 mb-6">
             <motion.div variants={ANIMATION_VARIANTS.slideDown} className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-blue-200 mb-2">Teacher Dashboard</h1>
-              <p className="text-blue-300 text-base mb-4">
-                Welcome back, {user?.name || user?.email || "Teacher"}!
-              </p>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold text-blue-200 mb-2">Teacher Dashboard</h1>
+                  <p className="text-blue-300 text-base">
+                    Welcome back, {user?.name || user?.email || "Teacher"}!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowNotifications(true)}
+                  className="relative p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-colors"
+                >
+                  <svg className="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4.828 7l2.586 2.586a2 2 0 002.828 0L12.828 7H4.828zM4.828 17h8l-2.586-2.586a2 2 0 00-2.828 0L4.828 17z" />
+                  </svg>
+                  {unreadNotifications > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                    </span>
+                  )}
+                </button>
+              </div>
             </motion.div>
 
             {/* Quick Stats */}
@@ -234,7 +274,7 @@ const TeacherDashboard: React.FC = () => {
               variants={ANIMATION_VARIANTS.slideUp}
               initial="initial"
               animate="animate"
-              className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6"
+              className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"
             >
               {/* Student Management */}
               <motion.div variants={ANIMATION_VARIANTS.slideLeft}>
@@ -275,11 +315,37 @@ const TeacherDashboard: React.FC = () => {
                   </Button>
                 </Card>
               </motion.div>
+
+              {/* Results Dashboard */}
+              <motion.div variants={ANIMATION_VARIANTS.slideRight}>
+                <Card className="p-5 h-full">
+                  <div className="flex items-center mb-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mr-3">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-blue-200">Results Dashboard</h3>
+                  </div>
+                  <p className="text-blue-300 mb-4 text-sm leading-relaxed">
+                    View detailed student performance analytics and assessment results.
+                  </p>
+                  <Button variant="primary" size="sm" className="w-full" onClick={handleNavigateToResultsDashboard}>
+                    View Results
+                  </Button>
+                </Card>
+              </motion.div>
             </motion.div>
 
           </Card>
         </motion.div>
       </div>
+
+      {/* Real-time Notifications */}
+      <RealTimeNotifications 
+        isOpen={showNotifications} 
+        onClose={() => setShowNotifications(false)} 
+      />
     </>
   )
 }

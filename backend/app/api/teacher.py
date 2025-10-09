@@ -458,6 +458,48 @@ async def create_batch(
             detail=f"Failed to create batch: {str(e)}"
         )
 
+# -----------------------------
+# Delete Batch Endpoint
+# -----------------------------
+@router.delete("/batches/{batch_id}")
+async def delete_batch(batch_id: str, current_user: UserModel = Depends(require_teacher_or_admin)):
+    """Delete a batch owned by the current teacher (or any batch if admin).
+    Cleans up student references and unassigns assessments from this batch.
+    """
+    try:
+        db = await get_db()
+
+        # Validate ObjectId
+        if not ObjectId.is_valid(batch_id):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid batch id")
+        batch_object_id = ObjectId(batch_id)
+
+        # Find batch with ownership check for teachers
+        query = {"_id": batch_object_id}
+        if current_user.role == "teacher":
+            query["teacher_id"] = current_user.id
+
+        batch = await db.batches.find_one(query)
+        if not batch:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Batch not found or access denied")
+
+        # Remove batch references from students
+        await db.users.update_many({"role": "student", "batch_id": batch_object_id}, {"$unset": {"batch_id": "", "batch_name": ""}})
+        await db.users.update_many({"role": "student", "batch_id": batch_id}, {"$unset": {"batch_id": "", "batch_name": ""}})
+        await db.users.update_many({"role": "student"}, {"$pull": {"batches": batch_id}})
+
+        # Unassign assessments referencing this batch
+        await db.assessments.update_many({}, {"$pull": {"assigned_batches": batch_id}})
+
+        # Delete the batch
+        await db.batches.delete_one({"_id": batch_object_id})
+
+        return {"success": True, "message": "Batch deleted successfully", "batch_id": batch_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete batch: {str(e)}")
+
 # Student Management Endpoints
 class StudentAddRequest(BaseModel):
     email: str
