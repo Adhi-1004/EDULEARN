@@ -393,8 +393,10 @@ async def submit_solution(
         if not problem:
             raise HTTPException(status_code=404, detail="Problem not found")
         
-        # Combine visible and hidden test cases
-        all_test_cases = problem["test_cases"] + problem["hidden_test_cases"]
+        # Combine visible and hidden test cases (robust to missing/None)
+        visible_cases = problem.get("test_cases") or []
+        hidden_cases = problem.get("hidden_test_cases") or []
+        all_test_cases = visible_cases + hidden_cases
         
         # Execute code with all test cases via Judge0
         judge_results = judge0_execution_service.run_tests(
@@ -403,10 +405,11 @@ async def submit_solution(
             test_cases=all_test_cases
         )
 
-        passed = sum(1 for r in judge_results if r.get("passed"))
+        judge_results = judge_results or []
+        passed = sum(1 for r in judge_results if r and r.get("passed"))
         total = len(judge_results)
-        exec_time_ms = int(sum((r.get("execution_time") or 0) for r in judge_results))
-        mem_used_kb = int(max((r.get("memory") or 0) for r in judge_results)) if judge_results else 0
+        exec_time_ms = int(sum(((r or {}).get("execution_time") or 0) for r in judge_results))
+        mem_used_kb = int(max(((r or {}).get("memory") or 0) for r in judge_results)) if judge_results else 0
 
         execution_result = {
             "success": passed == total and total > 0,
@@ -420,13 +423,16 @@ async def submit_solution(
             status = "accepted"
         else:
             # Check specific failure reasons
-            has_errors = any(result.get("error") for result in execution_result["results"])
-            has_timeouts = any("Time Limit" in result.get("error", "") for result in execution_result["results"])
+            results_list = execution_result.get("results") or []
+            has_errors = any((res or {}).get("error") for res in results_list)
+            has_timeouts = any("Time Limit" in ((res or {}).get("error", "") or "") for res in results_list)
             
             if has_timeouts:
                 status = "time_limit_exceeded"
             elif has_errors:
                 status = "runtime_error"
+            elif total == 0:
+                status = "no_result"
             else:
                 status = "wrong_answer"
         

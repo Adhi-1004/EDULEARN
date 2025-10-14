@@ -39,20 +39,68 @@ class Judge0ExecutionService:
         if language not in LANGUAGE_ID_MAP:
             raise ValueError(f"Unsupported language: {language}")
 
+        # For Python, append a lightweight runner that tries to call the first user-defined
+        # function with the provided stdin (JSON), and prints the result. This allows
+        # "return"-only solutions to be evaluated without requiring explicit prints.
+        if language == "python":
+            runner = (
+                "\n\nif __name__ == \"__main__\":\n"
+                "    import sys, json, inspect\n"
+                "    raw = sys.stdin.read()\n"
+                "    try:\n"
+                "        data = json.loads(raw)\n"
+                "    except Exception:\n"
+                "        data = raw.strip()\n"
+                "    funcs = [obj for name, obj in globals().items() if inspect.isfunction(obj) and getattr(obj, '__module__', '') == '__main__']\n"
+                "    result = None\n"
+                "    if funcs:\n"
+                "        f = funcs[0]\n"
+                "        try:\n"
+                "            if isinstance(data, dict):\n"
+                "                result = f(**data)\n"
+                "            elif isinstance(data, list):\n"
+                "                result = f(*data)\n"
+                "            else:\n"
+                "                result = f(data)\n"
+                "        except Exception as e:\n"
+                "            sys.stderr.write(str(e))\n"
+                "            raise SystemExit(1)\n"
+                "    if result is not None:\n"
+                "        try:\n"
+                "            print(json.dumps(result))\n"
+                "        except Exception:\n"
+                "            print(str(result))\n"
+                "    elif not funcs:\n"
+                "        sys.stderr.write('No callable function found to execute')\n"
+            )
+            source_to_send = f"{code}{runner}"
+        else:
+            source_to_send = code
+
         # Base64 encode the source code and test case inputs/outputs
         # This is a Judge0 requirement and prevents issues with special characters.
-        encoded_code = base64.b64encode(code.encode('utf-8')).decode('utf-8')
+        encoded_code = base64.b64encode(source_to_send.encode('utf-8')).decode('utf-8')
         
         submissions = []
         for test_case in test_cases:
+            # Ensure inputs/outputs are JSON-serializable strings so the runner can read them accurately
+            import json as _json
             stdin = test_case.get("input", "")
             expected_output = test_case.get("output", test_case.get("expected_output", ""))
+            try:
+                stdin_b64 = base64.b64encode(_json.dumps(stdin).encode('utf-8')).decode('utf-8')
+            except Exception:
+                stdin_b64 = base64.b64encode(str(stdin).encode('utf-8')).decode('utf-8')
+            try:
+                expected_b64 = base64.b64encode(_json.dumps(expected_output).encode('utf-8')).decode('utf-8')
+            except Exception:
+                expected_b64 = base64.b64encode(str(expected_output).encode('utf-8')).decode('utf-8')
 
             submission_payload = {
                 "language_id": LANGUAGE_ID_MAP[language],
                 "source_code": encoded_code,
-                "stdin": base64.b64encode(str(stdin).encode('utf-8')).decode('utf-8'),
-                "expected_output": base64.b64encode(str(expected_output).encode('utf-8')).decode('utf-8'),
+                "stdin": stdin_b64,
+                "expected_output": expected_b64,
             }
             submissions.append(submission_payload)
 
@@ -72,7 +120,7 @@ class Judge0ExecutionService:
             # 2. Poll for the results
             # We keep checking the API until all submissions are processed.
             results = []
-            retries = 10  # Poll for a maximum of 10 seconds
+            retries = 20  # Poll for a maximum of ~20 seconds to reduce 'no result' cases
             while len(tokens) > 0 and retries > 0:
                 time.sleep(1) # Wait a second between checks
                 
@@ -102,16 +150,34 @@ class Judge0ExecutionService:
     def _format_results(self, judge0_results: List[Dict[str, Any]], original_test_cases: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         formatted = []
         
-        # Create a dictionary for quick lookup by token
-        results_map = {res['token']: res for res in judge0_results}
+        # Normalize and match results to test cases using the same encoding as submission
+        import json as _json
+        used_indices = set()
         
         for i, test_case in enumerate(original_test_cases):
-            # Find the corresponding result
+            # Encode stdin exactly as during submission
+            stdin_val = test_case.get("input", "")
+            try:
+                encoded_stdin = base64.b64encode(_json.dumps(stdin_val).encode('utf-8')).decode('utf-8')
+            except Exception:
+                encoded_stdin = base64.b64encode(str(stdin_val).encode('utf-8')).decode('utf-8')
+            
+            # Find matching result by encoded stdin first
             result = None
-            for token, res in results_map.items():
-                if res.get('stdin') == base64.b64encode(str(test_case.get("input", "")).encode('utf-8')).decode('utf-8'):
+            for idx, res in enumerate(judge0_results):
+                if idx in used_indices:
+                    continue
+                if res.get('stdin') == encoded_stdin:
                     result = res
+                    used_indices.add(idx)
                     break
+            # If not found, fall back to the first unused result to avoid 'no result'
+            if not result:
+                for idx, res in enumerate(judge0_results):
+                    if idx not in used_indices:
+                        result = res
+                        used_indices.add(idx)
+                        break
             
             if not result:
                 # Create a failed result if no matching result found
