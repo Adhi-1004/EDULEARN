@@ -2568,7 +2568,7 @@ async def get_assessment_results(assessment_id: str, user: UserModel = Depends(r
     """
     try:
         db = await get_db()
-
+        
         # Normalize id formats (support ObjectId and string ids stored in DB)
         id_filters = [{"assessment_id": assessment_id}]
         try:
@@ -2640,7 +2640,7 @@ async def get_assessment_results(assessment_id: str, user: UserModel = Depends(r
         # Sort by submitted_at desc
         results.sort(key=lambda r: r.get("submitted_at", ""), reverse=True)
         return results
-
+        
     except Exception as e:
         print(f"❌ [ASSESSMENT] Error fetching assessment results: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -2806,9 +2806,9 @@ async def submit_assessment_answers(
         })
         if not existing_submission:
             existing_submission = await db.teacher_assessment_results.find_one({
-                "assessment_id": assessment_id,
-                "student_id": user.id
-            })
+            "assessment_id": assessment_id,
+            "student_id": user.id
+        })
         
         if existing_submission:
             raise HTTPException(status_code=400, detail="Assessment already submitted")

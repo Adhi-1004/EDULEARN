@@ -952,42 +952,374 @@ try {{
 
     def _get_fallback_problem(self, topic: str, difficulty: str) -> Dict[str, Any]:
         """Get a fallback problem when AI is not available"""
-        problems = {
-            "Arrays": {
-                "easy": {
-                    "title": "Maximum Subarray Sum (Kadane's Algorithm)",
-                    "description": "Given an array of integers, find the contiguous subarray with the largest sum. Implement Kadane's algorithm to solve this in O(n) time complexity.",
-                    "test_cases": [
-                        {"input": {"arr": [-2, 1, -3, 4, -1, 2, 1, -5, 4]}, "output": 6},
-                        {"input": {"arr": [1, 2, 3, 4, 5]}, "output": 15},
-                        {"input": {"arr": [-1, -2, -3, -4]}, "output": -1}
-                    ]
+        import random
+        
+        # Get random problem from the topic
+        problems = self._get_comprehensive_problems()
+        if topic in problems and difficulty in problems[topic]:
+            topic_problems = problems[topic][difficulty]
+            if isinstance(topic_problems, list):
+                selected_problem = random.choice(topic_problems)
+            else:
+                selected_problem = topic_problems
+        else:
+            # Default fallback
+            selected_problem = {
+                "title": "Two Sum",
+                "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+                "test_cases": [
+                    {"input": "2 7 11 15\n9", "output": "0 1"},
+                    {"input": "3 2 4\n6", "output": "1 2"},
+                    {"input": "3 3\n6", "output": "0 1"}
+                ],
+                "hidden_test_cases": [
+                    {"input": "1 2 3 4 5\n8", "output": "2 4"},
+                    {"input": "10 20 30 40 50\n70", "output": "1 3"}
+                ],
+                "examples": [
+                    {"input": "2 7 11 15\n9", "output": "0 1", "explanation": "nums[0] + nums[1] = 2 + 7 = 9"}
+                ],
+                "constraints": ["2 <= nums.length <= 10^4", "-10^9 <= nums[i] <= 10^9", "-10^9 <= target <= 10^9"],
+                "starter_code": {
+                    "python": "def twoSum(nums, target):\n    # Your code here\n    pass",
+                    "javascript": "function twoSum(nums, target) {\n    // Your code here\n}",
+                    "java": "public int[] twoSum(int[] nums, int target) {\n    // Your code here\n    return new int[0];\n}",
+                    "cpp": "vector<int> twoSum(vector<int>& nums, int target) {\n    // Your code here\n    return {};\n}"
                 },
-                "medium": {
+                "expected_complexity": {"time": "O(n)", "space": "O(n)"}
+            }
+        
+        return selected_problem
+
+    def _get_comprehensive_problems(self) -> Dict[str, Any]:
+        """Get comprehensive problem database with proper test cases"""
+        return {
+            "Arrays": {
+                "easy": [
+                    {
+                        "title": "Two Sum",
+                        "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice.",
+                    "test_cases": [
+                            {"input": "2 7 11 15\n9", "output": "0 1"},
+                            {"input": "3 2 4\n6", "output": "1 2"},
+                            {"input": "3 3\n6", "output": "0 1"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "1 2 3 4 5\n8", "output": "2 4"},
+                            {"input": "10 20 30 40 50\n70", "output": "1 3"},
+                            {"input": "0 4 3 0\n0", "output": "0 3"}
+                        ],
+                        "examples": [
+                            {"input": "2 7 11 15\n9", "output": "0 1", "explanation": "nums[0] + nums[1] = 2 + 7 = 9"}
+                        ],
+                        "constraints": ["2 <= nums.length <= 10^4", "-10^9 <= nums[i] <= 10^9", "-10^9 <= target <= 10^9"],
+                        "starter_code": {
+                            "python": "def twoSum(nums, target):\n    # Your code here\n    pass",
+                            "javascript": "function twoSum(nums, target) {\n    // Your code here\n}",
+                            "java": "public int[] twoSum(int[] nums, int target) {\n    // Your code here\n    return new int[0];\n}",
+                            "cpp": "vector<int> twoSum(vector<int>& nums, int target) {\n    // Your code here\n    return {};\n}"
+                        },
+                        "expected_complexity": {"time": "O(n)", "space": "O(n)"}
+                    },
+                    {
+                        "title": "Maximum Subarray Sum",
+                        "description": "Given an integer array nums, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.",
+                        "test_cases": [
+                            {"input": "-2 1 -3 4 -1 2 1 -5 4", "output": "6"},
+                            {"input": "1", "output": "1"},
+                            {"input": "5 4 -1 7 8", "output": "23"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "-1 -2 -3 -4", "output": "-1"},
+                            {"input": "1 2 3 4 5", "output": "15"},
+                            {"input": "-2 -1 -3 -4", "output": "-1"}
+                        ],
+                        "examples": [
+                            {"input": "-2 1 -3 4 -1 2 1 -5 4", "output": "6", "explanation": "The subarray [4,-1,2,1] has the largest sum 6."}
+                        ],
+                        "constraints": ["1 <= nums.length <= 10^5", "-10^4 <= nums[i] <= 10^4"],
+                        "starter_code": {
+                            "python": "def maxSubArray(nums):\n    # Your code here\n    pass",
+                            "javascript": "function maxSubArray(nums) {\n    // Your code here\n}",
+                            "java": "public int maxSubArray(int[] nums) {\n    // Your code here\n    return 0;\n}",
+                            "cpp": "int maxSubArray(vector<int>& nums) {\n    // Your code here\n    return 0;\n}"
+                        },
+                        "expected_complexity": {"time": "O(n)", "space": "O(1)"}
+                    }
+                ],
+                "medium": [
+                    {
                     "title": "Product of Array Except Self",
                     "description": "Given an array nums, return an array where each element is the product of all elements in nums except nums[i]. You must solve it in O(n) time without using division.",
                     "test_cases": [
-                        {"input": {"nums": [1, 2, 3, 4]}, "output": [24, 12, 8, 6]},
-                        {"input": {"nums": [-1, 1, 0, -3, 3]}, "output": [0, 0, 9, 0, 0]}
-                    ]
-                },
-                "hard": {
+                            {"input": "1 2 3 4", "output": "24 12 8 6"},
+                            {"input": "-1 1 0 -3 3", "output": "0 0 9 0 0"},
+                            {"input": "2 3 4 5", "output": "60 40 30 24"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "1 0", "output": "0 1"},
+                            {"input": "1 2 3", "output": "6 3 2"},
+                            {"input": "0 0 0", "output": "0 0 0"}
+                        ],
+                        "examples": [
+                            {"input": "1 2 3 4", "output": "24 12 8 6", "explanation": "For index 0: 2*3*4=24, for index 1: 1*3*4=12, etc."}
+                        ],
+                        "constraints": ["2 <= nums.length <= 10^5", "-30 <= nums[i] <= 30"],
+                        "starter_code": {
+                            "python": "def productExceptSelf(nums):\n    # Your code here\n    pass",
+                            "javascript": "function productExceptSelf(nums) {\n    // Your code here\n}",
+                            "java": "public int[] productExceptSelf(int[] nums) {\n    // Your code here\n    return new int[0];\n}",
+                            "cpp": "vector<int> productExceptSelf(vector<int>& nums) {\n    // Your code here\n    return {};\n}"
+                        },
+                        "expected_complexity": {"time": "O(n)", "space": "O(1)"}
+                    },
+                    {
+                        "title": "3Sum",
+                        "description": "Given an integer array nums, return all the triplets [nums[i], nums[j], nums[k]] such that i != j, i != k, and j != k, and nums[i] + nums[j] + nums[k] == 0.",
+                        "test_cases": [
+                            {"input": "-1 0 1 2 -1 -4", "output": "-1 -1 2\n-1 0 1"},
+                            {"input": "0 1 1", "output": ""},
+                            {"input": "0 0 0", "output": "0 0 0"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "-2 0 1 1 2", "output": "-2 0 2\n-2 1 1"},
+                            {"input": "1 2 -2 -1", "output": "-2 1 1"},
+                            {"input": "0 0 0 0", "output": "0 0 0"}
+                        ],
+                        "examples": [
+                            {"input": "-1 0 1 2 -1 -4", "output": "-1 -1 2\n-1 0 1", "explanation": "nums[0] + nums[1] + nums[2] = (-1) + 0 + 1 = 0"}
+                        ],
+                        "constraints": ["3 <= nums.length <= 3000", "-10^5 <= nums[i] <= 10^5"],
+                        "starter_code": {
+                            "python": "def threeSum(nums):\n    # Your code here\n    pass",
+                            "javascript": "function threeSum(nums) {\n    // Your code here\n}",
+                            "java": "public List<List<Integer>> threeSum(int[] nums) {\n    // Your code here\n    return new ArrayList<>();\n}",
+                            "cpp": "vector<vector<int>> threeSum(vector<int>& nums) {\n    // Your code here\n    return {};\n}"
+                        },
+                        "expected_complexity": {"time": "O(n^2)", "space": "O(1)"}
+                    }
+                ],
+                "hard": [
+                    {
                     "title": "Sliding Window Maximum",
                     "description": "Given an array and a sliding window of size k, find the maximum element in each window. Solve in O(n) time using a deque.",
                     "test_cases": [
-                        {"input": {"nums": [1, 3, -1, -3, 5, 3, 6, 7], "k": 3}, "output": [3, 3, 5, 5, 6, 7]}
-                    ]
-                }
+                            {"input": "1 3 -1 -3 5 3 6 7\n3", "output": "3 3 5 5 6 7"},
+                            {"input": "1\n1", "output": "1"},
+                            {"input": "1 -1\n1", "output": "1 -1"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "9 11\n2", "output": "11"},
+                            {"input": "4 -2\n2", "output": "4"},
+                            {"input": "1 3 1 2 0 5\n3", "output": "3 3 2 5"}
+                        ],
+                        "examples": [
+                            {"input": "1 3 -1 -3 5 3 6 7\n3", "output": "3 3 5 5 6 7", "explanation": "Window position: [1 3 -1] -3 5 3 6 7 -> Max = 3"}
+                        ],
+                        "constraints": ["1 <= nums.length <= 10^5", "-10^4 <= nums[i] <= 10^4", "1 <= k <= nums.length"],
+                        "starter_code": {
+                            "python": "def maxSlidingWindow(nums, k):\n    # Your code here\n    pass",
+                            "javascript": "function maxSlidingWindow(nums, k) {\n    // Your code here\n}",
+                            "java": "public int[] maxSlidingWindow(int[] nums, int k) {\n    // Your code here\n    return new int[0];\n}",
+                            "cpp": "vector<int> maxSlidingWindow(vector<int>& nums, int k) {\n    // Your code here\n    return {};\n}"
+                        },
+                        "expected_complexity": {"time": "O(n)", "space": "O(k)"}
+                    }
+                ]
+            },
+            "Strings": {
+                "easy": [
+                    {
+                        "title": "Valid Parentheses",
+                        "description": "Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.",
+                        "test_cases": [
+                            {"input": "()", "output": "true"},
+                            {"input": "()[]{}", "output": "true"},
+                            {"input": "(]", "output": "false"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "([)]", "output": "false"},
+                            {"input": "{[]}", "output": "true"},
+                            {"input": "(((", "output": "false"}
+                        ],
+                        "examples": [
+                            {"input": "()", "output": "true", "explanation": "Valid parentheses"}
+                        ],
+                        "constraints": ["1 <= s.length <= 10^4", "s consists of parentheses only '()[]{}'"],
+                        "starter_code": {
+                            "python": "def isValid(s):\n    # Your code here\n    pass",
+                            "javascript": "function isValid(s) {\n    // Your code here\n}",
+                            "java": "public boolean isValid(String s) {\n    // Your code here\n    return false;\n}",
+                            "cpp": "bool isValid(string s) {\n    // Your code here\n    return false;\n}"
+                        },
+                        "expected_complexity": {"time": "O(n)", "space": "O(n)"}
+                    }
+                ],
+                "medium": [
+                    {
+                        "title": "Longest Substring Without Repeating Characters",
+                        "description": "Given a string s, find the length of the longest substring without repeating characters.",
+                        "test_cases": [
+                            {"input": "abcabcbb", "output": "3"},
+                            {"input": "bbbbb", "output": "1"},
+                            {"input": "pwwkew", "output": "3"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "", "output": "0"},
+                            {"input": " ", "output": "1"},
+                            {"input": "dvdf", "output": "3"}
+                        ],
+                        "examples": [
+                            {"input": "abcabcbb", "output": "3", "explanation": "The answer is 'abc', with the length of 3."}
+                        ],
+                        "constraints": ["0 <= s.length <= 5 * 10^4", "s consists of English letters, digits, symbols and spaces"],
+                        "starter_code": {
+                            "python": "def lengthOfLongestSubstring(s):\n    # Your code here\n    pass",
+                            "javascript": "function lengthOfLongestSubstring(s) {\n    // Your code here\n}",
+                            "java": "public int lengthOfLongestSubstring(String s) {\n    // Your code here\n    return 0;\n}",
+                            "cpp": "int lengthOfLongestSubstring(string s) {\n    // Your code here\n    return 0;\n}"
+                        },
+                        "expected_complexity": {"time": "O(n)", "space": "O(min(m,n))"}
+                    }
+                ],
+                "hard": [
+                    {
+                        "title": "Edit Distance",
+                        "description": "Given two strings word1 and word2, return the minimum number of operations required to convert word1 to word2. You have the following three operations permitted on a word: Insert a character, Delete a character, Replace a character.",
+                    "test_cases": [
+                            {"input": "horse\nros", "output": "3"},
+                            {"input": "intention\nexecution", "output": "5"},
+                            {"input": "a\nab", "output": "1"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "abc\nabc", "output": "0"},
+                            {"input": "abc\n", "output": "3"},
+                            {"input": "\nabc", "output": "3"}
+                        ],
+                        "examples": [
+                            {"input": "horse\nros", "output": "3", "explanation": "horse -> rorse -> rose -> ros"}
+                        ],
+                        "constraints": ["0 <= word1.length, word2.length <= 500", "word1 and word2 consist of lowercase English letters"],
+                        "starter_code": {
+                            "python": "def minDistance(word1, word2):\n    # Your code here\n    pass",
+                            "javascript": "function minDistance(word1, word2) {\n    // Your code here\n}",
+                            "java": "public int minDistance(String word1, String word2) {\n    // Your code here\n    return 0;\n}",
+                            "cpp": "int minDistance(string word1, string word2) {\n    // Your code here\n    return 0;\n}"
+                        },
+                        "expected_complexity": {"time": "O(m*n)", "space": "O(m*n)"}
+                    }
+                ]
+            },
+            "Dynamic Programming": {
+                "easy": [
+                    {
+                        "title": "Climbing Stairs",
+                        "description": "You are climbing a staircase. It takes n steps to reach the top. Each time you can either climb 1 or 2 steps. In how many distinct ways can you climb to the top?",
+                        "test_cases": [
+                            {"input": "2", "output": "2"},
+                            {"input": "3", "output": "3"},
+                            {"input": "1", "output": "1"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "4", "output": "5"},
+                            {"input": "5", "output": "8"},
+                            {"input": "6", "output": "13"}
+                        ],
+                        "examples": [
+                            {"input": "2", "output": "2", "explanation": "There are two ways to climb to the top: 1. 1 step + 1 step, 2. 2 steps"}
+                        ],
+                        "constraints": ["1 <= n <= 45"],
+                        "starter_code": {
+                            "python": "def climbStairs(n):\n    # Your code here\n    pass",
+                            "javascript": "function climbStairs(n) {\n    // Your code here\n}",
+                            "java": "public int climbStairs(int n) {\n    // Your code here\n    return 0;\n}",
+                            "cpp": "int climbStairs(int n) {\n    // Your code here\n    return 0;\n}"
+                        },
+                        "expected_complexity": {"time": "O(n)", "space": "O(1)"}
+                    }
+                ],
+                "medium": [
+                    {
+                        "title": "House Robber",
+                        "description": "You are a professional robber planning to rob houses along a street. Each house has a certain amount of money stashed. Adjacent houses have security systems connected and will automatically contact the police if two adjacent houses were broken into on the same night. Given an integer array nums representing the amount of money of each house, return the maximum amount of money you can rob tonight without alerting the police.",
+                        "test_cases": [
+                            {"input": "1 2 3 1", "output": "4"},
+                            {"input": "2 7 9 3 1", "output": "12"},
+                            {"input": "2 1 1 2", "output": "4"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "1", "output": "1"},
+                            {"input": "1 2", "output": "2"},
+                            {"input": "5 1 1 5", "output": "10"}
+                        ],
+                        "examples": [
+                            {"input": "1 2 3 1", "output": "4", "explanation": "Rob house 1 (money = 1) and then rob house 3 (money = 3). Total amount = 1 + 3 = 4."}
+                        ],
+                        "constraints": ["1 <= nums.length <= 100", "0 <= nums[i] <= 400"],
+                        "starter_code": {
+                            "python": "def rob(nums):\n    # Your code here\n    pass",
+                            "javascript": "function rob(nums) {\n    // Your code here\n}",
+                            "java": "public int rob(int[] nums) {\n    // Your code here\n    return 0;\n}",
+                            "cpp": "int rob(vector<int>& nums) {\n    // Your code here\n    return 0;\n}"
+                        },
+                        "expected_complexity": {"time": "O(n)", "space": "O(1)"}
+                    }
+                ],
+                "hard": [
+                    {
+                        "title": "Edit Distance",
+                        "description": "Given two strings word1 and word2, return the minimum number of operations required to convert word1 to word2. You have the following three operations permitted on a word: Insert a character, Delete a character, Replace a character.",
+                        "test_cases": [
+                            {"input": "horse\nros", "output": "3"},
+                            {"input": "intention\nexecution", "output": "5"},
+                            {"input": "a\nab", "output": "1"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "abc\nabc", "output": "0"},
+                            {"input": "abc\n", "output": "3"},
+                            {"input": "\nabc", "output": "3"}
+                        ],
+                        "examples": [
+                            {"input": "horse\nros", "output": "3", "explanation": "horse -> rorse -> rose -> ros"}
+                        ],
+                        "constraints": ["0 <= word1.length, word2.length <= 500", "word1 and word2 consist of lowercase English letters"],
+                        "starter_code": {
+                            "python": "def minDistance(word1, word2):\n    # Your code here\n    pass",
+                            "javascript": "function minDistance(word1, word2) {\n    // Your code here\n}",
+                            "java": "public int minDistance(String word1, String word2) {\n    // Your code here\n    return 0;\n}",
+                            "cpp": "int minDistance(string word1, string word2) {\n    // Your code here\n    return 0;\n}"
+                        },
+                        "expected_complexity": {"time": "O(m*n)", "space": "O(m*n)"}
+                    }
+                ]
             },
             "Machine Learning": {
-                "easy": {
-                    "title": "Gradient Descent Implementation",
-                    "description": "Implement gradient descent from scratch to minimize a cost function. Use the mean squared error as the loss function and implement both batch and stochastic gradient descent variants.",
-                    "test_cases": [
-                        {"input": {"X": [[1], [2], [3], [4]], "y": [2, 4, 6, 8], "learning_rate": 0.01, "epochs": 1000}, "output": "Converged weights"},
-                        {"input": {"X": [[1, 2], [2, 3], [3, 4]], "y": [3, 5, 7], "learning_rate": 0.1, "epochs": 500}, "output": "Optimized parameters"}
-                    ]
-                },
+                "easy": [
+                    {
+                        "title": "Linear Regression Implementation",
+                        "description": "Implement linear regression from scratch using gradient descent. Given training data (X, y), find the best line that fits the data.",
+                        "test_cases": [
+                            {"input": "1 2 3 4\n2 4 6 8\n0.01\n1000", "output": "Slope: 2.0, Intercept: 0.0"},
+                            {"input": "1 2 3\n3 5 7\n0.1\n500", "output": "Slope: 2.0, Intercept: 1.0"},
+                            {"input": "0 1 2\n1 3 5\n0.01\n1000", "output": "Slope: 2.0, Intercept: 1.0"}
+                        ],
+                        "hidden_test_cases": [
+                            {"input": "1 2 3 4 5\n1 2 3 4 5\n0.01\n1000", "output": "Slope: 1.0, Intercept: 0.0"},
+                            {"input": "1 2 3 4\n0 1 2 3\n0.01\n1000", "output": "Slope: 1.0, Intercept: -1.0"}
+                        ],
+                        "examples": [
+                            {"input": "1 2 3 4\n2 4 6 8\n0.01\n1000", "output": "Slope: 2.0, Intercept: 0.0", "explanation": "Perfect linear relationship y = 2x"}
+                        ],
+                        "constraints": ["1 <= n <= 1000", "0.001 <= learning_rate <= 0.1", "100 <= epochs <= 10000"],
+                        "starter_code": {
+                            "python": "def linear_regression(X, y, learning_rate, epochs):\n    # Your code here\n    pass",
+                            "javascript": "function linearRegression(X, y, learningRate, epochs) {\n    // Your code here\n}",
+                            "java": "public String linearRegression(double[] X, double[] y, double learningRate, int epochs) {\n    // Your code here\n    return \"\";\n}",
+                            "cpp": "string linearRegression(vector<double>& X, vector<double>& y, double learningRate, int epochs) {\n    // Your code here\n    return \"\";\n}"
+                        },
+                        "expected_complexity": {"time": "O(n*epochs)", "space": "O(1)"}
+                    }
+                ],
                 "medium": {
                     "title": "Neural Network Backpropagation",
                     "description": "Implement a simple neural network with one hidden layer using backpropagation. Include forward pass, backward pass, and weight updates. Support multiple activation functions (sigmoid, ReLU, tanh).",

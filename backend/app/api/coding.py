@@ -91,7 +91,7 @@ async def generate_problem(
         
         print(f"[OK] [CODING] Problem generated and saved: {problem_data['title']}")
         
-        # Return problem without hidden test cases
+        # Return problem with test cases (but not hidden ones)
         return {
             "success": True,
             "problem": {
@@ -102,6 +102,7 @@ async def generate_problem(
                 "difficulty": problem_data["difficulty"],
                 "constraints": problem_data["constraints"],
                 "examples": problem_data["examples"],
+                "test_cases": problem_data["test_cases"],
                 "hints": problem_data["hints"],
                 "tags": problem_data["tags"],
                 "expected_complexity": problem_data["expected_complexity"],
@@ -283,6 +284,96 @@ async def execute_code(
         raise HTTPException(
             status_code=500,
             detail=f"Code execution failed: {str(e)}"
+        )
+
+@router.post("/test-code")
+async def test_code_against_problem(
+    request: dict,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Test any code against any problem's test cases for debugging"""
+    try:
+        problem_id = request.get("problem_id")
+        code = request.get("code", "")
+        language = request.get("language", "python")
+        
+        if not problem_id:
+            raise HTTPException(status_code=400, detail="Problem ID is required")
+        
+        if not code.strip():
+            raise HTTPException(status_code=400, detail="Code is required")
+        
+        print(f"🧪 [CODING] User {user_id} testing code against problem {problem_id}")
+        
+        db = await get_db()
+        
+        # Get problem with all test cases
+        problem = await db.coding_problems.find_one({"_id": ObjectId(problem_id)})
+        if not problem:
+            raise HTTPException(status_code=404, detail="Problem not found")
+        
+        # Use all test cases (visible + hidden) for comprehensive testing
+        all_test_cases = problem.get("test_cases", []) + problem.get("hidden_test_cases", [])
+        
+        if not all_test_cases:
+            raise HTTPException(status_code=400, detail="No test cases available for this problem")
+        
+        # Execute code with all test cases via Judge0
+        judge_results = judge0_execution_service.run_tests(
+            language=language,
+            code=code,
+            test_cases=all_test_cases
+        )
+
+        passed = sum(1 for r in judge_results if r.get("passed"))
+        total = len(judge_results)
+        exec_time_ms = int(sum((r.get("execution_time") or 0) for r in judge_results))
+        mem_used_kb = int(max((r.get("memory") or 0) for r in judge_results)) if judge_results else 0
+
+        # Detailed analysis of results
+        detailed_results = []
+        for i, result in enumerate(judge_results):
+            test_case = all_test_cases[i] if i < len(all_test_cases) else {}
+            detailed_result = {
+                "test_case_number": i + 1,
+                "input": test_case.get("input", ""),
+                "expected_output": test_case.get("output", ""),
+                "actual_output": result.get("output", ""),
+                "passed": result.get("passed", False),
+                "execution_time": result.get("execution_time", 0),
+                "memory_used": result.get("memory", 0),
+                "error": result.get("error"),
+                "debug_info": result.get("debug_info", {}),
+                "is_hidden": i >= len(problem.get("test_cases", []))
+            }
+            detailed_results.append(detailed_result)
+
+        execution_result = {
+            "success": passed == total and total > 0,
+            "execution_time": exec_time_ms,
+            "memory_used": mem_used_kb,
+            "passed_tests": passed,
+            "total_tests": total,
+            "results": detailed_results,
+            "problem_info": {
+                "id": str(problem["_id"]),
+                "title": problem.get("title", ""),
+                "topic": problem.get("topic", ""),
+                "difficulty": problem.get("difficulty", "")
+            }
+        }
+
+        print(f"[OK] [CODING] Code testing completed - Passed {passed}/{total}")
+
+        return {"success": True, "execution_result": execution_result}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] [CODING] Code testing failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Code testing failed: {str(e)}"
         )
 
 @router.post("/submit")

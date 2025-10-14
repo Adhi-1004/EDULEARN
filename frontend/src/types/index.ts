@@ -135,14 +135,46 @@ error_message?: string;
 }
 
 export interface CodingTestResult {
-test_case_index: number;
-passed: boolean;
-output: any;
-expected?: any;
-test_input?: any;
-error?: string;
-execution_time: number;
-memory_used: number;
+  test_case_index?: number;
+  passed: boolean;
+  output: any;
+  expected?: any;
+  input?: any;
+  test_input?: any;
+  error?: string;
+  execution_time: number;
+  memory_used: number;
+  debug_info?: {
+    status: string;
+    status_id: number;
+    raw_output: string;
+    raw_error: string;
+    compile_output: string;
+    comparison: {
+      match: boolean;
+      type: string;
+      message: string;
+      actual?: string;
+      expected?: string;
+      line_analysis?: {
+        actual_lines: string[];
+        expected_lines: string[];
+        first_difference: {
+          line_number: number;
+          actual_line?: string;
+          expected_line?: string;
+          message?: string;
+        };
+      };
+    };
+    execution_details: {
+      time: string;
+      memory: number;
+      wall_time: string;
+      exit_code: number;
+      exit_signal: number;
+    };
+  };
 }
 
 export interface CodingSolution {

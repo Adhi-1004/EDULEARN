@@ -122,7 +122,12 @@ class Judge0ExecutionService:
                     "output": "",
                     "execution_time": 0,
                     "memory": 0,
-                    "error": "No result received from Judge0"
+                    "error": "No result received from Judge0",
+                    "debug_info": {
+                        "status": "No result",
+                        "raw_output": "",
+                        "comparison": "No output to compare"
+                    }
                 }
                 formatted.append(formatted_result)
                 continue
@@ -131,11 +136,36 @@ class Judge0ExecutionService:
             
             # Decode the outputs
             stdout = base64.b64decode(result.get('stdout', '') or b'').decode('utf-8').strip()
+            stderr = base64.b64decode(result.get('stderr', '') or b'').decode('utf-8').strip()
+            compile_output = base64.b64decode(result.get('compile_output', '') or b'').decode('utf-8').strip()
             expected = test_case.get("output", test_case.get("expected_output"))
             
             # Determine pass/fail status
             passed = (status_id == 3) # Status 3 is "Accepted"
             
+            # Create detailed debug information
+            debug_info = {
+                "status": result.get('status', {}).get('description', 'Unknown'),
+                "status_id": status_id,
+                "raw_output": stdout,
+                "raw_error": stderr,
+                "compile_output": compile_output,
+                "comparison": self._compare_outputs(stdout, expected),
+                "execution_details": {
+                    "time": result.get('time', '0.0'),
+                    "memory": result.get('memory', 0),
+                    "wall_time": result.get('wall_time', '0.0'),
+                    "exit_code": result.get('exit_code', 0),
+                    "exit_signal": result.get('exit_signal', 0)
+                }
+            }
+            
+            # Build a more helpful error message for wrong answers
+            error_message = self._get_error_message(result)
+            if not passed and not error_message:
+                # Provide expected vs actual when it's a wrong answer without compile/runtime errors
+                error_message = f"Expected: {str(expected).strip()} | Got: {stdout.strip()}"
+
             formatted_result = {
                 "passed": passed,
                 "input": test_case.get("input"),
@@ -143,11 +173,102 @@ class Judge0ExecutionService:
                 "output": stdout,
                 "execution_time": float(result.get('time', '0.0') or '0.0') * 1000, # Convert to ms
                 "memory": result.get('memory', 0),
-                "error": self._get_error_message(result)
+                "error": error_message,
+                "debug_info": debug_info
             }
             formatted.append(formatted_result)
             
         return formatted
+
+    def _compare_outputs(self, actual: str, expected: str) -> Dict[str, Any]:
+        """Compare actual output with expected output and provide detailed analysis"""
+        # Coerce non-string values (e.g., booleans, numbers) to strings before trimming
+        actual_clean = str(actual).strip()
+        expected_clean = str(expected).strip()
+        
+        # Exact match
+        if actual_clean == expected_clean:
+            return {
+                "match": True,
+                "type": "exact",
+                "message": "Output matches exactly"
+            }
+        
+        # Check for whitespace differences
+        if actual_clean.replace('\n', ' ').replace('\t', ' ').replace(' ', '') == expected_clean.replace('\n', ' ').replace('\t', ' ').replace(' ', ''):
+            return {
+                "match": False,
+                "type": "whitespace",
+                "message": "Output matches but has different whitespace",
+                "actual": actual_clean,
+                "expected": expected_clean
+            }
+        
+        # Check for case differences
+        if actual_clean.lower() == expected_clean.lower():
+            return {
+                "match": False,
+                "type": "case",
+                "message": "Output matches but has different case",
+                "actual": actual_clean,
+                "expected": expected_clean
+            }
+        
+        # Check for trailing newline differences
+        if actual_clean == expected_clean + '\n' or actual_clean + '\n' == expected_clean:
+            return {
+                "match": False,
+                "type": "newline",
+                "message": "Output matches but has different trailing newlines",
+                "actual": actual_clean,
+                "expected": expected_clean
+            }
+        
+        # Partial match analysis
+        actual_lines = actual_clean.split('\n')
+        expected_lines = expected_clean.split('\n')
+        
+        return {
+            "match": False,
+            "type": "different",
+            "message": f"Output differs - Got {len(actual_lines)} lines, expected {len(expected_lines)} lines",
+            "actual": actual_clean,
+            "expected": expected_clean,
+            "line_analysis": {
+                "actual_lines": actual_lines,
+                "expected_lines": expected_lines,
+                "first_difference": self._find_first_difference(actual_lines, expected_lines)
+            }
+        }
+    
+    def _find_first_difference(self, actual_lines: List[str], expected_lines: List[str]) -> Dict[str, Any]:
+        """Find the first line where actual and expected differ"""
+        min_len = min(len(actual_lines), len(expected_lines))
+        
+        for i in range(min_len):
+            if actual_lines[i] != expected_lines[i]:
+                return {
+                    "line_number": i + 1,
+                    "actual_line": actual_lines[i],
+                    "expected_line": expected_lines[i]
+                }
+        
+        if len(actual_lines) > len(expected_lines):
+            return {
+                "line_number": min_len + 1,
+                "actual_line": actual_lines[min_len],
+                "expected_line": None,
+                "message": "Extra line in actual output"
+            }
+        elif len(expected_lines) > len(actual_lines):
+            return {
+                "line_number": min_len + 1,
+                "actual_line": None,
+                "expected_line": expected_lines[min_len],
+                "message": "Missing line in actual output"
+            }
+        
+        return {"message": "No differences found"}
 
     def _get_error_message(self, result: Dict[str, Any]) -> str | None:
         status_id = result.get('status', {}).get('id')

@@ -554,6 +554,34 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                   </div>
                 </div>
 
+                {/* Test Cases */}
+                {problem.test_cases && problem.test_cases.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-purple-200 mb-3">Test Cases</h3>
+                    <div className="space-y-4">
+                      {problem.test_cases.map((testCase, index) => (
+                        <div key={index} className="bg-blue-900/20 rounded-lg p-4 border border-blue-500/30">
+                          <div className="font-semibold text-blue-200 mb-2">Test Case {index + 1}:</div>
+                          <div className="space-y-2 text-sm">
+                            <div>
+                              <span className="text-blue-300">Input: </span>
+                              <code className="text-blue-100 bg-blue-800/30 px-2 py-1 rounded font-mono">
+                                {typeof testCase.input === "string" ? testCase.input : JSON.stringify(testCase.input)}
+                              </code>
+                            </div>
+                            <div>
+                              <span className="text-blue-300">Expected Output: </span>
+                              <code className="text-blue-100 bg-blue-800/30 px-2 py-1 rounded font-mono">
+                                {typeof testCase.output === "string" ? testCase.output : JSON.stringify(testCase.output)}
+                              </code>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Constraints */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-purple-200 mb-3">Constraints</h3>
@@ -950,11 +978,11 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                                       <span className="text-sm font-medium text-purple-300">Input:</span>
                                     </div>
                                     <div className="p-3 bg-black/30 rounded-lg border border-purple-500/20 font-mono text-sm">
-                                      {result.test_input ? (
-                                        typeof result.test_input === "string" ? (
-                                          result.test_input
+                                      {result.input ? (
+                                        typeof result.input === "string" ? (
+                                          result.input
                                         ) : (
-                                          JSON.stringify(result.test_input, null, 2)
+                                          JSON.stringify(result.input, null, 2)
                                         )
                                       ) : (
                                         <span className="text-purple-400 opacity-75">No input data</span>
@@ -980,27 +1008,90 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
 
                                       {/* Expected vs Actual Output */}
                                       {!result.error && (
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                          <div>
-                                            <div className="flex items-center space-x-2 mb-2">
-                                              <span className="text-sm font-medium text-green-300">Expected:</span>
+                                        <div className="space-y-4">
+                                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                            <div>
+                                              <div className="flex items-center space-x-2 mb-2">
+                                                <span className="text-sm font-medium text-green-300">Expected:</span>
+                                              </div>
+                                              <div className="p-3 bg-green-900/20 rounded-lg border border-green-500/30 text-green-200 text-sm font-mono">
+                                                {typeof result.expected === "string"
+                                                  ? result.expected
+                                                  : JSON.stringify(result.expected, null, 2)}
+                                              </div>
                                             </div>
-                                            <div className="p-3 bg-green-900/20 rounded-lg border border-green-500/30 text-green-200 text-sm font-mono">
-                                              {typeof result.expected === "string"
-                                                ? result.expected
-                                                : JSON.stringify(result.expected, null, 2)}
+                                            <div>
+                                              <div className="flex items-center space-x-2 mb-2">
+                                                <span className="text-sm font-medium text-red-300">Got:</span>
+                                              </div>
+                                              <div className="p-3 bg-red-900/20 rounded-lg border border-red-500/30 text-red-200 text-sm font-mono">
+                                                {typeof result.output === "string"
+                                                  ? result.output
+                                                  : JSON.stringify(result.output, null, 2)}
+                                              </div>
                                             </div>
                                           </div>
-                                          <div>
-                                            <div className="flex items-center space-x-2 mb-2">
-                                              <span className="text-sm font-medium text-red-300">Got:</span>
+                                          
+                                          {/* Debug Information */}
+                                          {result.debug_info && (
+                                            <div className="mt-4 p-4 bg-gray-900/30 rounded-lg border border-gray-500/30">
+                                              <div className="flex items-center space-x-2 mb-3">
+                                                <span className="text-sm font-medium text-yellow-300">Debug Analysis:</span>
+                                              </div>
+                                              <div className="space-y-3 text-sm">
+                                                <div>
+                                                  <span className="text-yellow-300">Status: </span>
+                                                  <span className="text-yellow-200">{result.debug_info.status}</span>
+                                                </div>
+                                                <div>
+                                                  <span className="text-yellow-300">Comparison: </span>
+                                                  <span className="text-yellow-200">{result.debug_info.comparison?.message}</span>
+                                                </div>
+                                                {result.debug_info.comparison?.type === "different" && result.debug_info.comparison?.line_analysis?.first_difference && (
+                                                  <div className="mt-3 p-3 bg-gray-800/50 rounded border border-gray-600/30">
+                                                    <div className="text-yellow-300 mb-2">First Difference at Line {result.debug_info.comparison.line_analysis.first_difference.line_number}:</div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                      <div>
+                                                        <div className="text-red-300 text-xs mb-1">Your Output:</div>
+                                                        <div className="p-2 bg-red-900/20 rounded text-red-200 font-mono text-xs">
+                                                          {result.debug_info.comparison.line_analysis.first_difference.actual_line || "No output"}
+                                                        </div>
+                                                      </div>
+                                                      <div>
+                                                        <div className="text-green-300 text-xs mb-1">Expected:</div>
+                                                        <div className="p-2 bg-green-900/20 rounded text-green-200 font-mono text-xs">
+                                                          {result.debug_info.comparison.line_analysis.first_difference.expected_line || "No output"}
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                                {result.debug_info.execution_details && (
+                                                  <div className="mt-3 p-3 bg-gray-800/50 rounded border border-gray-600/30">
+                                                    <div className="text-yellow-300 mb-2">Execution Details:</div>
+                                                    <div className="grid grid-cols-2 gap-4 text-xs">
+                                                      <div>
+                                                        <span className="text-gray-400">Time: </span>
+                                                        <span className="text-white">{result.debug_info.execution_details.time}s</span>
+                                                      </div>
+                                                      <div>
+                                                        <span className="text-gray-400">Memory: </span>
+                                                        <span className="text-white">{result.debug_info.execution_details.memory}KB</span>
+                                                      </div>
+                                                      <div>
+                                                        <span className="text-gray-400">Exit Code: </span>
+                                                        <span className="text-white">{result.debug_info.execution_details.exit_code}</span>
+                                                      </div>
+                                                      <div>
+                                                        <span className="text-gray-400">Wall Time: </span>
+                                                        <span className="text-white">{result.debug_info.execution_details.wall_time}s</span>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
                                             </div>
-                                            <div className="p-3 bg-red-900/20 rounded-lg border border-red-500/30 text-red-200 text-sm font-mono">
-                                              {typeof result.output === "string"
-                                                ? result.output
-                                                : JSON.stringify(result.output, null, 2)}
-                                            </div>
-                                          </div>
+                                          )}
                                         </div>
                                       )}
                                     </div>
