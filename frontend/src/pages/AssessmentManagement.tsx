@@ -385,28 +385,9 @@ const AssessmentManagement: React.FC = () => {
               </p>
             </motion.div>
 
-          {/* Ongoing and Recent Tests */}
+          {/* Recent Tests */}
           <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card className="p-6">
-                <h2 className="text-2xl font-bold text-blue-200 mb-4">Ongoing Tests</h2>
-                {upcomingAssessments.length === 0 ? (
-                  <div className="text-blue-300">No ongoing tests.</div>
-                ) : (
-                  <div className="space-y-3">
-                    {upcomingAssessments.slice(0, 4).map((a: any) => (
-                      <div key={a.id} className="p-3 bg-blue-900/20 rounded-lg border border-blue-500/30 flex items-center justify-between">
-                        <div>
-                          <div className="text-blue-200 font-semibold">{a.title}</div>
-                          <div className="text-blue-300 text-sm">{a.topic || a.subject} • {a.difficulty}</div>
-                        </div>
-                        <Button variant="secondary" size="sm" onClick={() => window.location.assign(`/teacher/assessment/${a.id}/results`)}>View</Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-
+            <div className="grid grid-cols-1 gap-4">
               <Card className="p-6">
                 <h2 className="text-2xl font-bold text-blue-200 mb-4">Recent Tests</h2>
                 {recentAssessments.length === 0 ? (
