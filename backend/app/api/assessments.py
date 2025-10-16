@@ -2569,11 +2569,14 @@ async def get_assessment_results(assessment_id: str, user: UserModel = Depends(r
     try:
         db = await get_db()
         
-        # Normalize id formats (support ObjectId and string ids stored in DB)
+        # Normalize id formats (support ObjectId values and strings stored in DB)
         id_filters = [{"assessment_id": assessment_id}]
         try:
             if ObjectId.is_valid(assessment_id):
-                id_filters.append({"assessment_id": str(ObjectId(assessment_id))})
+                oid = ObjectId(assessment_id)
+                # Match both the ObjectId value and any stringified variants
+                id_filters.append({"assessment_id": oid})
+                id_filters.append({"assessment_id": str(oid)})
         except Exception:
             pass
 

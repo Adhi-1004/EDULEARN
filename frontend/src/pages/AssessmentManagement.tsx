@@ -52,6 +52,7 @@ const AssessmentManagement: React.FC = () => {
   const [selectedAssessmentForLeaderboard] = useState<string | null>("demo-assessment")
   const [showAssessmentResults, setShowAssessmentResults] = useState(false)
   const [assessmentResults] = useState<any[]>([])
+  const [teacherAssessments, setTeacherAssessments] = useState<any[]>([])
   const [showCodingQuestionForm, setShowCodingQuestionForm] = useState(false)
   // Removed aiQuestionType since we're only implementing MCQ
   // Removed showAIGeneratedQuestions since AI generation is now handled directly
@@ -71,6 +72,7 @@ const AssessmentManagement: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData()
+    fetchTeacherAssessments()
   }, [])
 
   const fetchDashboardData = async () => {
@@ -102,6 +104,17 @@ const AssessmentManagement: React.FC = () => {
       setBatches([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchTeacherAssessments = async () => {
+    try {
+      const res = await api.get("/api/assessments/")
+      if (Array.isArray(res.data)) {
+        setTeacherAssessments(res.data)
+      }
+    } catch (e) {
+      console.warn("⚠️ [ASSESSMENT MANAGEMENT] Unable to fetch teacher assessments", e)
     }
   }
 
@@ -635,6 +648,56 @@ const AssessmentManagement: React.FC = () => {
                     </Button>
                   </div>
                 </motion.div>
+              </motion.div>
+            )}
+
+            {/* Teacher Assessments with Results Links */}
+            {teacherAssessments.length > 0 && (
+              <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
+                <Card className="p-6">
+                  <h2 className="text-2xl font-bold text-blue-200 mb-4">Your Assessments</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-blue-500/30">
+                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Title</th>
+                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Subject</th>
+                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Difficulty</th>
+                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Questions</th>
+                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Status</th>
+                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {teacherAssessments.map((a: any, idx: number) => (
+                          <motion.tr
+                            key={a.id}
+                            variants={ANIMATION_VARIANTS.slideUp}
+                            initial="initial"
+                            animate="animate"
+                            transition={{ delay: idx * 0.03 }}
+                            className="border-b border-blue-500/20"
+                          >
+                            <td className="py-3 px-4 text-blue-200">{a.title}</td>
+                            <td className="py-3 px-4 text-blue-300">{a.topic || a.subject}</td>
+                            <td className="py-3 px-4 text-blue-300 capitalize">{a.difficulty}</td>
+                            <td className="py-3 px-4 text-blue-300">{a.question_count}</td>
+                            <td className="py-3 px-4 text-blue-300">{a.status}</td>
+                            <td className="py-3 px-4">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => window.location.assign(`/teacher/assessment/${a.id}/results`)}
+                              >
+                                View Results
+                              </Button>
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
               </motion.div>
             )}
 

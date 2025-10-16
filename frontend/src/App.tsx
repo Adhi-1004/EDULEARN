@@ -25,6 +25,8 @@ import CodingProblemPage from "./pages/CodingProblem"
 import UnifiedAssessment from "./pages/UnifiedAssessment"
 import TeacherDashboard from "./pages/TeacherDashboard"
 import TeacherResultsDashboard from "./pages/TeacherResultsDashboard"
+import TeacherAssessmentResults from "./pages/TeacherAssessmentResults"
+import TeacherAssessmentHistory from "./pages/TeacherAssessmentHistory"
 import StudentManagement from "./pages/StudentManagement"
 import AssessmentManagement from "./pages/AssessmentManagement"
 import EnhancedAdminDashboard from "./components/admin/EnhancedAdminDashboard"
@@ -123,6 +125,30 @@ const AppRouter: React.FC<{ user: any; setUser: any; logout: any }> = ({ user, s
                   element={
                     <ProtectedRoute allowedRoles={["teacher"]}>
                       <TeacherResultsDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teacher/assessment-history"
+                  element={
+                    <ProtectedRoute allowedRoles={["teacher"]}>
+                      <TeacherAssessmentHistory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teacher/assessment/:assessmentId/results"
+                  element={
+                    <ProtectedRoute allowedRoles={["teacher"]}>
+                      <TeacherAssessmentResults />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teacher/test-result/:resultId"
+                  element={
+                    <ProtectedRoute allowedRoles={["teacher"]}>
+                      <TestResultDetail />
                     </ProtectedRoute>
                   }
                 />

@@ -63,5 +63,4 @@ class Settings(BaseSettings):
         "SESSION_SECRET", "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"
     )
 
-
 settings = Settings()
