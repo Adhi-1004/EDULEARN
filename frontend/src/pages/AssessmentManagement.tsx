@@ -53,6 +53,8 @@ const AssessmentManagement: React.FC = () => {
   const [showAssessmentResults, setShowAssessmentResults] = useState(false)
   const [assessmentResults] = useState<any[]>([])
   const [teacherAssessments, setTeacherAssessments] = useState<any[]>([])
+  const [upcomingAssessments, setUpcomingAssessments] = useState<any[]>([])
+  const [recentAssessments, setRecentAssessments] = useState<any[]>([])
   const [showCodingQuestionForm, setShowCodingQuestionForm] = useState(false)
   // Removed aiQuestionType since we're only implementing MCQ
   // Removed showAIGeneratedQuestions since AI generation is now handled directly
@@ -73,6 +75,7 @@ const AssessmentManagement: React.FC = () => {
   useEffect(() => {
     fetchDashboardData()
     fetchTeacherAssessments()
+    fetchUpcoming()
   }, [])
 
   const fetchDashboardData = async () => {
@@ -112,9 +115,23 @@ const AssessmentManagement: React.FC = () => {
       const res = await api.get("/api/assessments/")
       if (Array.isArray(res.data)) {
         setTeacherAssessments(res.data)
+        const recent = [...res.data]
+          .sort((a: any, b: any) => new Date(b.created_at || b.createdAt || 0).getTime() - new Date(a.created_at || a.createdAt || 0).getTime())
+          .slice(0, 4)
+        setRecentAssessments(recent)
       }
     } catch (e) {
       console.warn("⚠️ [ASSESSMENT MANAGEMENT] Unable to fetch teacher assessments", e)
+    }
+  }
+
+  const fetchUpcoming = async () => {
+    try {
+      const res = await api.get("/api/assessments/teacher/upcoming")
+      if (Array.isArray(res.data)) setUpcomingAssessments(res.data)
+    } catch (e) {
+      console.warn("⚠️ [ASSESSMENT MANAGEMENT] Unable to fetch upcoming assessments", e)
+      setUpcomingAssessments([])
     }
   }
 
@@ -367,6 +384,54 @@ const AssessmentManagement: React.FC = () => {
                 Create, manage, and analyze assessments
               </p>
             </motion.div>
+
+          {/* Ongoing and Recent Tests */}
+          <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card className="p-6">
+                <h2 className="text-2xl font-bold text-blue-200 mb-4">Ongoing Tests</h2>
+                {upcomingAssessments.length === 0 ? (
+                  <div className="text-blue-300">No ongoing tests.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {upcomingAssessments.slice(0, 4).map((a: any) => (
+                      <div key={a.id} className="p-3 bg-blue-900/20 rounded-lg border border-blue-500/30 flex items-center justify-between">
+                        <div>
+                          <div className="text-blue-200 font-semibold">{a.title}</div>
+                          <div className="text-blue-300 text-sm">{a.topic || a.subject} • {a.difficulty}</div>
+                        </div>
+                        <Button variant="secondary" size="sm" onClick={() => window.location.assign(`/teacher/assessment/${a.id}/results`)}>View</Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-6">
+                <h2 className="text-2xl font-bold text-blue-200 mb-4">Recent Tests</h2>
+                {recentAssessments.length === 0 ? (
+                  <div className="text-blue-300">No recent tests.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentAssessments.map((a: any) => (
+                      <div key={a.id} className="p-3 bg-blue-900/20 rounded-lg border border-blue-500/30 flex items-center justify-between">
+                        <div>
+                          <div className="text-blue-200 font-semibold">{a.title}</div>
+                          <div className="text-blue-300 text-sm">{a.topic || a.subject} • {a.difficulty}</div>
+                        </div>
+                        <Button variant="secondary" size="sm" onClick={() => window.location.assign(`/teacher/assessment/${a.id}/results`)}>View</Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-4">
+                  <Button variant="primary" size="sm" className="w-full" onClick={() => window.location.assign('/teacher/assessment-history')}>
+                    View all history
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </motion.div>
 
 
             {/* Assessment Creation Tools */}
@@ -651,55 +716,7 @@ const AssessmentManagement: React.FC = () => {
               </motion.div>
             )}
 
-            {/* Teacher Assessments with Results Links */}
-            {teacherAssessments.length > 0 && (
-              <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
-                <Card className="p-6">
-                  <h2 className="text-2xl font-bold text-blue-200 mb-4">Your Assessments</h2>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-blue-500/30">
-                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Title</th>
-                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Subject</th>
-                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Difficulty</th>
-                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Questions</th>
-                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Status</th>
-                          <th className="text-left py-3 px-4 text-blue-300 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {teacherAssessments.map((a: any, idx: number) => (
-                          <motion.tr
-                            key={a.id}
-                            variants={ANIMATION_VARIANTS.slideUp}
-                            initial="initial"
-                            animate="animate"
-                            transition={{ delay: idx * 0.03 }}
-                            className="border-b border-blue-500/20"
-                          >
-                            <td className="py-3 px-4 text-blue-200">{a.title}</td>
-                            <td className="py-3 px-4 text-blue-300">{a.topic || a.subject}</td>
-                            <td className="py-3 px-4 text-blue-300 capitalize">{a.difficulty}</td>
-                            <td className="py-3 px-4 text-blue-300">{a.question_count}</td>
-                            <td className="py-3 px-4 text-blue-300">{a.status}</td>
-                            <td className="py-3 px-4">
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => window.location.assign(`/teacher/assessment/${a.id}/results`)}
-                              >
-                                View Results
-                              </Button>
-                            </td>
-                          </motion.tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              </motion.div>
-            )}
+            {/* Removed "Your Assessments" section as requested */}
 
             {/* Question Addition Form */}
             {showQuestionForm && currentAssessment && (

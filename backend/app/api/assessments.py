@@ -722,34 +722,64 @@ async def create_assessment(assessment_data: AssessmentCreate, user: UserModel =
 
 @router.get("/", response_model=List[AssessmentResponse])
 async def get_teacher_assessments(user: UserModel = Depends(get_current_user)):
-    """Get all assessments created by the teacher"""
+    """Get all assessments created by the current teacher across sources (manual and teacher-created)."""
     try:
         db = await get_db()
         
         if user.role != "teacher":
             raise HTTPException(status_code=403, detail="Only teachers can view assessments")
         
-        assessments_cursor = await db.assessments.find({"created_by": str(user.id)}).to_list(None)
-        assessments = []
-        
-        for assessment in assessments_cursor:
-            assessment_response = AssessmentResponse(
-                id=str(assessment["_id"]),
-                title=assessment["title"],
-                topic=assessment["topic"],
-                difficulty=assessment["difficulty"],
-                description=assessment.get("description"),
-                time_limit=assessment.get("time_limit"),
-                max_attempts=assessment.get("max_attempts", 1),
-                question_count=len(assessment.get("questions", [])),
-                created_by=assessment["created_by"],
-                created_at=assessment["created_at"].isoformat(),
-                status=assessment["status"],
-                type=assessment.get("type", "mcq")
-            )
-            assessments.append(assessment_response)
-        
-        return assessments
+        # Regular (manual) assessments authored by teacher
+        manual_list = await db.assessments.find({"created_by": str(user.id)}).to_list(length=None)
+
+        # Teacher-created (AI/generated) assessments
+        teacher_list = []
+        try:
+            teacher_list = await db.teacher_assessments.find({"teacher_id": user.id}).to_list(length=None)
+        except Exception:
+            teacher_list = []
+
+        combined: List[AssessmentResponse] = []
+
+        for a in manual_list:
+            combined.append(AssessmentResponse(
+                id=str(a.get("_id")),
+                title=a.get("title", a.get("subject", "Untitled Assessment")),
+                subject=a.get("subject"),
+                difficulty=a.get("difficulty", "medium"),
+                description=a.get("description"),
+                time_limit=a.get("time_limit"),
+                max_attempts=a.get("max_attempts", 1),
+                question_count=a.get("question_count", len(a.get("questions", []))),
+                created_by=str(a.get("created_by")),
+                created_at=(a.get("created_at") or datetime.utcnow()).isoformat(),
+                status=a.get("status", "draft"),
+                type=a.get("type", "mcq"),
+                is_active=a.get("is_active", False),
+                total_questions=a.get("question_count", len(a.get("questions", [])))
+            ))
+
+        for a in teacher_list:
+            combined.append(AssessmentResponse(
+                id=str(a.get("_id")),
+                title=a.get("title", a.get("topic", "Untitled Assessment")),
+                subject=a.get("topic", a.get("subject")),
+                difficulty=a.get("difficulty", "medium"),
+                description=f"Teacher-created assessment on {a.get('topic', a.get('subject', 'General'))}",
+                time_limit=30,
+                max_attempts=1,
+                question_count=a.get("question_count", len(a.get("questions", []))),
+                created_by=str(a.get("teacher_id", user.id)),
+                created_at=(a.get("created_at") or datetime.utcnow()).isoformat(),
+                status=a.get("status", "published"),
+                type=a.get("type", "teacher"),
+                is_active=a.get("is_active", True),
+                total_questions=a.get("question_count", len(a.get("questions", [])))
+            ))
+
+        # Sort newest first
+        combined.sort(key=lambda x: x.created_at or "", reverse=True)
+        return combined
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -2137,7 +2167,7 @@ async def get_upcoming_assessments(user: UserModel = Depends(get_current_user)):
 
 @router.get("/teacher/upcoming", response_model=List[AssessmentResponse])
 async def get_teacher_assessments(user: UserModel = Depends(get_current_user)):
-    """Get teacher-assigned assessments for a student"""
+    """Get teacher-assigned assessments for the current user (student consumption)."""
     try:
         print(f"🔍 [TEACHER_ASSESSMENT] Starting request for user: {user.id}")
         
@@ -2646,6 +2676,144 @@ async def get_assessment_results(assessment_id: str, user: UserModel = Depends(r
         
     except Exception as e:
         print(f"❌ [ASSESSMENT] Error fetching assessment results: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Assigned students with attendance for an assessment (teacher view)
+@router.get("/{assessment_id}/assigned-students")
+async def get_assigned_students(assessment_id: str, user: UserModel = Depends(require_teacher)):
+    """Return students assigned to an assessment (via batches) and their submission/attendance status.
+    Supports both teacher_assessments (AI/teacher-created) and regular assessments collections.
+    """
+    try:
+        db = await get_db()
+
+        # Try to resolve assessment from teacher_assessments first, then regular assessments
+        teacher_assessment = None
+        regular_assessment = None
+
+        try:
+            if ObjectId.is_valid(assessment_id):
+                teacher_assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+        except Exception:
+            teacher_assessment = None
+
+        if not teacher_assessment:
+            try:
+                if ObjectId.is_valid(assessment_id):
+                    regular_assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+            except Exception:
+                regular_assessment = None
+
+        # Collect batch ids from the resolved assessment
+        batch_ids: list[str] = []
+        if teacher_assessment:
+            # teacher_assessments store batch ids (strings)
+            batch_ids = [str(b) for b in teacher_assessment.get("batches", [])]
+        elif regular_assessment:
+            batch_ids = [str(b) for b in regular_assessment.get("assigned_batches", [])]
+        else:
+            # Nothing found
+            return []
+
+        # Find batches and accumulate student ids
+        student_ids: set[str] = set()
+        for bid in batch_ids:
+            # batches.student_ids are strings of user ids
+            try:
+                batch = await db.batches.find_one({"_id": ObjectId(bid)})
+            except Exception:
+                batch = await db.batches.find_one({"_id": bid})
+            if batch and batch.get("student_ids"):
+                for sid in batch["student_ids"]:
+                    if isinstance(sid, ObjectId):
+                        student_ids.add(str(sid))
+                    else:
+                        student_ids.add(str(sid))
+
+        # Fetch user docs for display
+        students: dict[str, dict] = {}
+        for sid in student_ids:
+            doc = None
+            try:
+                if ObjectId.is_valid(sid):
+                    doc = await db.users.find_one({"_id": ObjectId(sid)})
+            except Exception:
+                doc = None
+            if not doc:
+                doc = await db.users.find_one({"_id": sid})
+            if doc:
+                students[sid] = doc
+
+        # Build id filters for submissions lookup
+        id_filters = [{"assessment_id": assessment_id}]
+        try:
+            if ObjectId.is_valid(assessment_id):
+                oid = ObjectId(assessment_id)
+                id_filters.append({"assessment_id": oid})
+                id_filters.append({"assessment_id": str(oid)})
+        except Exception:
+            pass
+
+        # Fetch submissions across collections
+        teacher_submissions = []
+        regular_submissions = []
+        try:
+            teacher_submissions = await db.teacher_assessment_results.find({"$or": id_filters}).to_list(length=None)
+        except Exception:
+            teacher_submissions = []
+        try:
+            regular_submissions = await db.assessment_submissions.find({"$or": id_filters}).to_list(length=None)
+        except Exception:
+            regular_submissions = []
+
+        # Map submissions by student_id
+        submissions_by_student: dict[str, dict] = {}
+        for sub in teacher_submissions:
+            sid = sub.get("student_id")
+            sid_str = str(sid) if sid is not None else ""
+            submissions_by_student[sid_str] = {
+                "result_id": str(sub.get("_id")),
+                "score": sub.get("score", 0),
+                "percentage": sub.get("percentage", 0.0),
+                "time_taken": sub.get("time_taken", 0),
+                "submitted_at": sub.get("submitted_at")
+            }
+        for sub in regular_submissions:
+            sid = sub.get("student_id")
+            sid_str = str(sid) if sid is not None else ""
+            # do not override teacher submission if already present
+            if sid_str not in submissions_by_student:
+                submissions_by_student[sid_str] = {
+                    "result_id": str(sub.get("_id")),
+                    "score": sub.get("score", 0),
+                    "percentage": sub.get("percentage", 0.0),
+                    "time_taken": sub.get("time_taken", 0),
+                    "submitted_at": sub.get("submitted_at")
+                }
+
+        # Construct response
+        response = []
+        for sid in sorted(student_ids):
+            student = students.get(sid)
+            sub = submissions_by_student.get(sid)
+            item = {
+                "student_id": sid,
+                "student_name": (student.get("name") or student.get("username") or "Unknown") if student else "Unknown",
+                "student_email": (student.get("email") or "") if student else "",
+                "assigned_via_batches": batch_ids,
+                "submitted": sub is not None,
+                "result_id": sub.get("result_id") if sub else None,
+                "score": sub.get("score") if sub else None,
+                "total_questions": None,
+                "percentage": sub.get("percentage") if sub else None,
+                "time_taken": sub.get("time_taken") if sub else None,
+                "submitted_at": (sub.get("submitted_at").isoformat() if hasattr(sub.get("submitted_at"), "isoformat") else sub.get("submitted_at")) if sub else None,
+            }
+            response.append(item)
+
+        return response
+    except Exception as e:
+        print(f"❌ [ASSESSMENT] Error fetching assigned students: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # New endpoints for comprehensive assessment system

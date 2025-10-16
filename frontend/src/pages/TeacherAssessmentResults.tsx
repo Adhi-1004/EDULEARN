@@ -50,6 +50,7 @@ const TeacherAssessmentResults: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [assessment, setAssessment] = useState<AssessmentInfo | null>(null)
   const [results, setResults] = useState<AssessmentStudentResult[]>([])
+  const [assigned, setAssigned] = useState<any[]>([])
   const [search, setSearch] = useState("")
 
   useEffect(() => {
@@ -87,6 +88,15 @@ const TeacherAssessmentResults: React.FC = () => {
         // Fetch combined results for this assessment
         const rRes = await api.get(`/api/assessments/${assessmentId}/results`)
         setResults(rRes.data || [])
+
+        // Fetch assigned students with attendance
+        try {
+          const aRes = await api.get(`/api/assessments/${assessmentId}/assigned-students`)
+          setAssigned(aRes.data || [])
+        } catch (e) {
+          // endpoint may not exist yet; degrade gracefully
+          setAssigned([])
+        }
       } catch (err: any) {
         console.error("Failed to load assessment results:", err)
         setError(err?.response?.data?.detail || "Failed to load assessment results")
@@ -105,6 +115,18 @@ const TeacherAssessmentResults: React.FC = () => {
       r.student_email?.toLowerCase().includes(term)
     )
   }, [results, search])
+
+  const mergedAssigned = useMemo(() => {
+    if (!assigned?.length) return []
+    const term = search.trim().toLowerCase()
+    const rows = assigned.map((s: any) => ({
+      ...s,
+      present: !!s.submitted,
+    }))
+    return term
+      ? rows.filter((r: any) => (r.student_name||"").toLowerCase().includes(term) || (r.student_email||"").toLowerCase().includes(term))
+      : rows
+  }, [assigned, search])
 
   const viewStudentDetailedResult = async (studentId: string) => {
     try {
@@ -191,8 +213,56 @@ const TeacherAssessmentResults: React.FC = () => {
         </Card>
 
         <Card className="p-6">
+          <h2 className="text-xl font-semibold text-blue-200 mb-4">Assigned Students</h2>
+          {mergedAssigned.length === 0 ? (
+            <div className="text-blue-300">No assigned students found.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {mergedAssigned.map((s: any, idx: number) => (
+                <motion.div
+                  key={`${s.student_id}-${idx}`}
+                  variants={ANIMATION_VARIANTS.slideUp}
+                  initial="initial"
+                  animate="animate"
+                  transition={{ delay: idx * 0.03 }}
+                  className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30 p-4"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <div className="text-blue-200 font-semibold">{s.student_name || "Unknown"}</div>
+                      <div className="text-blue-300 text-sm">{s.student_email || ""}</div>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded border ${s.present ? "bg-green-600/20 border-green-500/30 text-green-300" : "bg-red-600/20 border-red-500/30 text-red-300"}`}>
+                      {s.present ? "Present" : "Absent"}
+                    </span>
+                  </div>
+                  {s.present && (
+                    <div className="text-blue-400 text-xs mb-3">
+                      <span>Score: {s.score}/{s.total_questions} ({(s.percentage||0).toFixed(1)}%)</span>
+                      <span className="mx-2">•</span>
+                      <span>Time: {formatTime(s.time_taken||0)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <div className="text-blue-400 text-xs">
+                      {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : ""}
+                    </div>
+                    {s.present ? (
+                      <Button variant="secondary" size="sm" onClick={() => s.result_id ? navigate(`/teacher/test-result/${s.result_id}`) : viewStudentDetailedResult(s.student_id)}>
+                        View Details
+                      </Button>
+                    ) : (
+                      <div className="text-blue-500 text-xs">Not submitted</div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          <h2 className="text-xl font-semibold text-blue-200 mt-8 mb-4">Submissions</h2>
           {filteredResults.length === 0 ? (
-            <div className="text-center py-10 text-blue-300">No submissions yet.</div>
+            <div className="text-blue-300">No submissions yet.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">

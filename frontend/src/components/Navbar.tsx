@@ -51,11 +51,12 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
   // Fetch notifications when user is authenticated
   useEffect(() => {
     const fetchNotifications = async () => {
-      if (user && user.role === "student") {
+      if (user) {
         try {
-          const response = await api.get("/api/assessments/notifications")
-          setNotifications(response.data || [])
-          setUnreadCount((response.data || []).filter((n: any) => !n.is_read).length)
+          const response = await api.get("/api/notifications/")
+          const list = response.data?.notifications || []
+          setNotifications(list)
+          setUnreadCount(response.data?.unread_count ?? (list.filter((n: any) => !n.is_read).length))
         } catch (error) {
           console.error("Error fetching notifications:", error)
         }
@@ -111,7 +112,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
   const handleNotificationClick = useCallback(async (notification: any) => {
     if (!notification.is_read) {
       try {
-        await api.patch(`/api/assessments/notifications/${notification.id}/read`)
+        await api.post(`/api/notifications/${notification.id}/read`)
         setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)))
         setUnreadCount((prev) => Math.max(0, prev - 1))
       } catch (error) {
@@ -122,11 +123,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
-      // Mark all unread notifications as read
-      const unreadNotifications = notifications.filter((n) => !n.is_read)
-      for (const notification of unreadNotifications) {
-        await api.patch(`/api/assessments/notifications/${notification.id}/read`)
-      }
+      await api.post("/api/notifications/mark-all-read")
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
       setUnreadCount(0)
     } catch (error) {
@@ -136,7 +133,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
 
   const handleDeleteNotification = useCallback(async (notificationId: string) => {
     try {
-      await api.delete(`/api/assessments/notifications/${notificationId}`)
+      await api.delete(`/api/notifications/${notificationId}`)
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
       setUnreadCount((prev) => Math.max(0, prev - 1))
     } catch (error) {
