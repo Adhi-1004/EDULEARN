@@ -29,6 +29,10 @@ interface AssessmentStudentResult {
   time_taken: number
   submitted_at: string
   total_questions: number
+  batch_info?: {
+    batch_id: string
+    batch_name: string
+  }
 }
 
 interface TeacherStudentResultItem {
@@ -44,6 +48,8 @@ interface TeacherStudentResultItem {
 
 const TeacherAssessmentResults: React.FC = () => {
   const { assessmentId } = useParams<{ assessmentId: string }>()
+  // Some lists prefix ids like "assessment_<mongoId>"; backend expects raw id
+  const normalizedAssessmentId = (assessmentId || "").replace(/^assessment_/, "")
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
@@ -55,7 +61,7 @@ const TeacherAssessmentResults: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!assessmentId) return
+      if (!normalizedAssessmentId) return
       try {
         setLoading(true)
         setError(null)
@@ -63,11 +69,11 @@ const TeacherAssessmentResults: React.FC = () => {
         // Try to fetch assessment details (teacher route first, then fallback)
         let aData: any = null
         try {
-          const aRes = await api.get(`/api/assessments/teacher/${assessmentId}`)
+          const aRes = await api.get(`/api/assessments/teacher/${normalizedAssessmentId}`)
           aData = aRes.data
         } catch (e) {
           try {
-            const aRes = await api.get(`/api/assessments/${assessmentId}/details`)
+            const aRes = await api.get(`/api/assessments/${normalizedAssessmentId}/details`)
             aData = aRes.data
           } catch (_) {
             aData = null
@@ -75,7 +81,7 @@ const TeacherAssessmentResults: React.FC = () => {
         }
         if (aData) {
           setAssessment({
-            id: aData.id || assessmentId,
+            id: aData.id || normalizedAssessmentId,
             title: aData.title,
             subject: aData.subject || aData.topic,
             difficulty: aData.difficulty,
@@ -86,12 +92,12 @@ const TeacherAssessmentResults: React.FC = () => {
         }
 
         // Fetch combined results for this assessment
-        const rRes = await api.get(`/api/assessments/${assessmentId}/results`)
+        const rRes = await api.get(`/api/assessments/${normalizedAssessmentId}/results`)
         setResults(rRes.data || [])
 
         // Fetch assigned students with attendance
         try {
-          const aRes = await api.get(`/api/assessments/${assessmentId}/assigned-students`)
+          const aRes = await api.get(`/api/assessments/${normalizedAssessmentId}/assigned-students`)
           setAssigned(aRes.data || [])
         } catch (e) {
           // endpoint may not exist yet; degrade gracefully
@@ -105,7 +111,7 @@ const TeacherAssessmentResults: React.FC = () => {
       }
     }
     fetchData()
-  }, [assessmentId])
+  }, [normalizedAssessmentId])
 
   const filteredResults = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -115,6 +121,26 @@ const TeacherAssessmentResults: React.FC = () => {
       r.student_email?.toLowerCase().includes(term)
     )
   }, [results, search])
+
+  // Group results by batch
+  const resultsByBatch = useMemo(() => {
+    const grouped: { [batchId: string]: { batch_name: string; results: AssessmentStudentResult[] } } = {}
+    
+    filteredResults.forEach(result => {
+      const batchId = result.batch_info?.batch_id || 'no-batch'
+      const batchName = result.batch_info?.batch_name || 'No Batch Assigned'
+      
+      if (!grouped[batchId]) {
+        grouped[batchId] = {
+          batch_name: batchName,
+          results: []
+        }
+      }
+      grouped[batchId].results.push(result)
+    })
+    
+    return grouped
+  }, [filteredResults])
 
   const mergedAssigned = useMemo(() => {
     if (!assigned?.length) return []
@@ -133,7 +159,7 @@ const TeacherAssessmentResults: React.FC = () => {
       // Fetch this student's results and find the one matching this assessment to get result_id
       const res = await api.get(`/api/assessments/teacher/student-results/${studentId}`)
       const items: TeacherStudentResultItem[] = res?.data?.results || res?.data?.student_results || []
-      const match = items.find(it => (it.assessment_id === assessmentId) || (it as any).assessmentId === assessmentId)
+      const match = items.find(it => (it.assessment_id === normalizedAssessmentId) || (it as any).assessmentId === normalizedAssessmentId)
       if (match && match.result_id) {
         navigate(`/teacher/test-result/${match.result_id}`)
         return
@@ -213,97 +239,165 @@ const TeacherAssessmentResults: React.FC = () => {
         </Card>
 
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-blue-200 mb-4">Assigned Students</h2>
+          <h2 className="text-xl font-semibold text-blue-200 mb-4">Assigned Students by Batch</h2>
           {mergedAssigned.length === 0 ? (
             <div className="text-blue-300">No assigned students found.</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mergedAssigned.map((s: any, idx: number) => (
-                <motion.div
-                  key={`${s.student_id}-${idx}`}
-                  variants={ANIMATION_VARIANTS.slideUp}
-                  initial="initial"
-                  animate="animate"
-                  transition={{ delay: idx * 0.03 }}
-                  className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30 p-4"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="text-blue-200 font-semibold">{s.student_name || "Unknown"}</div>
-                      <div className="text-blue-300 text-sm">{s.student_email || ""}</div>
+            <div className="space-y-6">
+              {/* Group assigned students by batch */}
+              {(() => {
+                const groupedByBatch: { [batchId: string]: { batch_name: string; students: any[] } } = {}
+                
+                mergedAssigned.forEach((s: any) => {
+                  const batchId = s.batch_id || 'no-batch'
+                  const batchName = s.batch_name || 'No Batch Assigned'
+                  
+                  if (!groupedByBatch[batchId]) {
+                    groupedByBatch[batchId] = {
+                      batch_name: batchName,
+                      students: []
+                    }
+                  }
+                  groupedByBatch[batchId].students.push(s)
+                })
+                
+                return Object.entries(groupedByBatch).map(([batchId, batchData], batchIndex) => (
+                  <motion.div
+                    key={batchId}
+                    variants={ANIMATION_VARIANTS.slideUp}
+                    initial="initial"
+                    animate="animate"
+                    transition={{ delay: batchIndex * 0.1 }}
+                    className="bg-gradient-to-br from-blue-900/10 to-blue-800/10 rounded-lg border border-blue-500/20 p-4"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-blue-200 flex items-center">
+                        <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
+                        {batchData.batch_name}
+                      </h3>
+                      <span className="text-blue-300 text-sm">
+                        {batchData.students.length} student{batchData.students.length !== 1 ? 's' : ''}
+                      </span>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded border ${s.present ? "bg-green-600/20 border-green-500/30 text-green-300" : "bg-red-600/20 border-red-500/30 text-red-300"}`}>
-                      {s.present ? "Present" : "Absent"}
-                    </span>
-                  </div>
-                  {s.present && (
-                    <div className="text-blue-400 text-xs mb-3">
-                      <span>Score: {s.score}/{s.total_questions} ({(s.percentage||0).toFixed(1)}%)</span>
-                      <span className="mx-2">•</span>
-                      <span>Time: {formatTime(s.time_taken||0)}</span>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {batchData.students.map((s: any, idx: number) => (
+                        <motion.div
+                          key={`${s.student_id}-${idx}`}
+                          variants={ANIMATION_VARIANTS.slideUp}
+                          initial="initial"
+                          animate="animate"
+                          transition={{ delay: (batchIndex * 0.1) + (idx * 0.03) }}
+                          className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30 p-4"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <div className="text-blue-200 font-semibold">{s.student_name || "Unknown"}</div>
+                              <div className="text-blue-300 text-sm">{s.student_email || ""}</div>
+                            </div>
+                            <span className={`text-xs px-2 py-1 rounded border ${s.present ? "bg-green-600/20 border-green-500/30 text-green-300" : "bg-red-600/20 border-red-500/30 text-red-300"}`}>
+                              {s.present ? "Present" : "Absent"}
+                            </span>
+                          </div>
+                          {s.present && (
+                            <div className="text-blue-400 text-xs mb-3">
+                              <span>Score: {s.score}/{s.total_questions} ({(s.percentage||0).toFixed(1)}%)</span>
+                              <span className="mx-2">•</span>
+                              <span>Time: {formatTime(s.time_taken||0)}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <div className="text-blue-400 text-xs">
+                              {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : ""}
+                            </div>
+                            {s.present ? (
+                              <Button variant="secondary" size="sm" onClick={() => s.result_id ? navigate(`/teacher/test-result/${s.result_id}`) : viewStudentDetailedResult(s.student_id)}>
+                                View Details
+                              </Button>
+                            ) : (
+                              <div className="text-blue-500 text-xs">Not submitted</div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
                     </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <div className="text-blue-400 text-xs">
-                      {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : ""}
-                    </div>
-                    {s.present ? (
-                      <Button variant="secondary" size="sm" onClick={() => s.result_id ? navigate(`/teacher/test-result/${s.result_id}`) : viewStudentDetailedResult(s.student_id)}>
-                        View Details
-                      </Button>
-                    ) : (
-                      <div className="text-blue-500 text-xs">Not submitted</div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+              })()}
             </div>
           )}
 
-          <h2 className="text-xl font-semibold text-blue-200 mt-8 mb-4">Submissions</h2>
-          {filteredResults.length === 0 ? (
+          <h2 className="text-xl font-semibold text-blue-200 mt-8 mb-4">Submissions by Batch</h2>
+          {Object.keys(resultsByBatch).length === 0 ? (
             <div className="text-blue-300">No submissions yet.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-blue-500/30">
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Student</th>
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Email</th>
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Score</th>
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Time Taken</th>
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Submitted</th>
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredResults.map((r, idx) => (
-                    <motion.tr
-                      key={`${r.student_id}-${idx}`}
-                      variants={ANIMATION_VARIANTS.slideUp}
-                      initial="initial"
-                      animate="animate"
-                      transition={{ delay: idx * 0.03 }}
-                      className="border-b border-blue-500/20"
-                    >
-                      <td className="py-3 px-4 text-blue-200">{r.student_name || "Unknown"}</td>
-                      <td className="py-3 px-4 text-blue-300">{r.student_email || ""}</td>
-                      <td className="py-3 px-4">
-                        <span className={`${(r.percentage||0) >= 80 ? "text-green-400" : (r.percentage||0) >= 60 ? "text-yellow-400" : "text-red-400"} font-semibold`}>
-                          {r.score}/{r.total_questions} ({(r.percentage || 0).toFixed(1)}%)
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-blue-300">{formatTime(r.time_taken)}</td>
-                      <td className="py-3 px-4 text-blue-300">{new Date(r.submitted_at).toLocaleString()}</td>
-                      <td className="py-3 px-4">
-                        <Button variant="secondary" size="sm" onClick={() => viewStudentDetailedResult(r.student_id)}>
-                          View Details
-                        </Button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-6">
+              {Object.entries(resultsByBatch).map(([batchId, batchData], batchIndex) => (
+                <motion.div
+                  key={batchId}
+                  variants={ANIMATION_VARIANTS.slideUp}
+                  initial="initial"
+                  animate="animate"
+                  transition={{ delay: batchIndex * 0.1 }}
+                  className="bg-gradient-to-br from-blue-900/10 to-blue-800/10 rounded-lg border border-blue-500/20 p-4"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-blue-200 flex items-center">
+                      <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
+                      {batchData.batch_name}
+                    </h3>
+                    <span className="text-blue-300 text-sm">
+                      {batchData.results.length} submission{batchData.results.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  
+                  {batchData.results.length === 0 ? (
+                    <div className="text-blue-300 text-center py-4">No submissions from this batch yet.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-blue-500/30">
+                            <th className="text-left py-3 px-4 text-blue-300 font-medium">Student</th>
+                            <th className="text-left py-3 px-4 text-blue-300 font-medium">Email</th>
+                            <th className="text-left py-3 px-4 text-blue-300 font-medium">Score</th>
+                            <th className="text-left py-3 px-4 text-blue-300 font-medium">Time Taken</th>
+                            <th className="text-left py-3 px-4 text-blue-300 font-medium">Submitted</th>
+                            <th className="text-left py-3 px-4 text-blue-300 font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {batchData.results.map((r, idx) => (
+                            <motion.tr
+                              key={`${r.student_id}-${idx}`}
+                              variants={ANIMATION_VARIANTS.slideUp}
+                              initial="initial"
+                              animate="animate"
+                              transition={{ delay: (batchIndex * 0.1) + (idx * 0.03) }}
+                              className="border-b border-blue-500/20 hover:bg-blue-900/5"
+                            >
+                              <td className="py-3 px-4 text-blue-200">{r.student_name || "Unknown"}</td>
+                              <td className="py-3 px-4 text-blue-300">{r.student_email || ""}</td>
+                              <td className="py-3 px-4">
+                                <span className={`${(r.percentage||0) >= 80 ? "text-green-400" : (r.percentage||0) >= 60 ? "text-yellow-400" : "text-red-400"} font-semibold`}>
+                                  {r.score}/{r.total_questions} ({(r.percentage || 0).toFixed(1)}%)
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-blue-300">{formatTime(r.time_taken)}</td>
+                              <td className="py-3 px-4 text-blue-300">{new Date(r.submitted_at).toLocaleString()}</td>
+                              <td className="py-3 px-4">
+                                <Button variant="secondary" size="sm" onClick={() => viewStudentDetailedResult(r.student_id)}>
+                                  View Details
+                                </Button>
+                              </td>
+                            </motion.tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
             </div>
           )}
         </Card>

@@ -569,13 +569,12 @@ async def get_detailed_result(
             elif "correct" in question:
                 correct_answer = question["correct"]
             
-            # If correct answer is just a letter (A, B, C, D), find the matching option
+            # If correct answer is just a letter (A, B, C, D), map to the option by index
             if len(correct_answer) == 1 and correct_answer.isalpha():
                 letter = correct_answer.upper()
-                for option in options:
-                    if option.startswith(f"{letter})"):
-                        correct_answer = option
-                        break
+                letter_to_index = {"A": 0, "B": 1, "C": 2, "D": 3}
+                if letter in letter_to_index and letter_to_index[letter] < len(options):
+                    correct_answer = options[letter_to_index[letter]]
             
             # Normalize user answer to text
             user_answer = ""

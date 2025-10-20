@@ -222,11 +222,23 @@ const Results: React.FC<ResultsProps> = ({ }) => {
                                         
                                         // Handle both string and integer correct answers
                                         let correctAnswer = question.answer;
+                                        const options = question.options || [];
+                                        
                                         // Check if answer is a number (index) and convert to option text
                                         if (typeof question.answer === 'number' && question.answer >= 0) {
-                                            const options = question.options || [];
                                             if (question.answer < options.length) {
                                                 correctAnswer = options[question.answer];
+                                            }
+                                        }
+                                        
+                                        // Also check if correct_answer field exists (for teacher assessments)
+                                        if (question.correct_answer !== undefined) {
+                                            if (typeof question.correct_answer === 'number' && question.correct_answer >= 0) {
+                                                if (question.correct_answer < options.length) {
+                                                    correctAnswer = options[question.correct_answer];
+                                                }
+                                            } else {
+                                                correctAnswer = question.correct_answer;
                                             }
                                         }
                                         
