@@ -13,6 +13,8 @@ from .core.config import settings
 from .core.security import security_manager
 from .db import init_db, get_db
 from .api import api_router
+from .utils.error_handler import register_exception_handlers
+from .middleware import LoggingMiddleware, AuditMiddleware, PerformanceMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,19 +48,21 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS middleware - Specific origins for credentials
+# Register exception handlers
+# register_exception_handlers(app)
+
+# Add logging and monitoring middleware
+# app.add_middleware(LoggingMiddleware)
+# app.add_middleware(AuditMiddleware)
+# app.add_middleware(PerformanceMiddleware)
+
+# CORS middleware - Use settings from config
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "https://modlrn.vercel.app",
-        "https://modlrn.onrender.com"
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allow_headers=["authorization", "content-type", "accept", "origin", "x-requested-with"],
+    allow_headers=["authorization", "content-type", "accept", "origin", "x-requested-with"],
     expose_headers=["*"]
 )
 
@@ -68,22 +72,20 @@ async def add_cors_headers(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception as e:
+        # Log the actual error for debugging
+        print(f"CORS Middleware Error: {e}")
+        import traceback
+        traceback.print_exc()
         # If there's an error, create a response with CORS headers
         from fastapi.responses import JSONResponse
         response = JSONResponse(
             status_code=500,
-            content={"detail": "Internal server error"}
+            content={"detail": f"Internal server error: {str(e)}"}
         )
     
     # Get the origin from the request
     origin = request.headers.get("origin")
-    allowed_origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173", 
-        "http://localhost:3000",
-        "https://modlrn.vercel.app",
-        "https://modlrn.onrender.com"
-    ]
+    allowed_origins = settings.cors_origins
     
     # Always set CORS headers, even for errors
     if origin in allowed_origins:
@@ -105,13 +107,7 @@ async def add_cors_headers(request: Request, call_next):
 async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler that ensures CORS headers are set"""
     origin = request.headers.get("origin")
-    allowed_origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173", 
-        "http://localhost:3000",
-        "https://modlrn.vercel.app",
-        "https://modlrn.onrender.com"
-    ]
+    allowed_origins = settings.cors_origins
     
     response = JSONResponse(
         status_code=500,
@@ -137,27 +133,11 @@ app.include_router(api_router)
 
 # Backward compatibility routes (for frontend)
 from .api.auth import router as auth_router
-from .api.users import router as users_router
-from .api.admin import router as admin_router
-from .api.teacher import router as teacher_router
-from .api.assessments import router as assessments_router
-from .api.coding import router as coding_router
-from .api.notifications import router as notifications_router
-from .api.results import router as results_router
-from .api.topics import router as topics_router
 from .api.bulk_students import router as bulk_students_router
 from .api.bulk_teachers import router as bulk_teachers_router
 
 # Include backward compatibility routes (without /api prefix)
 app.include_router(auth_router, prefix="/auth", tags=["Authentication (Legacy)"])
-app.include_router(users_router, prefix="/users", tags=["Users (Legacy)"])
-app.include_router(admin_router, prefix="/admin", tags=["Admin (Legacy)"])
-app.include_router(teacher_router, prefix="/teacher", tags=["Teacher (Legacy)"])
-app.include_router(assessments_router, prefix="/assessments", tags=["Assessments (Legacy)"])
-app.include_router(coding_router, prefix="/coding", tags=["Coding (Legacy)"])
-app.include_router(notifications_router, prefix="/notifications", tags=["Notifications (Legacy)"])
-app.include_router(results_router, prefix="/results", tags=["Results (Legacy)"])
-app.include_router(topics_router, prefix="/topics", tags=["Topics (Legacy)"])
 app.include_router(bulk_students_router, prefix="/bulk-students", tags=["Bulk Students"])
 app.include_router(bulk_teachers_router, prefix="/bulk-teachers", tags=["Bulk Teachers"])
 
@@ -230,13 +210,7 @@ async def get_questions_from_db(
 async def options_handler(path: str, request: Request):
     """Handle CORS preflight requests"""
     origin = request.headers.get("origin")
-    allowed_origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000", 
-        "https://modlrn.vercel.app",
-        "https://modlrn.onrender.com"
-    ]
+    allowed_origins = settings.cors_origins
     
     headers = {
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",

@@ -19,6 +19,9 @@ class GeminiCodingService:
     def __init__(self):
         """Initialize Gemini AI service for coding platform"""
         self.api_key = os.getenv("GEMINI_API_KEY")
+        self.cache = {}  # Simple in-memory cache for recent generations
+        self.cache_max_size = 50  # Limit cache size
+        
         if self.api_key and self.api_key != "your-google-ai-api-key":
             genai.configure(api_key=self.api_key)
             self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
@@ -26,7 +29,7 @@ class GeminiCodingService:
                 "temperature": 0.7,
                 "top_p": 0.8,
                 "top_k": 40,
-                "max_output_tokens": 4096,
+                "max_output_tokens": 2048,  # Reduced for faster generation
             }
             self.available = True
             print("[SUCCESS] [GEMINI_CODING] Gemini AI service initialized successfully")
@@ -34,6 +37,27 @@ class GeminiCodingService:
             self.model = None
             self.available = False
             print("[WARNING] [GEMINI_CODING] Gemini API key not configured, using fallback mode")
+
+    def _get_cache_key(self, topic: str, difficulty: str, count: int = 1) -> str:
+        """Generate cache key for requests"""
+        return f"{topic}_{difficulty}_{count}"
+
+    def _get_from_cache(self, cache_key: str):
+        """Get item from cache if available"""
+        if cache_key in self.cache:
+            print(f"[CACHE] [GEMINI_CODING] Cache hit for {cache_key}")
+            return self.cache[cache_key]
+        return None
+
+    def _add_to_cache(self, cache_key: str, data):
+        """Add item to cache with size limit"""
+        if len(self.cache) >= self.cache_max_size:
+            # Remove oldest item
+            oldest_key = next(iter(self.cache))
+            del self.cache[oldest_key]
+        
+        self.cache[cache_key] = data
+        print(f"[CACHE] [GEMINI_CODING] Cached {cache_key}")
 
     async def generate_mcq_questions(
         self,
@@ -46,35 +70,46 @@ class GeminiCodingService:
         try:
             print(f"🧠 [GEMINI_CODING] Generating {count} {difficulty} MCQ questions for topic: {topic}")
             
+            # Check cache first
+            cache_key = self._get_cache_key(topic, difficulty, count)
+            cached_result = self._get_from_cache(cache_key)
+            if cached_result:
+                return cached_result
+            
             if not self.available:
                 return self._generate_fallback_mcq_questions(topic, difficulty, count)
             
             prompt = f"""
-            Generate {count} high-quality multiple choice questions on the topic: "{topic}"
-            Difficulty level: {difficulty}
+            Generate {count} {difficulty} MCQ questions on {topic}.
             
             Requirements:
-            - Each question should have exactly 4 options (A, B, C, D)
-            - Only one correct answer per question
-            - Include detailed explanations for each answer
-            - Questions should test understanding, not just memorization
-            - Vary question types (conceptual, application, analysis)
-            - Ensure questions are original and educational
+            - 4 options per question (A, B, C, D)
+            - One correct answer
+            - Include explanations
+            - Test understanding, not memorization
             
-            Format the response as a JSON array with this structure:
+            Return ONLY this JSON array:
             [
                 {{
-                    "question": "Question text here?",
+                    "question": "Question text?",
                     "options": ["Option A", "Option B", "Option C", "Option D"],
                     "correct_answer": 0,
-                    "explanation": "Detailed explanation of why this is correct"
+                    "explanation": "Why this is correct"
                 }}
             ]
-            
-            Return only the JSON array, no additional text.
             """
             
-            response = await self.model.generate_content_async(prompt)
+            # Add timeout handling for Gemini API calls
+            import asyncio
+            try:
+                response = await asyncio.wait_for(
+                    self.model.generate_content_async(prompt),
+                    timeout=20.0  # 20 second timeout for MCQ
+                )
+            except asyncio.TimeoutError:
+                print("[TIMEOUT] [GEMINI_CODING] MCQ generation timed out after 20 seconds")
+                return self._generate_fallback_mcq_questions(topic, difficulty, count)
+            
             questions_text = response.text.strip()
             
             # Clean and fix common JSON issues
@@ -113,6 +148,10 @@ class GeminiCodingService:
                     })
             
             print(f"✅ [GEMINI_CODING] Generated {len(validated_questions)} valid MCQ questions")
+            
+            # Cache the result
+            self._add_to_cache(cache_key, validated_questions)
+            
             return validated_questions
             
         except Exception as e:
@@ -208,63 +247,36 @@ class GeminiCodingService:
             avoid_str = ", ".join(avoid_topics) if avoid_topics else "none"
             
             prompt = f"""
-            Generate an original, unique coding problem with the following specifications:
+            Generate a {difficulty} coding problem on {topic} for {user_skill_level} level.
             
-            Topic: {topic}
-            Difficulty: {difficulty}
-            User Skill Level: {user_skill_level}
-            Focus Areas: {focus_str}
-            Avoid Topics: {avoid_str}
-            
-            CRITICAL REQUIREMENTS:
-            1. Return ONLY a valid JSON object with this exact structure:
+            Return ONLY this JSON structure:
             {{
-                "title": "Creative Problem Title",
-                "description": "Detailed problem description with clear requirements",
+                "title": "Problem Title",
+                "description": "Clear problem description",
                 "topic": "{topic}",
                 "difficulty": "{difficulty}",
                 "constraints": ["Constraint 1", "Constraint 2"],
-                "examples": [
-                    {{
-                        "input": "Example input",
-                        "output": "Expected output",
-                        "explanation": "Why this output is correct"
-                    }}
-                ],
-                "test_cases": [
-                    {{
-                        "input": {{"param1": "value1"}},
-                        "output": "expected_result",
-                        "description": "Test case description"
-                    }}
-                ],
-                "hidden_test_cases": [
-                    {{
-                        "input": {{"param1": "value1"}},
-                        "output": "expected_result",
-                        "description": "Hidden test case"
-                    }}
-                ],
-                "expected_complexity": {{
-                    "time": "O(n)",
-                    "space": "O(1)"
-                }},
+                "examples": [{{"input": "example", "output": "result", "explanation": "why"}}],
+                "test_cases": [{{"input": {{"param": "value"}}, "output": "expected"}}],
+                "hidden_test_cases": [{{"input": {{"param": "value"}}, "output": "expected"}}],
+                "expected_complexity": {{"time": "O(n)", "space": "O(1)"}},
                 "hints": ["Hint 1", "Hint 2"],
                 "tags": ["tag1", "tag2"]
             }}
             
-            2. Make the problem original and creative
-            3. Ensure it's appropriate for {difficulty} level
-            4. Include clear, unambiguous requirements
-            5. Provide comprehensive test coverage
-            6. Make it educational and engaging
-            7. DO NOT include any text outside the JSON object
-            8. DO NOT use markdown formatting or code blocks
-            
-            Generate the problem now:
+            Make it original, educational, and appropriate for {difficulty} level.
             """
             
-            response = self.model.generate_content(prompt)
+            # Add timeout handling for Gemini API calls
+            import asyncio
+            try:
+                response = await asyncio.wait_for(
+                    self.model.generate_content_async(prompt),
+                    timeout=25.0  # 25 second timeout
+                )
+            except asyncio.TimeoutError:
+                print("[TIMEOUT] [GEMINI_CODING] Gemini API call timed out after 25 seconds")
+                return self._get_fallback_problem(topic, difficulty)
             
             if not response or not response.text:
                 print("[ERROR] [GEMINI_CODING] No response from Gemini API")
@@ -407,7 +419,7 @@ class GeminiCodingService:
             5. Learning opportunities and growth areas
             """
             
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             
             if not response or not response.text:
                 return self._get_fallback_feedback(code, test_results)
@@ -514,7 +526,7 @@ class GeminiCodingService:
             5. Address identified weaknesses
             """
             
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             
             if not response or not response.text:
                 return self._get_fallback_learning_path()
@@ -1714,7 +1726,7 @@ try {{
             5. Personalized learning suggestions
             """
             
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             
             if not response or not response.text:
                 return self._get_fallback_student_report(performance_data)
@@ -1789,7 +1801,7 @@ try {{
             5. Focus on practical application of concepts
             """
             
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             
             if not response or not response.text:
                 return self._get_fallback_smart_assessment(assessment_data)
@@ -1848,7 +1860,7 @@ try {{
             6. Alignment with learning outcomes
             """
             
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             
             if not response or not response.text:
                 return self._get_fallback_content_audit(content_data)
@@ -2198,7 +2210,7 @@ Important: Return ONLY the JSON array, no other text or formatting."""
     async def _get_existing_questions(self, topic: str, difficulty: str, limit: int = 20) -> List[Dict[str, Any]]:
         """Get existing questions for a topic and difficulty to avoid duplicates"""
         try:
-            from app.db.session import get_db
+            from ..db.session import get_db
             
             db = await get_db()
             
@@ -2246,7 +2258,7 @@ Important: Return ONLY the JSON array, no other text or formatting."""
     async def _store_ai_questions_in_db(self, questions: List[Dict[str, Any]], topic: str, difficulty: str):
         """Store AI-generated questions in the database"""
         try:
-            from app.db.session import get_db
+            from ..db.session import get_db
             from datetime import datetime
             
             db = await get_db()

@@ -584,36 +584,24 @@ async def get_submission(
 
 @router.post("/sessions/start")
 async def start_coding_session(
-    session_data: dict,  # accept flexible payloads from various clients
+    session_data: CodingSessionStart,
     user_id: str = Depends(get_current_user_id)
 ):
     """Start a new coding session"""
     try:
-        # Be flexible with key naming from the client
-        problem_id = (
-            session_data.get("problem_id")
-            or session_data.get("problemId")
-            or session_data.get("problem")
-        )
-        language = session_data.get("language") or session_data.get("lang") or "python"
-
-        if not problem_id:
-            raise HTTPException(status_code=400, detail="problem_id is required")
-
-        print(f"[START] [CODING] User {user_id} starting session for problem: {problem_id} ({language})")
+        print(f"[START] [CODING] User {user_id} starting session for problem: {session_data.problem_id}")
         
         db = await get_db()
         
         # Verify problem exists
-        problem = await db.coding_problems.find_one({"_id": ObjectId(problem_id)})
+        problem = await db.coding_problems.find_one({"_id": ObjectId(session_data.problem_id)})
         if not problem:
             raise HTTPException(status_code=404, detail="Problem not found")
         
         # Create session document
         session_doc = {
             "user_id": ObjectId(user_id),
-            "problem_id": ObjectId(problem_id),
-            "language": language,
+            "problem_id": ObjectId(session_data.problem_id),
             "start_time": datetime.utcnow(),
             "keystrokes": 0,
             "lines_of_code": 0,

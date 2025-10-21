@@ -106,6 +106,7 @@ export interface CodingSolutionResponse {
 
 export interface CodingSessionStart {
   problem_id: string;
+  language: string;
 }
 
 export interface CodingSessionUpdate {

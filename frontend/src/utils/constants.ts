@@ -1,5 +1,20 @@
 // API Configuration
-export const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5001';
+const getApiBaseUrl = () => {
+    const envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
+    if (envUrl) return envUrl;
+    
+    // Check if we're in production (deployed on VM)
+    const isProduction = window.location.hostname === '13.60.212.110' || 
+                        window.location.hostname.includes('13.60.212.110');
+    
+    if (isProduction) {
+        return window.location.origin;
+    }
+    
+    return 'http://localhost:5001';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 // Animation variants for Framer Motion
 export const ANIMATION_VARIANTS = {

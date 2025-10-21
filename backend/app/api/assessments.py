@@ -963,11 +963,7 @@ async def get_student_detailed_results(
                 try:
                     assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
                 except Exception:
-                    # Also try string _id form for seed/test data
-                    assessment = await db.teacher_assessments.find_one({"_id": assessment_id}) or await db.assessments.find_one({"_id": ObjectId(assessment_id)})
-                if not assessment:
-                    # Final fallback: string lookup in regular assessments
-                    assessment = await db.assessments.find_one({"_id": assessment_id})
+                    assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
             
             if assessment:
                 all_results.append({
@@ -1708,31 +1704,25 @@ async def submit_assessment(
                 user_answer = submission.answers[i]
                 correct_answer_index = question.get("correct_answer", -1)
                 correct_answer = ""
-                options = question.get("options", [])
                 
                 # Handle both string and integer correct answers
                 if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
+                    options = question.get("options", [])
                     if correct_answer_index < len(options):
                         correct_answer = options[correct_answer_index]
                 else:
                     correct_answer = question.get("answer", "")
                 
-                # If correct answer is just a letter (A, B, C, D), map to option index
+                # If correct answer is just a letter (A, B, C, D), find the matching option
                 if len(correct_answer) == 1 and correct_answer.isalpha():
                     letter = correct_answer.upper()
-                    letter_to_index = {"A": 0, "B": 1, "C": 2, "D": 3}
-                    if letter in letter_to_index and letter_to_index[letter] < len(options):
-                        correct_answer = options[letter_to_index[letter]]
+                    options = question.get("options", [])
+                    for option in options:
+                        if option.startswith(f"{letter})"):
+                            correct_answer = option
+                            break
                 
-                # Convert user answer to text if it's an index
-                user_answer_text = ""
-                if isinstance(user_answer, int) and 0 <= user_answer < len(options):
-                    user_answer_text = options[user_answer]
-                else:
-                    user_answer_text = str(user_answer)
-                
-                # Compare the text versions
-                if user_answer_text == correct_answer:
+                if user_answer == correct_answer:
                     score += question.get("points", 1)
         
         percentage = (score / sum(q.get("points", 1) for q in questions)) * 100 if questions else 0
@@ -2044,35 +2034,16 @@ async def get_assessment_details(assessment_id: str, user: UserModel = Depends(g
     try:
         db = await get_db()
         
-        # Accept both ObjectId and string IDs used by some seed data
-        assessment = None
-        if ObjectId.is_valid(assessment_id):
-            assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
-        if not assessment:
-            assessment = await db.assessments.find_one({"_id": assessment_id})
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+        
+        assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
         if not assessment:
             raise HTTPException(status_code=404, detail="Assessment not found")
         
-        # Check if user has access to this assessment (teachers can view their own or any if admin)
-        if str(getattr(user, "role", "")).lower() == "teacher":
-            created_by = str(assessment.get("created_by", ""))
-            if created_by and created_by != str(user.id):
-                # Allow viewing even if not creator, but hide questions to avoid leakage
-                return {
-                    "id": str(assessment.get("_id")),
-                    "title": assessment.get("title"),
-                    "topic": assessment.get("topic"),
-                    "difficulty": assessment.get("difficulty"),
-                    "description": assessment.get("description"),
-                    "time_limit": assessment.get("time_limit"),
-                    "max_attempts": assessment.get("max_attempts", 1),
-                    "question_count": len(assessment.get("questions", [])),
-                    "created_by": created_by,
-                    "created_at": (assessment.get("created_at") or datetime.utcnow()).isoformat(),
-                    "status": assessment.get("status", "active"),
-                    "type": assessment.get("type", "mcq"),
-                    "questions": []
-                }
+        # Check if user has access to this assessment
+        if user.role == "teacher" and assessment.get("created_by") != str(user.id):
+            raise HTTPException(status_code=403, detail="You can only view your own assessments")
         
         return {
             "id": str(assessment["_id"]),
@@ -2084,7 +2055,7 @@ async def get_assessment_details(assessment_id: str, user: UserModel = Depends(g
             "max_attempts": assessment.get("max_attempts", 1),
             "question_count": len(assessment.get("questions", [])),
             "created_by": assessment["created_by"],
-            "created_at": (assessment.get("created_at") or datetime.utcnow()).isoformat(),
+            "created_at": assessment["created_at"].isoformat(),
             "status": assessment["status"],
             "type": assessment.get("type", "mcq"),
             "questions": assessment.get("questions", [])  # Include questions in response
@@ -2366,44 +2337,41 @@ async def get_teacher_assessment_details(assessment_id: str, user: UserModel = D
         
         print(f"✅ [TEACHER_ASSESSMENT] Found assessment: {assessment.get('title', 'Untitled')}")
         
-        # If the requester is a teacher/admin, allow access without batch checks
-        if str(getattr(user, "role", "")).lower() not in ["teacher", "admin"]:
-            # Check if student has access (is in one of the assigned batches)
-            # Support both ObjectId and string user IDs in users collection
+        # Check if student has access (is in one of the assigned batches)
+        # Support both ObjectId and string user IDs in users collection
+        student = None
+        try:
+            if ObjectId.is_valid(str(user.id)):
+                student = await db.users.find_one({"_id": ObjectId(str(user.id))})
+        except Exception:
             student = None
-            try:
-                if ObjectId.is_valid(str(user.id)):
-                    student = await db.users.find_one({"_id": ObjectId(str(user.id))})
-            except Exception:
-                student = None
-            if not student:
-                student = await db.users.find_one({"_id": str(user.id)})
-            if not student:
-                print(f"❌ [TEACHER_ASSESSMENT] Student {user.id} not found")
-                raise HTTPException(status_code=403, detail="Access denied")
-
-            # Get student's batches
-            student_batches = await db.batches.find({
-                "student_ids": str(user.id)
-            }).to_list(length=None)
-
-            if not student_batches:
-                print(f"❌ [TEACHER_ASSESSMENT] Student {user.id} is not in any batch")
-                raise HTTPException(status_code=403, detail="Access denied")
-
-            batch_ids = [str(batch["_id"]) for batch in student_batches]
-            assessment_batches = assessment.get("batches", assessment.get("assigned_batches", []))
-
-            # Check if student is in any of the assessment's batches
-            if not any(batch_id in assessment_batches for batch_id in batch_ids):
-                print(f"❌ [TEACHER_ASSESSMENT] Student {user.id} not in assessment batches. Student batches: {batch_ids}, Assessment batches: {assessment_batches}")
-                raise HTTPException(status_code=403, detail="Assessment not assigned to your batch")
+        if not student:
+            student = await db.users.find_one({"_id": str(user.id)})
+        if not student:
+            print(f"❌ [TEACHER_ASSESSMENT] Student {user.id} not found")
+            raise HTTPException(status_code=403, detail="Access denied")
         
-        # Check if assessment is active (skip for teachers/admins so they can review)
-        if str(getattr(user, "role", "")).lower() not in ["teacher", "admin"]:
-            if not assessment.get("is_active", False):
-                print(f"❌ [TEACHER_ASSESSMENT] Assessment {assessment_id} is not active")
-                raise HTTPException(status_code=400, detail="Assessment is not active")
+        # Get student's batches
+        student_batches = await db.batches.find({
+            "student_ids": str(user.id)
+        }).to_list(length=None)
+        
+        if not student_batches:
+            print(f"❌ [TEACHER_ASSESSMENT] Student {user.id} is not in any batch")
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        batch_ids = [str(batch["_id"]) for batch in student_batches]
+        assessment_batches = assessment.get("batches", assessment.get("assigned_batches", []))
+        
+        # Check if student is in any of the assessment's batches
+        if not any(batch_id in assessment_batches for batch_id in batch_ids):
+            print(f"❌ [TEACHER_ASSESSMENT] Student {user.id} not in assessment batches. Student batches: {batch_ids}, Assessment batches: {assessment_batches}")
+            raise HTTPException(status_code=403, detail="Assessment not assigned to your batch")
+        
+        # Check if assessment is active
+        if not assessment.get("is_active", False):
+            print(f"❌ [TEACHER_ASSESSMENT] Assessment {assessment_id} is not active")
+            raise HTTPException(status_code=400, detail="Assessment is not active")
         
         # Check if student has already submitted this assessment
         if "teacher_assessment_results" in collections:
@@ -2490,12 +2458,13 @@ async def submit_teacher_assessment(
                 else:
                     correct_answer = question.get("answer", "")
                 
-                # If correct answer is just a letter (A, B, C, D), map to option index
+                # If correct answer is just a letter (A, B, C, D), find the matching option
                 if len(correct_answer) == 1 and correct_answer.isalpha():
                     letter = correct_answer.upper()
-                    letter_to_index = {"A": 0, "B": 1, "C": 2, "D": 3}
-                    if letter in letter_to_index and letter_to_index[letter] < len(options):
-                        correct_answer = options[letter_to_index[letter]]
+                    for option in options:
+                        if option.startswith(f"{letter})"):
+                            correct_answer = option
+                            break
                 
                 # Convert user answer to text if it's an index
                 if isinstance(user_answer, int) and 0 <= user_answer < len(options):
@@ -2676,7 +2645,7 @@ async def get_assessment_results(assessment_id: str, user: UserModel = Depends(r
                 "total_questions": sub.get("total_questions", 0)
             })
 
-        # Attach student details and batch information
+        # Attach student details
         results = []
         for sub in all_submissions:
             student = None
@@ -2690,36 +2659,6 @@ async def get_assessment_results(assessment_id: str, user: UserModel = Depends(r
             if not student and sid:
                 student = await db.users.find_one({"_id": str(sid)})
 
-            # Get student's batch information
-            batch_info = None
-            if student:
-                # First try to get batch info from student's batch_id field
-                student_batch_id = student.get("batch_id")
-                
-                if student_batch_id:
-                    try:
-                        batch = await db.batches.find_one({"_id": ObjectId(str(student_batch_id))})
-                        if batch:
-                            batch_info = {
-                                "batch_id": str(batch.get("_id")),
-                                "batch_name": batch.get("name", batch.get("batch_name", "Unknown Batch"))
-                            }
-                    except Exception:
-                        pass
-                
-                # If not found via batch_id, try finding via student_ids array
-                if not batch_info:
-                    student_batches = await db.batches.find({
-                        "student_ids": str(student.get("_id"))
-                    }).to_list(length=None)
-                    
-                    if student_batches:
-                        batch = student_batches[0]  # Take the first batch
-                        batch_info = {
-                            "batch_id": str(batch.get("_id")),
-                            "batch_name": batch.get("name", batch.get("batch_name", "Unknown Batch"))
-                        }
-
             results.append({
                 "student_id": str(student.get("_id", sid)) if student else str(sid),
                 "student_name": student.get("name") or student.get("username") if student else "Unknown",
@@ -2728,8 +2667,7 @@ async def get_assessment_results(assessment_id: str, user: UserModel = Depends(r
                 "percentage": sub.get("percentage", 0),
                 "time_taken": sub.get("time_taken", 0),
                 "submitted_at": (sub.get("submitted_at") or datetime.utcnow()).isoformat(),
-                "total_questions": sub.get("total_questions", 0),
-                "batch_info": batch_info
+                "total_questions": sub.get("total_questions", 0)
             })
 
         # Sort by submitted_at desc
@@ -2853,64 +2791,16 @@ async def get_assigned_students(assessment_id: str, user: UserModel = Depends(re
                     "submitted_at": sub.get("submitted_at")
                 }
 
-        # Get batch information for each student
-        batch_info_map = {}
-        for batch_id in batch_ids:
-            try:
-                batch = await db.batches.find_one({"_id": ObjectId(batch_id)})
-                if batch:
-                    batch_info_map[batch_id] = {
-                        "batch_id": str(batch["_id"]),
-                        "batch_name": batch.get("name", batch.get("batch_name", "Unknown Batch"))
-                    }
-            except Exception:
-                batch_info_map[batch_id] = {
-                    "batch_id": batch_id,
-                    "batch_name": "Unknown Batch"
-                }
-
         # Construct response
         response = []
         for sid in sorted(student_ids):
             student = students.get(sid)
             sub = submissions_by_student.get(sid)
-            
-            # Find which batch this student belongs to
-            student_batch_info = None
-            if student:
-                # First try to get batch info from student's batch_id field
-                student_batch_id = student.get("batch_id")
-                if student_batch_id:
-                    try:
-                        batch = await db.batches.find_one({"_id": ObjectId(str(student_batch_id))})
-                        if batch:
-                            student_batch_info = {
-                                "batch_id": str(batch.get("_id")),
-                                "batch_name": batch.get("name", batch.get("batch_name", "Unknown Batch"))
-                            }
-                    except Exception:
-                        pass
-                
-                # If not found via batch_id, try finding via student_ids array
-                if not student_batch_info:
-                    student_batches = await db.batches.find({
-                        "student_ids": str(student.get("_id"))
-                    }).to_list(length=None)
-                    
-                    if student_batches:
-                        batch = student_batches[0]  # Take the first batch
-                        student_batch_info = {
-                            "batch_id": str(batch.get("_id")),
-                            "batch_name": batch.get("name", batch.get("batch_name", "Unknown Batch"))
-                        }
-            
             item = {
                 "student_id": sid,
                 "student_name": (student.get("name") or student.get("username") or "Unknown") if student else "Unknown",
                 "student_email": (student.get("email") or "") if student else "",
                 "assigned_via_batches": batch_ids,
-                "batch_id": student_batch_info.get("batch_id") if student_batch_info else None,
-                "batch_name": student_batch_info.get("batch_name") if student_batch_info else "No Batch Assigned",
                 "submitted": sub is not None,
                 "result_id": sub.get("result_id") if sub else None,
                 "score": sub.get("score") if sub else None,
@@ -3113,12 +3003,13 @@ async def submit_assessment_answers(
                 else:
                     correct_answer = question.get("answer", "")
                 
-                # If correct answer is just a letter (A, B, C, D), map to option index
+                # If correct answer is just a letter (A, B, C, D), find the matching option
                 if len(correct_answer) == 1 and correct_answer.isalpha():
                     letter = correct_answer.upper()
-                    letter_to_index = {"A": 0, "B": 1, "C": 2, "D": 3}
-                    if letter in letter_to_index and letter_to_index[letter] < len(options):
-                        correct_answer = options[letter_to_index[letter]]
+                    for option in options:
+                        if option.startswith(f"{letter})"):
+                            correct_answer = option
+                            break
                 
                 # Convert user answer to text if it's an index
                 if isinstance(user_answer, int) and 0 <= user_answer < len(options):

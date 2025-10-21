@@ -9,6 +9,17 @@ const getApiBaseUrl = () => {
         return envUrl;
     }
     
+    // Check if we're in production (deployed on VM)
+    const isProduction = window.location.hostname === '13.60.212.110' || 
+                        window.location.hostname.includes('13.60.212.110');
+    
+    if (isProduction) {
+        // Use relative path for production deployment
+        const baseUrl = window.location.origin;
+        console.log('🌐 [API] Using production relative URL:', baseUrl);
+        return baseUrl;
+    }
+    
     // Default to local development URL
     const localUrl = 'http://localhost:5001';
     console.log('🌐 [API] Using default local API URL:', localUrl);
@@ -22,7 +33,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 30000, // 30 second timeout - increased from 10 seconds
+    timeout: 60000, // 60 second timeout - increased for AI generation
 });
 
 // Request interceptor to add auth token

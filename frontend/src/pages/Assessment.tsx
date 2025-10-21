@@ -234,11 +234,11 @@ const Assessment: React.FC = () => {
       console.log("📊 [ASSESSMENT] Questions:", assessment?.questions.length)
       
       assessment?.questions.forEach((question, index) => {
-        const userAnswerIndex = answers[index]
-        const correctAnswerIndex = question.correct_answer
-        const isCorrect = userAnswerIndex === correctAnswerIndex
+        const userAnswer = answers[index]
+        const correctAnswer = question.correct_answer
+        const isCorrect = userAnswer === correctAnswer
         
-        console.log(`📊 [ASSESSMENT] Question ${index + 1}: UserIndex=${userAnswerIndex}, CorrectIndex=${correctAnswerIndex}, IsCorrect=${isCorrect}`)
+        console.log(`📊 [ASSESSMENT] Question ${index + 1}: User=${userAnswer}, Correct=${correctAnswer}, IsCorrect=${isCorrect}`)
         
         if (isCorrect) {
           score++
@@ -291,7 +291,7 @@ const Assessment: React.FC = () => {
           })) || [],
           user_answers: answers.map((answerIndex, questionIndex) => {
             const question = assessment?.questions[questionIndex]
-            const userAnswerText = answerIndex >= 0 && question?.options && answerIndex < question.options.length
+            const userAnswerText = answerIndex >= 0 && question?.options[answerIndex] 
               ? question.options[answerIndex] 
               : ''
             
@@ -315,7 +315,7 @@ const Assessment: React.FC = () => {
         // Map user answers properly
         const mappedUserAnswers = answers.map((answerIndex, questionIndex) => {
           const question = assessment?.questions[questionIndex]
-          const userAnswerText = answerIndex >= 0 && question?.options && answerIndex < question.options.length
+          const userAnswerText = answerIndex >= 0 && question?.options[answerIndex] 
             ? question.options[answerIndex] 
             : ''
           

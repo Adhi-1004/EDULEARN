@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useToast } from "../contexts/ToastContext"
 import { useAuth } from "../hooks/useAuth"
@@ -12,9 +11,14 @@ import Input from "../components/ui/Input"
 import AnimatedBackground from "../components/AnimatedBackground"
 import Leaderboard from "../components/Leaderboard"
 import CodingQuestionForm from "../components/CodingQuestionForm"
-// import SmartAssessmentCreator from "../components/teacher/SmartAssessmentCreator"
 import api from "../utils/api"
 import { ANIMATION_VARIANTS } from "../utils/constants"
+import {
+  AssessmentForm,
+  BatchSelector,
+  QuestionManager,
+  AssessmentHistory,
+} from "../components/teacher/assessment-management"
 
 interface Batch {
   id: string
@@ -27,7 +31,6 @@ interface Batch {
 const AssessmentManagement: React.FC = () => {
   const { user } = useAuth()
   const { success, error: showError } = useToast()
-  const navigate = useNavigate()
   
   const [batches, setBatches] = useState<Batch[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,7 +56,6 @@ const AssessmentManagement: React.FC = () => {
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [selectedAssessmentForLeaderboard] = useState<string | null>("demo-assessment")
   const [showAssessmentResults, setShowAssessmentResults] = useState(false)
-  const [showAssessmentSelection, setShowAssessmentSelection] = useState(false)
   const [assessmentResults] = useState<any[]>([])
   const [teacherAssessments, setTeacherAssessments] = useState<any[]>([])
   const [upcomingAssessments, setUpcomingAssessments] = useState<any[]>([])
@@ -388,76 +390,21 @@ const AssessmentManagement: React.FC = () => {
               </p>
             </motion.div>
 
-            {/* Assessment Creation Tools */}
-            <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
-              <Card className="p-6">
-                <h2 className="text-2xl font-bold text-blue-200 mb-6">Assessment Creation Tools</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
-                    <h3 className="text-lg font-semibold text-blue-200 mb-2">AI-Generated Assessment</h3>
-                    <p className="text-blue-300 text-sm mb-4">Use AI to generate MCQ assessments automatically</p>
-                    <Button variant="primary" size="sm" className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600" onClick={handleAIGenerate}>
-                      AI Generate
-                    </Button>
-                  </div>
-                  <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
-                    <h3 className="text-lg font-semibold text-blue-200 mb-2">Custom MCQ Assessment</h3>
-                    <p className="text-blue-300 text-sm mb-4">Create MCQ'S manually</p>
-                    <Button variant="primary" size="sm" className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600" onClick={handleCreateMCQ}>
-                      Create MCQ
-                    </Button>
-                  </div>
-                  <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
-                    <h3 className="text-lg font-semibold text-blue-200 mb-2">Coding Challenges</h3>
-                    <p className="text-blue-300 text-sm mb-4">Create programming challenges and exercises</p>
-                    <Button variant="primary" size="sm" className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600" onClick={handleCreateChallenge}>
-                      Create Challenge
-                    </Button>
-                  </div>
-                  <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
-                    <h3 className="text-lg font-semibold text-blue-200 mb-2">Assessment Results</h3>
-                    <p className="text-blue-300 text-sm mb-4">View and analyze student performance</p>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-                      onClick={() => setShowAssessmentSelection(true)}
-                    >
-                      View Results
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
+            {/* Assessment History */}
+            <AssessmentHistory 
+              recentAssessments={recentAssessments}
+              upcomingAssessments={upcomingAssessments}
+            />
 
-          {/* Recent Tests */}
-          <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
-            <div className="grid grid-cols-1 gap-4">
-              <Card className="p-6">
-                <h2 className="text-2xl font-bold text-blue-200 mb-4">Recent Tests</h2>
-                {recentAssessments.length === 0 ? (
-                  <div className="text-blue-300">No recent tests.</div>
-                ) : (
-                  <div className="space-y-3">
-                    {recentAssessments.map((a: any) => (
-                      <div key={a.id} className="p-3 bg-blue-900/20 rounded-lg border border-blue-500/30 flex items-center justify-between">
-                        <div>
-                          <div className="text-blue-200 font-semibold">{a.title}</div>
-                          <div className="text-blue-300 text-sm">{a.topic || a.subject} • {a.difficulty}</div>
-                        </div>
-                        <Button variant="secondary" size="sm" onClick={() => navigate(`/teacher/assessment/${a.id}/results`)}>View</Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="mt-4">
-                  <Button variant="primary" size="sm" className="w-full" onClick={() => navigate('/teacher/assessment-history')}>
-                    View all history
-                  </Button>
-                </div>
-              </Card>
-            </div>
-          </motion.div>
+
+            {/* Assessment Creation Form */}
+            <AssessmentForm
+              batches={batches}
+              onCreateMCQ={handleCreateMCQ}
+              onCreateChallenge={handleCreateChallenge}
+              onAIGenerate={handleAIGenerate}
+              onCreateCoding={() => setShowCodingQuestionForm(true)}
+            />
 
             {/* Assessment Creation Forms */}
             {(showMCQForm || showChallengeForm || showAIGenerateForm) && (
@@ -940,71 +887,41 @@ const AssessmentManagement: React.FC = () => {
               />
             )}
 
-            {/* Assessment Selection Modal */}
-            {showAssessmentSelection && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
-                onClick={() => setShowAssessmentSelection(false)}
-              >
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-black/20 backdrop-blur-md border border-blue-500/30 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-blue-200">Select Assessment to View Results</h2>
-                    <Button variant="primary" size="sm" onClick={() => setShowAssessmentSelection(false)}>
-                      Close
-                    </Button>
-                  </div>
-                  
-                  {recentAssessments.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-blue-300 mb-4">No assessments found.</p>
-                      <Button 
-                        variant="primary" 
-                        onClick={() => {
-                          setShowAssessmentSelection(false);
-                          navigate('/teacher/assessment-history');
-                        }}
-                      >
-                        View Assessment History
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {recentAssessments.map((assessment: any) => (
-                        <div
-                          key={assessment.id}
-                          className="p-4 bg-blue-900/20 rounded-lg border border-blue-500/30 hover:bg-blue-900/30 transition-colors cursor-pointer"
-                          onClick={() => {
-                            setShowAssessmentSelection(false);
-                            navigate(`/teacher/assessment/${assessment.id}/results`);
-                          }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="text-lg font-semibold text-blue-200">{assessment.title}</h3>
-                              <p className="text-blue-300 text-sm">
-                                {assessment.topic || assessment.subject} • {assessment.difficulty}
-                              </p>
-                            </div>
-                            <Button variant="secondary" size="sm">
-                              View Results
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              </motion.div>
-            )}
+            {/* Batch Selector Modal */}
+            <BatchSelector
+              batches={batches}
+              selectedBatches={selectedBatches}
+              onBatchSelectionChange={setSelectedBatches}
+              searchTerm={batchSelectionSearchTerm}
+              onSearchChange={setBatchSelectionSearchTerm}
+              onConfirm={() => {
+                // Handle batch selection confirmation
+                console.log("Selected batches:", selectedBatches)
+              }}
+              onCancel={() => {
+                setSelectedBatches([])
+                setBatchSelectionSearchTerm("")
+              }}
+              isOpen={false} // This will be controlled by the parent component
+            />
+
+            {/* Question Manager Modal */}
+            <QuestionManager
+              questions={questions}
+              onQuestionsChange={setQuestions}
+              onSaveAssessment={() => {
+                // Handle saving assessment with questions
+                console.log("Saving assessment with questions:", questions)
+              }}
+              onCancel={() => {
+                setQuestions([])
+                setShowQuestionForm(false)
+              }}
+              isOpen={showQuestionForm}
+              assessmentTitle={assessmentTitle}
+              assessmentTopic={assessmentTopic}
+              assessmentDifficulty={assessmentDifficulty}
+            />
 
             {/* Smart Assessment Creator - Commented Out */}
             {/* 

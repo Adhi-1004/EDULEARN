@@ -1,9 +1,15 @@
 """
-Services package initialization
-Contains business logic services
+Services Module
+Centralized business logic and shared services
 """
-from .code_execution_service import CodeExecutionService
-from .gemini_coding_service import GeminiCodingService
-from .judge0_execution_service import Judge0ExecutionService
+from .notification_service import notification_service
+from .assessment_service import assessment_service
+from .batch_service import batch_service
+from .validation_service import validation_service
 
-__all__ = ["CodeExecutionService", "GeminiCodingService", "Judge0ExecutionService"]
+__all__ = [
+    "notification_service",
+    "assessment_service", 
+    "batch_service",
+    "validation_service"
+]

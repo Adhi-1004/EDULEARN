@@ -110,6 +110,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
     try {
       const response = await api.post("/api/coding/sessions/start", {
         problem_id: problemId,
+        language: language,
       })
 
       if (response.data.success) {

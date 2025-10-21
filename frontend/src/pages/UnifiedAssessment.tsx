@@ -163,7 +163,9 @@ const UnifiedAssessment: React.FC = () => {
         throw new Error("Question count must be between 1 and 50")
       }
 
-      const response = await api.post("/api/topics/", mcqConfig)
+      const response = await api.post("/api/topics/", mcqConfig, {
+        timeout: 60000, // 60 second timeout for MCQ generation
+      })
 
       console.log("📥 Server response:", response.data)
 
@@ -193,7 +195,10 @@ const UnifiedAssessment: React.FC = () => {
       })
 
       let errorMessage = "Failed to start MCQ assessment. Please try again."
-      if (error.response?.data?.detail) {
+      
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = "Request timed out. The AI is taking longer than expected to generate questions. Please try again with a simpler topic or try again later."
+      } else if (error.response?.data?.detail) {
         errorMessage = error.response.data.detail
       } else if (error.message) {
         errorMessage = error.message
@@ -220,6 +225,8 @@ const UnifiedAssessment: React.FC = () => {
 
     setCodingLoading(true)
     try {
+      console.log("🚀 [CODING] Starting problem generation...")
+      
       const response = await api.post("/api/coding/problems/generate", {
         topic: selectedTopic,
         difficulty: selectedDifficulty,
@@ -229,6 +236,8 @@ const UnifiedAssessment: React.FC = () => {
         timestamp: Date.now(),
         user_id: user?.id,
         session_id: Math.random().toString(36).substring(7),
+      }, {
+        timeout: 60000, // 60 second timeout for this specific request
       })
 
       if (response.data.success) {
@@ -237,9 +246,18 @@ const UnifiedAssessment: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Error generating coding problem:", error)
-      const errorMessage =
-        error.response?.data?.detail || error.message || "Failed to generate problem. Please try again."
-      showError(errorMessage)
+      
+      let errorMessage = "Failed to generate problem. Please try again."
+      
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = "Request timed out. The AI is taking longer than expected. Please try again with a simpler topic or try again later."
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      showError("Problem Generation Failed", errorMessage)
     } finally {
       setCodingLoading(false)
     }
@@ -512,7 +530,7 @@ const UnifiedAssessment: React.FC = () => {
                     isLoading={mcqSubmitting}
                     disabled={mcqSubmitting || !mcqConfig.topic.trim()}
                   >
-                    {mcqSubmitting ? "Starting MCQ Assessment..." : "Start MCQ Assessment"}
+                    {mcqSubmitting ? "AI Generating Questions..." : "Start MCQ Assessment"}
                   </Button>
                 </motion.div>
               </form>
@@ -700,7 +718,7 @@ const UnifiedAssessment: React.FC = () => {
                         {codingLoading ? (
                           <>
                             <LoadingSpinner size="sm" />
-                            <span className="ml-2">Generating...</span>
+                            <span className="ml-2">AI Generating Problem...</span>
                           </>
                         ) : (
                           "🚀 Generate Problem"
