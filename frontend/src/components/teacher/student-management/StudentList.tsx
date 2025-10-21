@@ -103,7 +103,7 @@ const StudentList: React.FC<StudentListProps> = ({
                 onChange={(e) => onBatchChange(e.target.value)}
                 className="px-3 py-2 bg-blue-900/50 border border-blue-500/30 rounded-lg text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="all">All Students</option>
+                <option key="all" value="all">All Students</option>
                 {batches.map(batch => (
                   <option key={batch.id} value={batch.id}>
                     {batch.name} ({batch.studentCount})

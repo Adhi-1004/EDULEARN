@@ -6,12 +6,19 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from bson import ObjectId
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from ...db import get_db
 from ...dependencies import require_teacher_or_admin
 from ...models.models import UserModel
+import re
 
 router = APIRouter(prefix="/teacher", tags=["teacher-students"])
+
+# Helper function for email validation
+def validate_email(email: str) -> bool:
+    """Validate email format"""
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(email_pattern, email) is not None
 
 # Student Response Models
 class StudentAddRequest(BaseModel):
@@ -31,6 +38,17 @@ class StudentRemoveRequest(BaseModel):
 class StudentRemoveResponse(BaseModel):
     success: bool
     message: str
+
+class BulkAssignRequest(BaseModel):
+    student_ids: List[str]
+    batch_id: str
+
+class BulkAssignResponse(BaseModel):
+    success: bool
+    message: str
+    assigned_count: int
+    failed_count: int
+    failed_students: List[str]
 
 class StudentPerformanceResponse(BaseModel):
     id: str
@@ -203,6 +221,13 @@ async def add_student_to_batch(
         db = await get_db()
         
         print(f"[DEBUG] [TEACHER] Adding student {student_data.email} to batch {student_data.batch_id}")
+        
+        # Validate email format
+        if not validate_email(student_data.email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid email format"
+            )
         
         # Convert batch_id to ObjectId for MongoDB query
         try:
@@ -403,6 +428,130 @@ async def remove_student_from_batch(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to remove student from batch: {str(e)}"
+        )
+
+@router.post("/students/assign-batch", response_model=BulkAssignResponse)
+async def assign_students_to_batch(
+    assignment_data: BulkAssignRequest,
+    current_user: UserModel = Depends(require_teacher_or_admin)
+):
+    """Assign multiple students to a batch"""
+    try:
+        db = await get_db()
+        
+        print(f"[DEBUG] [TEACHER] Bulk assigning {len(assignment_data.student_ids)} students to batch {assignment_data.batch_id}")
+        
+        # Convert batch_id to ObjectId
+        try:
+            batch_object_id = ObjectId(assignment_data.batch_id)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid batch ID format"
+            )
+        
+        # Check if batch exists and belongs to teacher
+        batch = await db.batches.find_one({
+            "_id": batch_object_id,
+            "teacher_id": current_user.id
+        })
+        
+        if not batch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Batch not found or you don't have permission to assign students to this batch"
+            )
+        
+        assigned_count = 0
+        failed_count = 0
+        failed_students = []
+        
+        # Process each student
+        for student_id in assignment_data.student_ids:
+            try:
+                # Convert student_id to ObjectId
+                try:
+                    student_object_id = ObjectId(student_id)
+                except:
+                    failed_count += 1
+                    failed_students.append(f"{student_id} (invalid ID)")
+                    continue
+                
+                # Get student
+                student = await db.users.find_one({
+                    "_id": student_object_id,
+                    "role": "student"
+                })
+                
+                if not student:
+                    failed_count += 1
+                    failed_students.append(f"{student_id} (not found)")
+                    continue
+                
+                # Update student's batch
+                await db.users.update_one(
+                    {"_id": student_object_id},
+                    {
+                        "$set": {
+                            "batch_id": batch_object_id,
+                            "batch_name": batch["name"],
+                            "updated_at": datetime.utcnow()
+                        }
+                    }
+                )
+                
+                # Add student to batch's student_ids array (if not already present)
+                await db.batches.update_one(
+                    {"_id": batch_object_id},
+                    {"$addToSet": {"student_ids": student_id}}
+                )
+                
+                # Create notification for the student
+                notification = {
+                    "user_id": student_object_id,
+                    "type": "batch_assignment",
+                    "title": f"Added to Batch: {batch['name']}",
+                    "message": f"You have been added to batch '{batch['name']}' by {current_user.username or 'your teacher'}. Welcome to the class!",
+                    "batch_id": batch_object_id,
+                    "teacher_id": ObjectId(current_user.id),
+                    "created_at": datetime.utcnow(),
+                    "is_read": False,
+                    "priority": "normal"
+                }
+                await db.notifications.insert_one(notification)
+                
+                assigned_count += 1
+                print(f"[SUCCESS] [TEACHER] Assigned student {student.get('email', student_id)} to batch '{batch['name']}'")
+                
+            except Exception as e:
+                failed_count += 1
+                failed_students.append(f"{student_id} (error: {str(e)})")
+                print(f"[ERROR] [TEACHER] Failed to assign student {student_id}: {str(e)}")
+                continue
+        
+        message = f"Successfully assigned {assigned_count} student(s) to batch '{batch['name']}'"
+        if failed_count > 0:
+            message += f". {failed_count} student(s) failed."
+        
+        print(f"[SUCCESS] [TEACHER] Bulk assignment complete: {assigned_count} success, {failed_count} failed")
+        
+        return BulkAssignResponse(
+            success=True,
+            message=message,
+            assigned_count=assigned_count,
+            failed_count=failed_count,
+            failed_students=failed_students
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] [TEACHER] Error in bulk assignment: {str(e)}")
+        import traceback
+        print(f"[ERROR] [TEACHER] Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to assign students to batch: {str(e)}"
         )
 
 @router.get("/students/{student_id}/detailed-report")

@@ -8,6 +8,8 @@ import Card from "../../ui/Card"
 import Button from "../../ui/Button"
 import Input from "../../ui/Input"
 import { ANIMATION_VARIANTS } from "../../../utils/constants"
+import api from "../../../utils/api"
+import { useToast } from "../../../contexts/ToastContext"
 
 interface Student {
   id: string
@@ -41,9 +43,11 @@ const BatchAssignmentModal: React.FC<BatchAssignmentModalProps> = ({
   batches,
   onAssignStudents
 }) => {
+  const { success, error: showError } = useToast()
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [targetBatchId, setTargetBatchId] = useState<string>("")
   const [searchTerm, setSearchTerm] = useState("")
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!isOpen) {
@@ -74,10 +78,50 @@ const BatchAssignmentModal: React.FC<BatchAssignmentModalProps> = ({
     }
   }
 
-  const handleAssign = () => {
-    if (selectedStudents.length > 0 && targetBatchId) {
+  const handleAssign = async () => {
+    if (selectedStudents.length === 0) {
+      showError("No Students Selected", "Please select at least one student")
+      return
+    }
+    if (!targetBatchId) {
+      showError("No Batch Selected", "Please select a target batch")
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await api.post("/api/teacher/students/assign-batch", {
+        student_ids: selectedStudents,
+        batch_id: targetBatchId
+      })
+
+      const data = response.data
+      
+      if (data.assigned_count > 0) {
+        success(
+          "Assignment Successful",
+          `Successfully assigned ${data.assigned_count} student(s) to batch`
+        )
+      }
+
+      if (data.failed_count > 0) {
+        showError(
+          "Partial Failure",
+          `${data.failed_count} student(s) could not be assigned`
+        )
+      }
+
+      // Call the parent callback to refresh the data
       onAssignStudents(selectedStudents, targetBatchId)
       onClose()
+    } catch (err: any) {
+      console.error("Failed to assign students:", err)
+      showError(
+        "Assignment Failed",
+        err.response?.data?.detail || "Failed to assign students to batch"
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -220,15 +264,15 @@ const BatchAssignmentModal: React.FC<BatchAssignmentModalProps> = ({
 
           {/* Actions */}
           <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-blue-500/30">
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
             <Button
               variant="primary"
               onClick={handleAssign}
-              disabled={selectedStudents.length === 0 || !targetBatchId}
+              disabled={selectedStudents.length === 0 || !targetBatchId || loading}
             >
-              Assign Students
+              {loading ? "Assigning..." : "Assign Students"}
             </Button>
           </div>
         </Card>

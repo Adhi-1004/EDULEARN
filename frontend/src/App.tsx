@@ -20,6 +20,8 @@ import Login from "./pages/Login"
 import Signup from "./pages/Signup"
 import UserProfile from "./pages/UserProfile"
 import Settings from "./pages/Settings"
+import TeacherProfile from "./pages/TeacherProfile"
+import TeacherSettings from "./pages/TeacherSettings"
 import CodingPlatform from "./pages/CodingPlatform"
 import CodingProblemPage from "./pages/CodingProblem"
 import UnifiedAssessment from "./pages/UnifiedAssessment"
@@ -29,6 +31,8 @@ import TeacherAssessmentResults from "./pages/TeacherAssessmentResults"
 import TeacherAssessmentHistory from "./pages/TeacherAssessmentHistory"
 import StudentManagement from "./pages/StudentManagement"
 import AssessmentManagement from "./pages/AssessmentManagement"
+import CreateAssessment from "./pages/CreateAssessment"
+import BatchAnalytics from "./pages/BatchAnalytics"
 import EnhancedAdminDashboard from "./components/admin/EnhancedAdminDashboard"
 import TestPage from "./pages/TestPage"
 
@@ -134,6 +138,22 @@ const AppRouter: React.FC<{ user: any; setUser: any; logout: any }> = ({ user, s
                   }
                 />
                 <Route
+                  path="/teacher/create-assessment"
+                  element={
+                    <ProtectedRoute allowedRoles={["teacher"]}>
+                      <CreateAssessment />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teacher/batch-analytics"
+                  element={
+                    <ProtectedRoute allowedRoles={["teacher"]}>
+                      <BatchAnalytics />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/teacher/results-dashboard"
                   element={
                     <ProtectedRoute allowedRoles={["teacher"]}>
@@ -225,7 +245,11 @@ const AppRouter: React.FC<{ user: any; setUser: any; logout: any }> = ({ user, s
                   path="/profile"
                   element={
                     <ProtectedRoute allowedRoles={["student", "teacher", "admin"]}>
-                      {user && <UserProfile user={user} />}
+                      {user && user.role === "teacher" ? (
+                        <TeacherProfile />
+                      ) : (
+                        <UserProfile user={user} />
+                      )}
                     </ProtectedRoute>
                   }
                 />
@@ -233,7 +257,11 @@ const AppRouter: React.FC<{ user: any; setUser: any; logout: any }> = ({ user, s
                   path="/settings"
                   element={
                     <ProtectedRoute allowedRoles={["student", "teacher", "admin"]}>
-                      {user && <Settings user={user} />}
+                      {user && user.role === "teacher" ? (
+                        <TeacherSettings />
+                      ) : (
+                        <Settings user={user} />
+                      )}
                     </ProtectedRoute>
                   }
                 />

@@ -86,13 +86,39 @@ async def create_batch(
         print(f"[DEBUG] [TEACHER] Creating batch: {batch_data.name}")
         print(f"[DEBUG] [TEACHER] Teacher ID: {current_user.id}")
         
+        # Validation
+        if not batch_data.name or not batch_data.name.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Batch name cannot be empty"
+            )
+        
+        if len(batch_data.name) > 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Batch name must be less than 100 characters"
+            )
+        
+        # Check for duplicate batch name for this teacher
+        existing_batch = await db.batches.find_one({
+            "name": batch_data.name.strip(),
+            "teacher_id": current_user.id
+        })
+        
+        if existing_batch:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"You already have a batch named '{batch_data.name}'"
+            )
+        
         # Create batch document
         batch_doc = {
-            "name": batch_data.name,
-            "description": batch_data.description,
+            "name": batch_data.name.strip(),
+            "description": batch_data.description.strip() if batch_data.description else "",
             "teacher_id": current_user.id,
             "created_at": datetime.utcnow(),
-            "status": "active"
+            "status": "active",
+            "student_ids": []
         }
         
         print(f"[DEBUG] [TEACHER] Batch document: {batch_doc}")
@@ -109,6 +135,8 @@ async def create_batch(
             message=f"Batch '{batch_data.name}' created successfully"
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[ERROR] [TEACHER] Error creating batch: {str(e)}")
         import traceback
@@ -116,6 +144,79 @@ async def create_batch(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create batch: {str(e)}"
+        )
+
+@router.put("/batches/{batch_id}")
+async def update_batch(
+    batch_id: str,
+    batch_data: BatchCreateRequest,
+    current_user: UserModel = Depends(require_teacher_or_admin)
+):
+    """Update a batch"""
+    try:
+        db = await get_db()
+        
+        print(f"[DEBUG] [TEACHER] Updating batch: {batch_id}")
+        
+        # Convert batch_id to ObjectId for MongoDB query
+        try:
+            batch_object_id = ObjectId(batch_id)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid batch ID format"
+            )
+        
+        # Check if batch exists and belongs to teacher
+        batch = await db.batches.find_one({
+            "_id": batch_object_id,
+            "teacher_id": current_user.id
+        })
+        
+        if not batch:
+            print(f"[ERROR] [TEACHER] Batch {batch_id} not found or not owned by teacher {current_user.id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Batch not found or you don't have permission to update this batch"
+            )
+        
+        print(f"[SUCCESS] [TEACHER] Found batch: {batch['name']}")
+        
+        # Update batch
+        update_data = {
+            "name": batch_data.name,
+            "description": batch_data.description,
+            "updated_at": datetime.utcnow()
+        }
+        
+        await db.batches.update_one(
+            {"_id": batch_object_id},
+            {"$set": update_data}
+        )
+        
+        # Update batch_name for all students in this batch
+        await db.users.update_many(
+            {"batch_id": batch_object_id},
+            {"$set": {"batch_name": batch_data.name}}
+        )
+        
+        print(f"[SUCCESS] [TEACHER] Updated batch '{batch_data.name}'")
+        
+        return BatchResponse(
+            success=True,
+            batch_id=batch_id,
+            message=f"Batch updated to '{batch_data.name}' successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] [TEACHER] Error updating batch: {str(e)}")
+        import traceback
+        print(f"[ERROR] [TEACHER] Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update batch: {str(e)}"
         )
 
 @router.delete("/batches/{batch_id}")
@@ -264,8 +365,36 @@ async def get_batch_analytics(batch_id: str, current_user: UserModel = Depends(r
             high_performers = 0
             low_performers = 0
         
-        # Get recent activity
-        recent_submissions = sorted(submissions, key=lambda x: x["submitted_at"], reverse=True)[:5]
+        # Get recent activity with student names
+        recent_submissions = sorted(submissions, key=lambda x: x.get("submitted_at", datetime.utcnow()), reverse=True)[:5]
+        
+        recent_activity = []
+        for sub in recent_submissions:
+            # Get student name
+            student_name = "Unknown"
+            student_id = sub.get("student_id")
+            if student_id:
+                try:
+                    if isinstance(student_id, str):
+                        student_id = ObjectId(student_id) if ObjectId.is_valid(student_id) else student_id
+                    student = await db.users.find_one({"_id": student_id})
+                    if student:
+                        student_name = student.get("full_name") or student.get("username") or student.get("email", "Unknown")
+                except:
+                    pass
+            
+            # Handle submitted_at
+            submitted_at = sub.get("submitted_at", datetime.utcnow())
+            if hasattr(submitted_at, 'isoformat'):
+                submitted_at_str = submitted_at.isoformat()
+            else:
+                submitted_at_str = str(submitted_at)
+            
+            recent_activity.append({
+                "student_name": student_name,
+                "percentage": sub.get("percentage", 0),
+                "submitted_at": submitted_at_str
+            })
         
         return {
             "batch_id": batch_id,
@@ -275,15 +404,13 @@ async def get_batch_analytics(batch_id: str, current_user: UserModel = Depends(r
             "average_performance": round(average_performance, 2),
             "high_performers": high_performers,
             "low_performers": low_performers,
-            "recent_activity": [
-                {
-                    "student_name": sub["student_name"],
-                    "percentage": sub["percentage"],
-                    "submitted_at": sub["submitted_at"].isoformat()
-                }
-                for sub in recent_submissions
-            ]
+            "recent_activity": recent_activity
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"[ERROR] [BATCH ANALYTICS] Error: {str(e)}")
+        import traceback
+        print(f"[ERROR] [BATCH ANALYTICS] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

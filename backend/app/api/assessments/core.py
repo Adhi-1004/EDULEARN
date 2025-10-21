@@ -295,14 +295,24 @@ async def assign_assessment_to_batches(
     try:
         db = await get_db()
         
-        if user.role != "teacher":
-            raise HTTPException(status_code=403, detail="Only teachers can assign assessments")
+        print(f"[DEBUG] [ASSESSMENT] Assigning assessment {assessment_id} to {len(batch_ids)} batches")
+        
+        if user.role not in ["teacher", "admin"]:
+            raise HTTPException(status_code=403, detail="Only teachers and admins can assign assessments")
         
         if not ObjectId.is_valid(assessment_id):
             raise HTTPException(status_code=400, detail="Invalid assessment ID")
         
-        # Validate batch IDs
+        # Get assessment details
+        assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        # Validate batch IDs and collect student counts
         valid_batch_ids = []
+        total_students = 0
+        batch_details = []
+        
         for batch_id in batch_ids:
             if ObjectId.is_valid(batch_id):
                 batch = await db.batches.find_one({
@@ -311,13 +321,62 @@ async def assign_assessment_to_batches(
                 })
                 if batch:
                     valid_batch_ids.append(batch_id)
+                    
+                    # Count students in this batch
+                    student_count = await db.users.count_documents({
+                        "batch_id": ObjectId(batch_id),
+                        "role": "student"
+                    })
+                    total_students += student_count
+                    batch_details.append({
+                        "batch_id": batch_id,
+                        "batch_name": batch["name"],
+                        "student_count": student_count
+                    })
+                    
+                    # Create notifications for students in this batch
+                    students = await db.users.find({
+                        "batch_id": ObjectId(batch_id),
+                        "role": "student"
+                    }).to_list(length=None)
+                    
+                    for student in students:
+                        notification = {
+                            "user_id": student["_id"],
+                            "type": "assessment_assigned",
+                            "title": f"New Assessment: {assessment.get('title', 'Untitled')}",
+                            "message": f"A new assessment has been assigned to your batch '{batch['name']}'. Complete it before the deadline.",
+                            "assessment_id": ObjectId(assessment_id),
+                            "batch_id": ObjectId(batch_id),
+                            "teacher_id": ObjectId(user.id),
+                            "created_at": datetime.utcnow(),
+                            "is_read": False,
+                            "priority": "high"
+                        }
+                        await db.notifications.insert_one(notification)
         
         # Update assessment with assigned batches
         await db.assessments.update_one(
             {"_id": ObjectId(assessment_id)},
-            {"$set": {"assigned_batches": valid_batch_ids}}
+            {"$set": {
+                "assigned_batches": valid_batch_ids,
+                "updated_at": datetime.utcnow()
+            }}
         )
         
-        return {"success": True, "message": f"Assessment assigned to {len(valid_batch_ids)} batch(es)"}
+        print(f"[SUCCESS] [ASSESSMENT] Assigned assessment to {len(valid_batch_ids)} batches, notified {total_students} students")
+        
+        return {
+            "success": True,
+            "message": f"Assessment assigned to {len(valid_batch_ids)} batch(es)",
+            "batch_count": len(valid_batch_ids),
+            "student_count": total_students,
+            "batches": batch_details
+        }
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"[ERROR] [ASSESSMENT] Error assigning assessment: {str(e)}")
+        import traceback
+        print(f"[ERROR] [ASSESSMENT] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

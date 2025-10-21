@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
+import { useNavigate } from "react-router-dom"
 import { useToast } from "../contexts/ToastContext"
 import { useAuth } from "../hooks/useAuth"
 import Card from "../components/ui/Card"
@@ -32,11 +33,9 @@ const AssessmentManagement: React.FC = () => {
   const { user } = useAuth()
   const { success, error: showError } = useToast()
   
+  const navigate = useNavigate()
   const [batches, setBatches] = useState<Batch[]>([])
   const [loading, setLoading] = useState(true)
-  const [showMCQForm, setShowMCQForm] = useState(false)
-  const [showChallengeForm, setShowChallengeForm] = useState(false)
-  const [showAIGenerateForm, setShowAIGenerateForm] = useState(false)
   const [assessmentTitle, setAssessmentTitle] = useState("")
   const [assessmentTopic, setAssessmentTopic] = useState("")
   const [assessmentDifficulty, setAssessmentDifficulty] = useState("medium")
@@ -60,7 +59,6 @@ const AssessmentManagement: React.FC = () => {
   const [teacherAssessments, setTeacherAssessments] = useState<any[]>([])
   const [upcomingAssessments, setUpcomingAssessments] = useState<any[]>([])
   const [recentAssessments, setRecentAssessments] = useState<any[]>([])
-  const [showCodingQuestionForm, setShowCodingQuestionForm] = useState(false)
   // Removed aiQuestionType since we're only implementing MCQ
   // Removed showAIGeneratedQuestions since AI generation is now handled directly
   // Removed aiGeneratedQuestions since AI generation is now handled directly
@@ -141,149 +139,17 @@ const AssessmentManagement: React.FC = () => {
   }
 
   const handleCreateMCQ = () => {
-    setShowMCQForm(true)
-    setShowChallengeForm(false)
-    setShowAIGenerateForm(false)
+    navigate("/teacher/create-assessment?type=mcq")
   }
 
   const handleCreateChallenge = () => {
-    setShowChallengeForm(true)
-    setShowMCQForm(false)
-    setShowAIGenerateForm(false)
+    navigate("/teacher/create-assessment?type=challenge")
   }
 
   const handleAIGenerate = () => {
-    setShowAIGenerateForm(true)
-    setShowMCQForm(false)
-    setShowChallengeForm(false)
+    navigate("/teacher/create-assessment?type=ai")
   }
 
-  const handleCreateAssessment = async (type: "mcq" | "challenge" | "ai") => {
-    console.log("🔍 [ASSESSMENT] Form validation check:", {
-      title: assessmentTitle,
-      topic: assessmentTopic,
-      titleTrimmed: assessmentTitle.trim(),
-      topicTrimmed: assessmentTopic.trim(),
-    })
-    
-    if (!assessmentTitle.trim() || !assessmentTopic.trim()) {
-      console.log("❌ [ASSESSMENT] Validation failed - missing required fields")
-      showError("Error", "Please fill in all required fields")
-      return
-    }
-
-    if (selectedBatches.length === 0) {
-      console.log("❌ [ASSESSMENT] Validation failed - no batches selected")
-      showError("Error", "Please select at least one batch for this assessment")
-      return
-    }
-
-    try {
-      setCreatingAssessment(true)
-
-      console.log("🔍 [ASSESSMENT] Creating assessment with data:", {
-        title: assessmentTitle,
-        topic: assessmentTopic,
-        difficulty: assessmentDifficulty,
-        type: type,
-        questionCount: questionCount,
-        selectedBatches: selectedBatches,
-      })
-
-      if (type === "ai") {
-        // For AI-generated assessments, create teacher assessment directly
-        const response = await api.post("/api/teacher/assessments/create", {
-          title: assessmentTitle,
-          topic: assessmentTopic,
-          difficulty: assessmentDifficulty,
-          question_count: questionCount,
-          batches: selectedBatches,
-          type: "ai_generated"
-        })
-
-        if (response.data) {
-          success(
-            "Success",
-            `AI-generated assessment "${assessmentTitle}" created successfully! Students will be notified.`,
-          )
-
-          // Reset form
-          setAssessmentTitle("")
-          setAssessmentTopic("")
-          setAssessmentDifficulty("medium")
-          setQuestionCount(10)
-          setSelectedBatches([])
-          setBatchSelectionSearchTerm("")
-          setShowAIGenerateForm(false)
-        }
-      } else {
-        // For manual assessments, use existing flow
-        const response = await api.post("/api/assessments/", {
-          title: assessmentTitle,
-          subject: assessmentTopic,
-          difficulty: assessmentDifficulty,
-          description: `${type} assessment on ${assessmentTopic}`,
-          time_limit: type === "challenge" ? 60 : 30,
-          max_attempts: 1,
-          type: type,
-          batches: selectedBatches,
-          questions: [],
-        })
-
-        if (response.data) {
-          setCurrentAssessment({
-            id: response.data.id,
-            title: assessmentTitle,
-            topic: assessmentTopic,
-            difficulty: assessmentDifficulty,
-            type: type,
-            questionCount: questionCount,
-          })
-
-          success(
-            "Success",
-            `${type.toUpperCase()} assessment "${assessmentTitle}" created successfully! Now add questions.`,
-          )
-
-          // Reset form
-          setAssessmentTitle("")
-          setAssessmentTopic("")
-          setAssessmentDifficulty("medium")
-          setQuestionCount(10)
-          setSelectedBatches([])
-          setBatchSelectionSearchTerm("")
-          setShowMCQForm(false)
-          setShowChallengeForm(false)
-          setShowAIGenerateForm(false)
-
-          // Handle different assessment types
-          if (type === "challenge") {
-            setShowCodingQuestionForm(true)
-          } else {
-            setShowQuestionForm(true)
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error("❌ [ASSESSMENT] Failed to create assessment:", err)
-      const errorMessage = err.response?.data?.detail || err.message || "Failed to create assessment. Please try again."
-      showError("Error", errorMessage)
-    } finally {
-      setCreatingAssessment(false)
-    }
-  }
-
-  const handleCloseAssessmentForm = () => {
-    setShowMCQForm(false)
-    setShowChallengeForm(false)
-    setShowAIGenerateForm(false)
-    setAssessmentTitle("")
-    setAssessmentTopic("")
-    setAssessmentDifficulty("medium")
-    setQuestionCount(10)
-    setSelectedBatches([])
-    setBatchSelectionSearchTerm("")
-  }
 
   const handleAddQuestion = async () => {
     if (!currentQuestion.question.trim() || currentQuestion.options.some((opt) => !opt.trim())) {
@@ -338,19 +204,6 @@ const AssessmentManagement: React.FC = () => {
     }
   }
 
-  const handleAddCodingQuestion = () => {
-    if (!currentAssessment) {
-      showError("Error", "No assessment selected")
-      return
-    }
-    setShowCodingQuestionForm(true)
-  }
-
-  const handleCodingQuestionAdded = () => {
-    setShowCodingQuestionForm(false)
-    // Show success message and allow adding more questions or submitting
-    success("Success", "Coding question added successfully! You can add more questions or submit the assessment.")
-  }
 
   // Removed fetchAIGeneratedQuestions since AI generation is now handled directly
 
@@ -403,11 +256,11 @@ const AssessmentManagement: React.FC = () => {
               onCreateMCQ={handleCreateMCQ}
               onCreateChallenge={handleCreateChallenge}
               onAIGenerate={handleAIGenerate}
-              onCreateCoding={() => setShowCodingQuestionForm(true)}
+              onCreateCoding={() => navigate("/teacher/create-assessment?type=coding")}
             />
 
-            {/* Assessment Creation Forms */}
-            {(showMCQForm || showChallengeForm || showAIGenerateForm) && (
+            {/* Assessment Creation Forms - Removed, now handled in separate page */}
+            {false && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -870,14 +723,8 @@ const AssessmentManagement: React.FC = () => {
               </motion.div>
             )}
 
-            {/* Coding Question Form Modal */}
-            {showCodingQuestionForm && currentAssessment && (
-              <CodingQuestionForm
-                assessmentId={currentAssessment.id}
-                onQuestionAdded={handleCodingQuestionAdded}
-                onClose={() => setShowCodingQuestionForm(false)}
-              />
-            )}
+            {/* Coding Question Form Modal - Removed, now handled in separate page */}
+            {false && (<div></div>)}
 
             {/* Leaderboard Modal */}
             {showLeaderboard && (

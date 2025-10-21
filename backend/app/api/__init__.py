@@ -9,6 +9,7 @@ from .admin import router as admin_router
 # Import from teacher.py module file explicitly (not the teacher package folder)
 from . import teacher as teacher_module
 teacher_router = teacher_module.router
+# Import from assessments folder (modular sub-routers) instead of single file
 from .assessments import router as assessments_router
 from .coding import router as coding_router
 from .notifications import router as notifications_router

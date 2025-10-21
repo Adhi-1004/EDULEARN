@@ -8,6 +8,7 @@ import { useAuth } from "../hooks/useAuth"
 import Card from "../components/ui/Card"
 import Button from "../components/ui/Button"
 import Input from "../components/ui/Input"
+import ConfirmDialog from "../components/ui/ConfirmDialog"
 import AnimatedBackground from "../components/AnimatedBackground"
 import BatchPerformanceControl from "../components/teacher/BatchPerformanceControl"
 import AIStudentReports from "../components/teacher/AIStudentReports"
@@ -63,6 +64,9 @@ const StudentManagement: React.FC = () => {
   const [showBatchAssignmentModal, setShowBatchAssignmentModal] = useState(false)
   const [selectedStudentsForBatch, setSelectedStudentsForBatch] = useState<string[]>([])
   const [targetBatchId, setTargetBatchId] = useState<string>("")
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [batchToDelete, setBatchToDelete] = useState<string | null>(null)
+  const [deletingBatch, setDeletingBatch] = useState(false)
   const [batchAssignmentSearchTerm, setBatchAssignmentSearchTerm] = useState("")
   const [showBatchChangeModal, setShowBatchChangeModal] = useState(false)
   const [selectedStudentForBatchChange, setSelectedStudentForBatchChange] = useState<Student | null>(null)
@@ -186,23 +190,31 @@ const StudentManagement: React.FC = () => {
     }
   }
 
-  const handleDeleteBatch = async (batchId: string) => {
-    if (!confirm("Are you sure you want to delete this batch? This will remove all students from the batch.")) {
-      return
-    }
+  const handleDeleteBatch = (batchId: string) => {
+    setBatchToDelete(batchId)
+    setShowDeleteConfirm(true)
+  }
 
+  const confirmDeleteBatch = async () => {
+    if (!batchToDelete) return
+
+    setDeletingBatch(true)
     try {
-      const response = await api.delete(`/api/teacher/batches/${batchId}`)
+      const response = await api.delete(`/api/teacher/batches/${batchToDelete}`)
       
       if (response.data.success) {
-        success("Batch deleted successfully")
+        success("Batch Deleted", "Batch deleted successfully and students have been unassigned")
         fetchDashboardData()
+        setShowDeleteConfirm(false)
+        setBatchToDelete(null)
       } else {
-        showError("Failed to delete batch")
+        showError("Delete Failed", "Failed to delete batch")
       }
     } catch (error) {
       console.error("❌ [STUDENT MANAGEMENT] Error deleting batch:", error)
-      showError("Failed to delete batch")
+      showError("Delete Failed", "Failed to delete batch")
+    } finally {
+      setDeletingBatch(false)
     }
   }
 
@@ -429,6 +441,21 @@ const StudentManagement: React.FC = () => {
               }}
             />
           )}
+
+          <ConfirmDialog
+            isOpen={showDeleteConfirm}
+            onClose={() => {
+              setShowDeleteConfirm(false)
+              setBatchToDelete(null)
+            }}
+            onConfirm={confirmDeleteBatch}
+            title="Delete Batch?"
+            message="Are you sure you want to delete this batch? This will remove all students from the batch. This action cannot be undone."
+            confirmText="Delete Batch"
+            cancelText="Cancel"
+            variant="danger"
+            loading={deletingBatch}
+          />
         </motion.div>
       </div>
     </>
