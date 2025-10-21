@@ -11,7 +11,7 @@ from ...db import get_db
 from ...dependencies import require_admin
 from ...models.models import UserModel
 
-router = APIRouter(prefix="/admin", tags=["admin-users"])
+router = APIRouter(tags=["admin-users"])
 
 # Response Models
 class UserActivityResponse(BaseModel):
@@ -24,6 +24,7 @@ class UserActivityResponse(BaseModel):
 
 class UserDetailsResponse(BaseModel):
     id: str
+    name: str
     username: str
     email: str
     role: str
@@ -159,6 +160,7 @@ async def get_user_details(
         
         return UserDetailsResponse(
             id=str(user["_id"]),
+            name=user.get("full_name") or user.get("username", "Unknown"),
             username=user["username"],
             email=user["email"],
             role=user["role"],

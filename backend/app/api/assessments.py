@@ -2592,8 +2592,8 @@ async def submit_assessment(submission_data: dict, user: UserModel = Depends(get
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{assessment_id}/results")
-async def get_assessment_results(assessment_id: str, user: UserModel = Depends(require_teacher)):
-    """Get results for a specific assessment - Teacher only.
+async def get_assessment_results(assessment_id: str, user: UserModel = Depends(require_teacher_or_admin)):
+    """Get results for a specific assessment - Teacher or Admin only.
     Aggregates from assessment_submissions and teacher_assessment_results.
     """
     try:

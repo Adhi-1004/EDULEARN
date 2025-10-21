@@ -154,7 +154,7 @@ export const getNotifications = async (): Promise<NotificationResponse> => {
     throw new Error('User not authenticated')
   }
   
-  const response = await api.get("/notifications/")
+  const response = await api.get("/api/notifications/")
   return response.data
 }
 
@@ -181,7 +181,7 @@ export const markAllNotificationsAsRead = async (): Promise<void> => {
     throw new Error('User not authenticated')
   }
   
-  await api.post("/notifications/mark-all-read")
+  await api.post("/api/notifications/mark-all-read")
 }
 
 /**

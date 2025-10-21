@@ -82,7 +82,7 @@ const ContentOversight: React.FC = () => {
   // Fetch content library
   const fetchContentLibrary = async () => {
     try {
-      const response = await api.get('/admin/content/library', {
+      const response = await api.get('/api/admin/content/library', {
         params: {
           content_type: typeFilter || undefined,
           status: statusFilter || undefined
@@ -98,7 +98,7 @@ const ContentOversight: React.FC = () => {
   // Fetch content curation
   const fetchContentCuration = async () => {
     try {
-      const response = await api.get('/admin/content/curation', {
+      const response = await api.get('/api/admin/content/curation', {
         params: {
           status: statusFilter || undefined
         }

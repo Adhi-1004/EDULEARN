@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect, useCallback, memo } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { Bell, X } from "lucide-react"
+import { Bell, X, RefreshCw, Users, BookOpen, Settings } from "lucide-react"
 import type { User } from "../types"
 import { useTheme } from "../contexts/ThemeContext"
 import { useToast } from "../contexts/ToastContext"
@@ -23,9 +23,12 @@ interface NavbarProps {
   user: User | null
   setUser: (user: User | null) => void
   logout: () => void
+  adminTab?: "users" | "content" | "settings"
+  setAdminTab?: (tab: "users" | "content" | "settings") => void
+  onAdminRefresh?: () => void
 }
 
-const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
+const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout, adminTab, setAdminTab, onAdminRefresh }) => {
   const { mode, colorScheme } = useTheme()
   const { success } = useToast()
   const navigate = useNavigate()
@@ -142,6 +145,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
   }, [])
 
   const navItems = user ? getNavigationItems(user as any) : [{ path: "/login", label: "Login" }]
+  const isAdmin = user?.role === 'admin'
 
   return (
     <motion.nav
@@ -178,56 +182,111 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {/* Navigation Links */}
-            <div className="flex items-center space-x-6">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`px-4 py-2 rounded-xl transition-all duration-300 font-medium ${
-                    isActive(item.path)
-                      ? "text-foreground bg-muted/50"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            {/* Admin Tabs - Show only for admin users */}
+            {isAdmin && adminTab && setAdminTab ? (
+              <div className="flex items-center space-x-2 bg-muted/30 rounded-lg p-1">
+                <button
+                  onClick={() => setAdminTab("users")}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
+                    adminTab === "users"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
+                  <Users className="h-3.5 w-3.5" />
+                  Users
+                </button>
+                <button
+                  onClick={() => setAdminTab("content")}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
+                    adminTab === "content"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  Content
+                </button>
+                <button
+                  onClick={() => setAdminTab("settings")}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
+                    adminTab === "settings"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  Settings
+                </button>
+              </div>
+            ) : null}
+
+            {/* Navigation Links - Show for non-admin users */}
+            {!isAdmin && (
+              <div className="flex items-center space-x-6">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`px-4 py-2 rounded-xl transition-all duration-300 font-medium ${
+                      isActive(item.path)
+                        ? "text-foreground bg-muted/50"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            )}
 
             {/* Right Side Controls */}
             <div className="flex items-center space-x-4">
               <ThemeToggle />
 
+              {/* Admin Refresh Button */}
+              {isAdmin && onAdminRefresh && (
+                <motion.button
+                  onClick={onAdminRefresh}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="p-2 rounded-lg transition-all duration-300 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  title="Refresh Dashboard"
+                >
+                  <RefreshCw className="h-5 w-5" />
+                </motion.button>
+              )}
+
               {user ? (
                 <>
-                  {/* Notifications Bell */}
-                  <div className="relative">
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setShowNotifications(!showNotifications)}
-                      className={`relative p-2 rounded-lg transition-all duration-300 ${
-                        colorScheme === "dark"
-                          ? mode === "professional"
-                            ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800/30"
-                            : "text-blue-200 hover:text-blue-400 hover:bg-blue-900/20"
-                          : mode === "professional"
-                            ? "text-gray-600 hover:text-gray-800 hover:bg-gray-100/30"
-                            : "text-blue-700 hover:text-blue-600 hover:bg-blue-100/30"
-                      }`}
-                    >
-                      <Bell className="h-6 w-6" />
-                      {unreadCount > 0 && (
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold border-2 border-white"
-                        >
-                          {unreadCount > 9 ? "9+" : unreadCount}
-                        </motion.span>
-                      )}
-                    </motion.button>
+                  {/* Notifications Bell - Hide for admin users */}
+                  {!isAdmin && (
+                    <div className="relative">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowNotifications(!showNotifications)}
+                        className={`relative p-2 rounded-lg transition-all duration-300 ${
+                          colorScheme === "dark"
+                            ? mode === "professional"
+                              ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800/30"
+                              : "text-blue-200 hover:text-blue-400 hover:bg-blue-900/20"
+                            : mode === "professional"
+                              ? "text-gray-600 hover:text-gray-800 hover:bg-gray-100/30"
+                              : "text-blue-700 hover:text-blue-600 hover:bg-blue-100/30"
+                        }`}
+                      >
+                        <Bell className="h-6 w-6" />
+                        {unreadCount > 0 && (
+                          <motion.span
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold border-2 border-white"
+                          >
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                          </motion.span>
+                        )}
+                      </motion.button>
 
                     {/* Notifications Dropdown */}
                     <AnimatePresence>
@@ -320,9 +379,10 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </div>
+                    </div>
+                  )}
 
-                  <UserProfileDropdown user={user} onLogout={handleLogout} />
+                  <UserProfileDropdown user={user} onLogout={handleLogout} isAdmin={isAdmin} />
                 </>
               ) : (
                 <Link
@@ -379,7 +439,8 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
             className="md:hidden border-b bg-card/95 border-border backdrop-blur-xl"
           >
             <div className="px-4 pt-2 pb-4 space-y-2">
-              {navItems.map((item, index) => (
+              {/* Navigation Links - Hide for admin users */}
+              {!isAdmin && navItems.map((item, index) => (
                 <motion.div
                   key={item.path}
                   initial={{ opacity: 0, x: -20 }}
@@ -418,10 +479,10 @@ const Navbar: React.FC<NavbarProps> = ({ user, setUser, logout }) => {
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: navItems.length * 0.1 }}
-                  className="pt-2 border-t border-gray-700/30"
+                  transition={{ delay: (isAdmin ? 0 : navItems.length) * 0.1 }}
+                  className={isAdmin ? "" : "pt-2 border-t border-gray-700/30"}
                 >
-                  <UserProfileDropdown user={user} onLogout={handleLogout} />
+                  <UserProfileDropdown user={user} onLogout={handleLogout} isAdmin={isAdmin} />
                 </motion.div>
               )}
 

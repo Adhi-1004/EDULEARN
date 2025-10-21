@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom"
 import { AnimatePresence } from "framer-motion"
 
@@ -53,6 +53,12 @@ const AppContent: React.FC = () => {
 
 const AppRouter: React.FC<{ user: any; setUser: any; logout: any }> = ({ user, setUser, logout }) => {
   const { toasts, removeToast } = useToast()
+  const [adminTab, setAdminTab] = React.useState<"users" | "content" | "settings">("users")
+  const [adminRefreshKey, setAdminRefreshKey] = React.useState(0)
+
+  const handleAdminRefresh = () => {
+    setAdminRefreshKey((prev) => prev + 1)
+  }
 
   // Function to get the appropriate dashboard path based on user role
   const getDashboardPath = (user: any) => {
@@ -75,7 +81,14 @@ const AppRouter: React.FC<{ user: any; setUser: any; logout: any }> = ({ user, s
     <Router>
       <div className="min-h-screen relative overflow-hidden transition-colors duration-300 bg-background text-foreground">
         <div className="app-bg" aria-hidden="true" />
-        <Navbar user={user} setUser={setUser} logout={logout} />
+        <Navbar 
+          user={user} 
+          setUser={setUser} 
+          logout={logout}
+          adminTab={adminTab}
+          setAdminTab={setAdminTab}
+          onAdminRefresh={handleAdminRefresh}
+        />
         <ToastContainer toasts={toasts} onClose={removeToast} />
             <AnimatePresence mode="wait">
               <Routes>
@@ -156,7 +169,7 @@ const AppRouter: React.FC<{ user: any; setUser: any; logout: any }> = ({ user, s
                   path="/admin-dashboard"
                   element={
                     <ProtectedRoute allowedRoles={["admin"]}>
-                      <EnhancedAdminDashboard />
+                      <EnhancedAdminDashboard activeTab={adminTab} refreshKey={adminRefreshKey} />
                     </ProtectedRoute>
                   }
                 />

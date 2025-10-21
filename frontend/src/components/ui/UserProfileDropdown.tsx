@@ -7,9 +7,10 @@ import { useTheme } from '../../contexts/ThemeContext';
 interface UserProfileDropdownProps {
   user: User;
   onLogout: () => void;
+  isAdmin?: boolean;
 }
 
-const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogout }) => {
+const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogout, isAdmin = false }) => {
   const { mode, colorScheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -25,7 +26,8 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogou
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const menuItems = [
+  // Only show profile/settings for non-admin users
+  const menuItems = isAdmin ? [] : [
     {
       label: 'Profile',
       path: '/profile',
@@ -120,7 +122,7 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogou
             `}
           >
             <div className="py-2">
-                      {menuItems.map((item) => (
+              {menuItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
@@ -143,13 +145,16 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogou
                 </Link>
               ))}
               
-              <div className={`
-                my-1 border-t
-                ${colorScheme === 'dark'
-                  ? mode === 'professional' ? 'border-gray-600/50' : 'border-blue-500/30'
-                  : mode === 'professional' ? 'border-gray-200/50' : 'border-blue-200/30'
-                }
-              `} />
+              {/* Only show divider if there are menu items */}
+              {menuItems.length > 0 && (
+                <div className={`
+                  my-1 border-t
+                  ${colorScheme === 'dark'
+                    ? mode === 'professional' ? 'border-gray-600/50' : 'border-blue-500/30'
+                    : mode === 'professional' ? 'border-gray-200/50' : 'border-blue-200/30'
+                  }
+                `} />
+              )}
               
               <button
                 onClick={() => {

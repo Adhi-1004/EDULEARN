@@ -526,3 +526,228 @@ async def ai_generate_questions(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/teacher/{assessment_id}")
+async def get_teacher_assessment_info(
+    assessment_id: str,
+    user: UserModel = Depends(get_current_user)
+):
+    """Get basic assessment information for teachers"""
+    try:
+        db = await get_db()
+        
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+        
+        # Try to find in assessments collection
+        assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+        
+        # Try teacher_assessments collection if not found
+        if not assessment:
+            assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+        
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        # Build response
+        return {
+            "id": str(assessment["_id"]),
+            "title": assessment.get("title", "Untitled Assessment"),
+            "subject": assessment.get("subject", assessment.get("topic", "General")),
+            "difficulty": assessment.get("difficulty", "medium"),
+            "description": assessment.get("description", ""),
+            "time_limit": assessment.get("time_limit", 30),
+            "question_count": assessment.get("question_count", len(assessment.get("questions", []))),
+            "questions": assessment.get("questions", []),
+            "created_at": assessment.get("created_at", datetime.utcnow()).isoformat(),
+            "status": assessment.get("status", "draft"),
+            "is_active": assessment.get("is_active", False)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{assessment_id}/results")
+async def get_assessment_results_list(
+    assessment_id: str,
+    user: UserModel = Depends(get_current_user)
+):
+    """Get list of all student results for an assessment - for teachers"""
+    try:
+        db = await get_db()
+        
+        print(f"📊 [RESULTS] Getting results for assessment: {assessment_id}, user: {user.email}, role: {user.role}")
+        
+        # Check if user is teacher or admin
+        if user.role not in ["teacher", "admin"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Get submissions from both collections
+        submissions = []
+        
+        # Get from assessment_submissions (regular assessments)
+        try:
+            regular_subs = await db.assessment_submissions.find({
+                "assessment_id": assessment_id
+            }).to_list(length=None)
+            print(f"📊 [RESULTS] Found {len(regular_subs)} regular submissions")
+            submissions.extend(regular_subs)
+        except Exception as e:
+            print(f"⚠️ [RESULTS] Error getting regular submissions: {e}")
+            pass
+        
+        # Get from teacher_assessment_results (teacher-created assessments)
+        try:
+            teacher_subs = await db.teacher_assessment_results.find({
+                "assessment_id": assessment_id
+            }).to_list(length=None)
+            print(f"📊 [RESULTS] Found {len(teacher_subs)} teacher submissions")
+            submissions.extend(teacher_subs)
+        except Exception as e:
+            print(f"⚠️ [RESULTS] Error getting teacher submissions: {e}")
+            pass
+        
+        # Format results
+        results = []
+        for sub in submissions:
+            try:
+                student_id = sub.get("student_id")
+                
+                # Convert student_id to string if it's an ObjectId
+                if isinstance(student_id, ObjectId):
+                    student_id_str = str(student_id)
+                else:
+                    student_id_str = student_id
+                
+                # Get student info
+                student = None
+                if student_id:
+                    try:
+                        # Try with ObjectId first
+                        if ObjectId.is_valid(student_id_str):
+                            student = await db.users.find_one({"_id": ObjectId(student_id_str)})
+                        
+                        # If not found and student_id is ObjectId, try direct match
+                        if not student and isinstance(student_id, ObjectId):
+                            student = await db.users.find_one({"_id": student_id})
+                        
+                        # If still not found, try string match
+                        if not student:
+                            student = await db.users.find_one({"_id": student_id_str})
+                    except Exception as e:
+                        print(f"⚠️ [RESULTS] Error getting student {student_id}: {e}")
+                        pass
+                
+                student_name = student.get("full_name", "Unknown") if student else "Unknown"
+                student_email = student.get("email", "") if student else ""
+                
+                # Handle submitted_at safely
+                submitted_at = sub.get("submitted_at")
+                if submitted_at:
+                    if hasattr(submitted_at, 'isoformat'):
+                        submitted_at_str = submitted_at.isoformat()
+                    else:
+                        submitted_at_str = str(submitted_at)
+                else:
+                    submitted_at_str = datetime.utcnow().isoformat()
+                
+                results.append({
+                    "student_id": student_id_str,
+                    "student_name": student_name,
+                    "student_email": student_email,
+                    "score": sub.get("score", 0),
+                    "total_questions": sub.get("total_questions", 0),
+                    "percentage": sub.get("percentage", 0),
+                    "time_taken": sub.get("time_taken", 0),
+                    "submitted_at": submitted_at_str
+                })
+            except Exception as e:
+                print(f"⚠️ [RESULTS] Error formatting submission: {e}")
+                continue
+        
+        print(f"✅ [RESULTS] Returning {len(results)} results")
+        return results
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [RESULTS] Error getting results: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{assessment_id}/assigned-students")
+async def get_assigned_students_with_results(
+    assessment_id: str,
+    user: UserModel = Depends(get_current_user)
+):
+    """Get list of assigned students with their submission status"""
+    try:
+        db = await get_db()
+        
+        # Check if user is teacher or admin
+        if user.role not in ["teacher", "admin"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+        
+        # Get assessment
+        assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+        if not assessment:
+            assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+        
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        # Get assigned batches
+        batch_ids = assessment.get("assigned_batches", assessment.get("batches", []))
+        
+        # Get students from batches
+        assigned_students = []
+        for batch_id_str in batch_ids:
+            try:
+                batch = await db.batches.find_one({"_id": ObjectId(batch_id_str)})
+                if batch:
+                    student_ids = batch.get("student_ids", [])
+                    for student_id in student_ids:
+                        try:
+                            student = await db.users.find_one({"_id": ObjectId(student_id)})
+                            if student:
+                                # Check if student has submitted
+                                submission = await db.assessment_submissions.find_one({
+                                    "assessment_id": assessment_id,
+                                    "student_id": student_id
+                                })
+                                if not submission:
+                                    submission = await db.teacher_assessment_results.find_one({
+                                        "assessment_id": assessment_id,
+                                        "student_id": student_id
+                                    })
+                                
+                                assigned_students.append({
+                                    "student_id": str(student["_id"]),
+                                    "student_name": student.get("full_name", "Unknown"),
+                                    "student_email": student.get("email", ""),
+                                    "submitted": submission is not None,
+                                    "score": submission.get("score", 0) if submission else 0,
+                                    "total_questions": submission.get("total_questions", 0) if submission else 0,
+                                    "percentage": submission.get("percentage", 0) if submission else 0,
+                                    "time_taken": submission.get("time_taken", 0) if submission else 0,
+                                    "submitted_at": submission.get("submitted_at", None).isoformat() if submission and submission.get("submitted_at") else None,
+                                    "result_id": str(submission["_id"]) if submission else None
+                                })
+                        except Exception as e:
+                            print(f"Error processing student {student_id}: {e}")
+                            continue
+            except Exception as e:
+                print(f"Error processing batch {batch_id_str}: {e}")
+                continue
+        
+        return assigned_students
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

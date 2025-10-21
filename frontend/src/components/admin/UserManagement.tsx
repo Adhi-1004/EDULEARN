@@ -66,7 +66,7 @@ const UserManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      const response = await api.get("/admin/users/analytics", {
+      const response = await api.get("/api/admin/users/analytics", {
         params: {
           limit: itemsPerPage,
           offset: (currentPage - 1) * itemsPerPage,
@@ -76,8 +76,8 @@ const UserManagement: React.FC = () => {
         },
       })
 
-      setUsers(response.data)
-      setTotalPages(Math.ceil(response.data.length / itemsPerPage))
+      setUsers(response.data.users || [])
+      setTotalPages(Math.ceil((response.data.total_count || 0) / itemsPerPage))
     } catch (err: any) {
       error("Failed to fetch users", err.response?.data?.detail || "Unknown error")
     } finally {
@@ -88,7 +88,7 @@ const UserManagement: React.FC = () => {
   // Fetch user details
   const fetchUserDetails = async (userId: string) => {
     try {
-      const response = await api.get(`/admin/users/${userId}/details`)
+      const response = await api.get(`/api/admin/users/${userId}/details`)
       setSelectedUser(response.data)
       setShowUserDetails(true)
     } catch (err: any) {
@@ -99,7 +99,7 @@ const UserManagement: React.FC = () => {
   // Create user
   const createUser = async (userData: any) => {
     try {
-      await api.post("/admin/users", userData)
+      await api.post("/api/admin/users", userData)
       success("User created successfully", "The new user has been added to the platform")
       setShowCreateUser(false)
       fetchUsers()
@@ -111,7 +111,7 @@ const UserManagement: React.FC = () => {
   // Update user
   const updateUser = async (userId: string, userData: any) => {
     try {
-      await api.put(`/admin/users/${userId}`, userData)
+      await api.put(`/api/admin/users/${userId}`, userData)
       success("User updated successfully", "The user information has been updated")
       fetchUsers()
     } catch (err: any) {
@@ -124,7 +124,7 @@ const UserManagement: React.FC = () => {
     if (!window.confirm("Are you sure you want to delete this user?")) return
 
     try {
-      await api.delete(`/admin/users/${userId}`)
+      await api.delete(`/api/admin/users/${userId}`)
       success("User deleted successfully", "The user has been removed from the platform")
       fetchUsers()
     } catch (err: any) {
@@ -135,7 +135,7 @@ const UserManagement: React.FC = () => {
   // Export users
   const exportUsers = async (format: "csv" | "json") => {
     try {
-      const response = await api.get("/admin/users/export", {
+      const response = await api.get("/api/admin/users/export", {
         params: { format, role: roleFilter || undefined },
       })
 
@@ -169,7 +169,7 @@ const UserManagement: React.FC = () => {
       const formData = new FormData()
       formData.append("file", file)
 
-      const response = await api.post("/admin/users/bulk-import", formData, {
+      const response = await api.post("/api/admin/users/bulk-import", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
 

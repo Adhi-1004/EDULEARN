@@ -11,7 +11,7 @@ from ...db import get_db
 from ...dependencies import require_admin
 from ...models.models import UserModel
 
-router = APIRouter(prefix="/admin", tags=["admin-content"])
+router = APIRouter(tags=["admin-content"])
 
 @router.get("/content/overview")
 async def get_content_overview(current_user: UserModel = Depends(require_admin)):
@@ -399,23 +399,31 @@ async def get_all_questions(
         # Format questions
         question_list = []
         for question in questions:
-            # Get teacher name
-            teacher = await db.users.find_one({"_id": ObjectId(question["teacher_id"])})
-            teacher_name = teacher.get("username", teacher.get("email", "Unknown")) if teacher else "Unknown"
+            # Get teacher name - handle ObjectId conversion safely
+            teacher_id = question.get("teacher_id")
+            teacher_name = "Unknown"
+            if teacher_id:
+                try:
+                    if not isinstance(teacher_id, ObjectId):
+                        teacher_id = ObjectId(teacher_id)
+                    teacher = await db.users.find_one({"_id": teacher_id})
+                    teacher_name = teacher.get("username", teacher.get("email", "Unknown")) if teacher else "Unknown"
+                except:
+                    teacher_name = "Unknown"
             
             question_list.append({
                 "id": str(question["_id"]),
-                "assessment_id": question["assessment_id"],
-                "question_number": question["question_number"],
-                "question": question["question"],
-                "options": question["options"],
-                "correct_answer": question["correct_answer"],
+                "assessment_id": str(question.get("assessment_id", "")),
+                "question_number": question.get("question_number", 0),
+                "question": question.get("question", ""),
+                "options": question.get("options", []),
+                "correct_answer": question.get("correct_answer", ""),
                 "explanation": question.get("explanation", ""),
-                "difficulty": question["difficulty"],
-                "topic": question["topic"],
-                "status": question["status"],
+                "difficulty": question.get("difficulty", "medium"),
+                "topic": question.get("topic", "General"),
+                "status": question.get("status", "active"),
                 "teacher_name": teacher_name,
-                "generated_at": question["generated_at"].isoformat()
+                "generated_at": question.get("generated_at", datetime.utcnow()).isoformat() if hasattr(question.get("generated_at"), 'isoformat') else str(question.get("generated_at", ""))
             })
         
         return {
@@ -521,6 +529,445 @@ async def get_all_batches(
             "total_count": len(batch_list),
             "skip": skip,
             "limit": limit
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# New CRUD endpoints for Content & Data Manager
+
+@router.put("/content/assessments/{assessment_id}")
+async def update_assessment(
+    assessment_id: str,
+    assessment_data: dict,
+    current_user: UserModel = Depends(require_admin)
+):
+    """Update an assessment"""
+    try:
+        db = await get_db()
+        
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+        
+        # Try regular assessments first
+        assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+        collection_name = "assessments"
+        
+        if not assessment:
+            # Try teacher assessments
+            assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+            collection_name = "teacher_assessments"
+        
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        # Prepare update data
+        update_data = {}
+        allowed_fields = ["title", "description", "subject", "topic", "difficulty", "status", "is_active", "time_limit"]
+        
+        for field in allowed_fields:
+            if field in assessment_data:
+                update_data[field] = assessment_data[field]
+        
+        if update_data:
+            update_data["updated_at"] = datetime.utcnow()
+            
+            await db[collection_name].update_one(
+                {"_id": ObjectId(assessment_id)},
+                {"$set": update_data}
+            )
+        
+        return {
+            "success": True,
+            "message": "Assessment updated successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/content/assessments/{assessment_id}")
+async def delete_assessment(
+    assessment_id: str,
+    current_user: UserModel = Depends(require_admin)
+):
+    """Delete an assessment"""
+    try:
+        db = await get_db()
+        
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+        
+        # Try regular assessments first
+        assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+        collection_name = "assessments"
+        
+        if not assessment:
+            # Try teacher assessments
+            assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+            collection_name = "teacher_assessments"
+        
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        # Delete the assessment
+        await db[collection_name].delete_one({"_id": ObjectId(assessment_id)})
+        
+        # Clean up related data
+        await db.assessment_submissions.delete_many({"assessment_id": assessment_id})
+        await db.teacher_assessment_results.delete_many({"assessment_id": assessment_id})
+        await db.ai_questions.delete_many({"assessment_id": assessment_id})
+        
+        return {
+            "success": True,
+            "message": "Assessment and related data deleted successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/content/questions/{question_id}")
+async def get_question_details(
+    question_id: str,
+    current_user: UserModel = Depends(require_admin)
+):
+    """Get detailed information about a specific question"""
+    try:
+        db = await get_db()
+        
+        if not ObjectId.is_valid(question_id):
+            raise HTTPException(status_code=400, detail="Invalid question ID")
+        
+        question = await db.ai_questions.find_one({"_id": ObjectId(question_id)})
+        
+        if not question:
+            raise HTTPException(status_code=404, detail="Question not found")
+        
+        # Get teacher information
+        teacher = await db.users.find_one({"_id": ObjectId(question["teacher_id"])})
+        teacher_name = teacher.get("username", teacher.get("email", "Unknown")) if teacher else "Unknown"
+        
+        # Get assessment information
+        assessment = await db.teacher_assessments.find_one({"_id": ObjectId(question["assessment_id"])})
+        assessment_title = assessment.get("title", "Unknown") if assessment else "Unknown"
+        
+        return {
+            "id": str(question["_id"]),
+            "assessment_id": question["assessment_id"],
+            "assessment_title": assessment_title,
+            "question_number": question["question_number"],
+            "question": question["question"],
+            "options": question["options"],
+            "correct_answer": question["correct_answer"],
+            "explanation": question.get("explanation", ""),
+            "difficulty": question["difficulty"],
+            "topic": question["topic"],
+            "status": question["status"],
+            "teacher_id": question["teacher_id"],
+            "teacher_name": teacher_name,
+            "generated_at": question["generated_at"].isoformat(),
+            "moderated_at": question.get("moderated_at", "").isoformat() if question.get("moderated_at") else None,
+            "moderation_action": question.get("moderation_action", ""),
+            "moderation_reason": question.get("moderation_reason", "")
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/content/questions/{question_id}")
+async def update_question(
+    question_id: str,
+    question_data: dict,
+    current_user: UserModel = Depends(require_admin)
+):
+    """Update a question"""
+    try:
+        db = await get_db()
+        
+        if not ObjectId.is_valid(question_id):
+            raise HTTPException(status_code=400, detail="Invalid question ID")
+        
+        question = await db.ai_questions.find_one({"_id": ObjectId(question_id)})
+        
+        if not question:
+            raise HTTPException(status_code=404, detail="Question not found")
+        
+        # Prepare update data
+        update_data = {}
+        allowed_fields = ["question", "options", "correct_answer", "explanation", "difficulty", "topic", "status"]
+        
+        for field in allowed_fields:
+            if field in question_data:
+                update_data[field] = question_data[field]
+        
+        if update_data:
+            update_data["updated_at"] = datetime.utcnow()
+            
+            await db.ai_questions.update_one(
+                {"_id": ObjectId(question_id)},
+                {"$set": update_data}
+            )
+        
+        return {
+            "success": True,
+            "message": "Question updated successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/content/questions/{question_id}")
+async def delete_question(
+    question_id: str,
+    current_user: UserModel = Depends(require_admin)
+):
+    """Delete a question"""
+    try:
+        db = await get_db()
+        
+        if not ObjectId.is_valid(question_id):
+            raise HTTPException(status_code=400, detail="Invalid question ID")
+        
+        question = await db.ai_questions.find_one({"_id": ObjectId(question_id)})
+        
+        if not question:
+            raise HTTPException(status_code=404, detail="Question not found")
+        
+        # Delete the question
+        await db.ai_questions.delete_one({"_id": ObjectId(question_id)})
+        
+        return {
+            "success": True,
+            "message": "Question deleted successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/content/results")
+async def get_all_results(
+    skip: int = 0,
+    limit: int = 50,
+    student_id: Optional[str] = None,
+    assessment_id: Optional[str] = None,
+    current_user: UserModel = Depends(require_admin)
+):
+    """Get all assessment results with filtering"""
+    try:
+        db = await get_db()
+        
+        # Build query for regular assessment submissions
+        query = {}
+        if student_id:
+            query["student_id"] = student_id
+        if assessment_id:
+            query["assessment_id"] = assessment_id
+        
+        submissions = await db.assessment_submissions.find(query).skip(skip).limit(limit).sort("submitted_at", -1).to_list(length=None)
+        teacher_submissions = await db.teacher_assessment_results.find(query).skip(skip).limit(limit).sort("submitted_at", -1).to_list(length=None)
+        
+        # Format results
+        result_list = []
+        
+        for sub in submissions:
+            try:
+                # Get student info - handle ObjectId conversion safely
+                student_id = sub.get("student_id")
+                student_name = "Unknown"
+                if student_id:
+                    try:
+                        if not isinstance(student_id, ObjectId):
+                            student_id = ObjectId(student_id)
+                        student = await db.users.find_one({"_id": student_id})
+                        student_name = student.get("full_name", student.get("username", student.get("email", "Unknown"))) if student else "Unknown"
+                    except:
+                        student_name = "Unknown"
+                
+                # Get assessment info - handle ObjectId conversion safely
+                assessment_id = sub.get("assessment_id")
+                assessment_title = "Unknown"
+                if assessment_id:
+                    try:
+                        if not isinstance(assessment_id, ObjectId):
+                            assessment_id = ObjectId(assessment_id)
+                        assessment = await db.assessments.find_one({"_id": assessment_id})
+                        assessment_title = assessment.get("title", "Unknown") if assessment else "Unknown"
+                    except:
+                        assessment_title = "Unknown"
+                
+                # Handle submitted_at
+                submitted_at = sub.get("submitted_at", datetime.utcnow())
+                if hasattr(submitted_at, 'isoformat'):
+                    submitted_at_str = submitted_at.isoformat()
+                else:
+                    submitted_at_str = str(submitted_at)
+                
+                result_list.append({
+                    "id": str(sub["_id"]),
+                    "type": "regular",
+                    "student_id": str(sub.get("student_id", "")),
+                    "student_name": student_name,
+                    "assessment_id": str(sub.get("assessment_id", "")),
+                    "assessment_title": assessment_title,
+                    "score": sub.get("score", 0),
+                    "total_questions": sub.get("total_questions", 0),
+                    "percentage": sub.get("percentage", 0),
+                    "time_taken": sub.get("time_taken", 0),
+                    "submitted_at": submitted_at_str
+                })
+            except Exception as e:
+                # Skip malformed submissions
+                continue
+        
+        for sub in teacher_submissions:
+            try:
+                # Get student info - handle ObjectId conversion safely
+                student_id = sub.get("student_id")
+                student_name = "Unknown"
+                if student_id:
+                    try:
+                        if not isinstance(student_id, ObjectId):
+                            student_id = ObjectId(student_id)
+                        student = await db.users.find_one({"_id": student_id})
+                        student_name = student.get("full_name", student.get("username", student.get("email", "Unknown"))) if student else "Unknown"
+                    except:
+                        student_name = "Unknown"
+                
+                # Get assessment info - handle ObjectId conversion safely
+                assessment_id = sub.get("assessment_id")
+                assessment_title = "Unknown"
+                if assessment_id:
+                    try:
+                        if not isinstance(assessment_id, ObjectId):
+                            assessment_id = ObjectId(assessment_id)
+                        assessment = await db.teacher_assessments.find_one({"_id": assessment_id})
+                        assessment_title = assessment.get("title", "Unknown") if assessment else "Unknown"
+                    except:
+                        assessment_title = "Unknown"
+                
+                # Handle submitted_at
+                submitted_at = sub.get("submitted_at", datetime.utcnow())
+                if hasattr(submitted_at, 'isoformat'):
+                    submitted_at_str = submitted_at.isoformat()
+                else:
+                    submitted_at_str = str(submitted_at)
+                
+                result_list.append({
+                    "id": str(sub["_id"]),
+                    "type": "teacher",
+                    "student_id": str(sub.get("student_id", "")),
+                    "student_name": student_name,
+                    "assessment_id": str(sub.get("assessment_id", "")),
+                    "assessment_title": assessment_title,
+                    "score": sub.get("score", 0),
+                    "total_questions": sub.get("total_questions", 0),
+                    "percentage": sub.get("percentage", 0),
+                    "time_taken": sub.get("time_taken", 0),
+                    "submitted_at": submitted_at_str
+                })
+            except Exception as e:
+                # Skip malformed submissions
+                continue
+        
+        # Sort by submission date
+        result_list.sort(key=lambda x: x["submitted_at"], reverse=True)
+        
+        return {
+            "results": result_list,
+            "total_count": len(result_list),
+            "skip": skip,
+            "limit": limit
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/content/results/{result_id}")
+async def get_result_details(
+    result_id: str,
+    current_user: UserModel = Depends(require_admin)
+):
+    """Get detailed information about a specific result"""
+    try:
+        db = await get_db()
+        
+        if not ObjectId.is_valid(result_id):
+            raise HTTPException(status_code=400, detail="Invalid result ID")
+        
+        # Try regular submissions first
+        result = await db.assessment_submissions.find_one({"_id": ObjectId(result_id)})
+        result_type = "regular"
+        
+        if not result:
+            # Try teacher submissions
+            result = await db.teacher_assessment_results.find_one({"_id": ObjectId(result_id)})
+            result_type = "teacher"
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Result not found")
+        
+        # Get student info
+        student = await db.users.find_one({"_id": ObjectId(result["student_id"])})
+        student_name = student.get("full_name", student.get("username", student.get("email", "Unknown"))) if student else "Unknown"
+        student_email = student.get("email", "") if student else ""
+        
+        # Get assessment info
+        if result_type == "regular":
+            assessment = await db.assessments.find_one({"_id": ObjectId(result["assessment_id"])})
+        else:
+            assessment = await db.teacher_assessments.find_one({"_id": ObjectId(result["assessment_id"])})
+        
+        assessment_title = assessment.get("title", "Unknown") if assessment else "Unknown"
+        
+        return {
+            "id": str(result["_id"]),
+            "type": result_type,
+            "student_id": result["student_id"],
+            "student_name": student_name,
+            "student_email": student_email,
+            "assessment_id": result["assessment_id"],
+            "assessment_title": assessment_title,
+            "score": result.get("score", 0),
+            "total_questions": result.get("total_questions", 0),
+            "percentage": result.get("percentage", 0),
+            "time_taken": result.get("time_taken", 0),
+            "answers": result.get("answers", []),
+            "submitted_at": result.get("submitted_at", datetime.utcnow()).isoformat(),
+            "questions": assessment.get("questions", []) if assessment else []
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/content/results/{result_id}")
+async def delete_result(
+    result_id: str,
+    current_user: UserModel = Depends(require_admin)
+):
+    """Delete an assessment result"""
+    try:
+        db = await get_db()
+        
+        if not ObjectId.is_valid(result_id):
+            raise HTTPException(status_code=400, detail="Invalid result ID")
+        
+        # Try regular submissions first
+        result = await db.assessment_submissions.find_one({"_id": ObjectId(result_id)})
+        collection_name = "assessment_submissions"
+        
+        if not result:
+            # Try teacher submissions
+            result = await db.teacher_assessment_results.find_one({"_id": ObjectId(result_id)})
+            collection_name = "teacher_assessment_results"
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Result not found")
+        
+        # Delete the result
+        await db[collection_name].delete_one({"_id": ObjectId(result_id)})
+        
+        return {
+            "success": True,
+            "message": "Result deleted successfully"
         }
         
     except Exception as e:

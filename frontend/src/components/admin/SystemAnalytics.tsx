@@ -63,7 +63,7 @@ const SystemAnalytics: React.FC = () => {
   // Fetch platform metrics
   const fetchMetrics = async () => {
     try {
-      const response = await api.get("/admin/analytics/platform")
+      const response = await api.get("/api/admin/analytics/platform")
       setMetrics(response.data)
     } catch (err: any) {
       error("Failed to fetch platform metrics", err.response?.data?.detail || "Unknown error")
@@ -73,7 +73,7 @@ const SystemAnalytics: React.FC = () => {
   // Fetch content analytics
   const fetchContentAnalytics = async () => {
     try {
-      const response = await api.get("/admin/analytics/content")
+      const response = await api.get("/api/admin/analytics/content")
       setContentAnalytics(response.data.content_analytics || [])
     } catch (err: any) {
       error("Failed to fetch content analytics", err.response?.data?.detail || "Unknown error")
@@ -84,7 +84,7 @@ const SystemAnalytics: React.FC = () => {
   // Fetch teacher performance
   const fetchTeacherPerformance = async () => {
     try {
-      const response = await api.get("/admin/analytics/teachers")
+      const response = await api.get("/api/admin/analytics/teachers")
       setTeacherPerformance(response.data.teacher_performance || [])
     } catch (err: any) {
       error("Failed to fetch teacher performance", err.response?.data?.detail || "Unknown error")

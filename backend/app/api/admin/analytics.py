@@ -2,7 +2,7 @@
 Admin Analytics and Statistics
 Handles platform analytics, system health, and performance metrics
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from bson import ObjectId
@@ -11,7 +11,7 @@ from ...db import get_db
 from ...dependencies import require_admin
 from ...models.models import UserModel
 
-router = APIRouter(prefix="/admin", tags=["admin-analytics"])
+router = APIRouter(tags=["admin-analytics"])
 
 # Response Models
 class PlatformStatsResponse(BaseModel):
@@ -201,114 +201,115 @@ async def get_analytics_overview(current_user: UserModel = Depends(require_admin
 
 @router.get("/users/analytics")
 async def get_users_analytics(
-    days: int = 30,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort_by: str = Query("activity_score", regex="^(activity_score|username|email|created_at|last_login)$"),
+    order: str = Query("desc", regex="^(asc|desc)$"),
+    role: Optional[str] = Query(None),
+    days: int = Query(30, ge=1, le=365),
     current_user: UserModel = Depends(require_admin)
 ):
-    """Get detailed user analytics"""
+    """Get paginated list of users with analytics data"""
     try:
         db = await get_db()
         
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        # Get user statistics
-        total_users = await db.users.count_documents({})
-        active_users = await db.users.count_documents({
-            "last_login": {"$gte": cutoff_date}
-        })
+        # Build query
+        query = {}
+        if role:
+            query["role"] = role
         
-        # Get users by role
-        students = await db.users.find({"role": "student"}).to_list(length=None)
-        teachers = await db.users.find({"role": "teacher"}).to_list(length=None)
+        # Get total count
+        total_count = await db.users.count_documents(query)
         
-        # Calculate student performance
-        student_performance = []
-        for student in students:
+        # Get all users matching the filter
+        all_users = await db.users.find(query).to_list(length=None)
+        
+        # Build user analytics data
+        users_with_analytics = []
+        for user in all_users:
+            user_id = str(user["_id"])
+            
+            # Calculate activity score
             submissions = await db.assessment_submissions.find({
-                "student_id": str(student["_id"]),
+                "student_id": user_id,
                 "submitted_at": {"$gte": cutoff_date}
             }).to_list(length=None)
             
             teacher_submissions = await db.teacher_assessment_results.find({
-                "student_id": str(student["_id"]),
+                "student_id": user_id,
                 "submitted_at": {"$gte": cutoff_date}
             }).to_list(length=None)
             
             all_submissions = submissions + teacher_submissions
+            activity_score = len(all_submissions) * 10 + user.get("xp", 0)
             
+            # Calculate average score
             if all_submissions:
-                avg_score = sum(sub["percentage"] for sub in all_submissions) / len(all_submissions)
-                total_questions = sum(sub.get("total_questions", 0) for sub in all_submissions)
+                avg_score = sum(sub.get("percentage", 0) for sub in all_submissions) / len(all_submissions)
             else:
-                avg_score = 0
-                total_questions = 0
+                avg_score = user.get("average_score", 0)
             
-            student_performance.append({
-                "student_id": str(student["_id"]),
-                "name": student.get("username", student.get("email", "Unknown")),
-                "email": student["email"],
-                "level": student.get("level", 1),
-                "xp": student.get("xp", 0),
+            # Get last login
+            last_login = user.get("last_login")
+            if last_login and hasattr(last_login, 'isoformat'):
+                last_login_str = last_login.isoformat()
+            elif last_login:
+                last_login_str = str(last_login)
+            else:
+                last_login_str = None
+            
+            # Get created_at
+            created_at = user.get("created_at", datetime.utcnow())
+            if hasattr(created_at, 'isoformat'):
+                created_at_str = created_at.isoformat()
+            else:
+                created_at_str = str(created_at)
+            
+            users_with_analytics.append({
+                "id": user_id,
+                "name": user.get("full_name") or user.get("username", "Unknown"),
+                "username": user.get("username", ""),
+                "email": user.get("email", ""),
+                "role": user.get("role", "student"),
+                "is_active": user.get("is_active", True),
+                "level": user.get("level", 1),
+                "xp": user.get("xp", 0),
                 "completed_assessments": len(all_submissions),
                 "average_score": round(avg_score, 2),
-                "total_questions_answered": total_questions,
-                "last_activity": student.get("last_activity", datetime.utcnow()).isoformat(),
-                "created_at": student["created_at"].isoformat()
+                "activity_score": activity_score,
+                "last_login": last_login_str,
+                "created_at": created_at_str,
+                "total_logins": user.get("total_logins", 0),
+                "progress_percentage": user.get("progress_percentage", 0),
+                "assessments_taken": len(all_submissions),
+                "badges_earned": user.get("badges_earned", 0),
+                "streak_days": user.get("streak_days", 0)
             })
         
-        # Calculate teacher activity
-        teacher_activity = []
-        for teacher in teachers:
-            batches = await db.batches.find({"teacher_id": str(teacher["_id"])}).to_list(length=None)
-            assessments = await db.assessments.find({"created_by": str(teacher["_id"])}).to_list(length=None)
-            teacher_assessments = await db.teacher_assessments.find({"teacher_id": str(teacher["_id"])}).to_list(length=None)
-            
-            total_students = sum(len(batch.get("student_ids", [])) for batch in batches)
-            
-            teacher_activity.append({
-                "teacher_id": str(teacher["_id"]),
-                "name": teacher.get("username", teacher.get("email", "Unknown")),
-                "email": teacher["email"],
-                "total_batches": len(batches),
-                "total_assessments": len(assessments) + len(teacher_assessments),
-                "total_students": total_students,
-                "last_activity": teacher.get("last_activity", datetime.utcnow()).isoformat(),
-                "created_at": teacher["created_at"].isoformat()
-            })
+        # Sort users
+        reverse = (order == "desc")
+        if sort_by == "activity_score":
+            users_with_analytics.sort(key=lambda x: x["activity_score"], reverse=reverse)
+        elif sort_by == "username":
+            users_with_analytics.sort(key=lambda x: x["username"], reverse=reverse)
+        elif sort_by == "email":
+            users_with_analytics.sort(key=lambda x: x["email"], reverse=reverse)
+        elif sort_by == "created_at":
+            users_with_analytics.sort(key=lambda x: x["created_at"], reverse=reverse)
+        elif sort_by == "last_login":
+            users_with_analytics.sort(key=lambda x: x["last_login"] or "", reverse=reverse)
         
-        # Get engagement metrics
-        engagement_metrics = {
-            "daily_active_users": [],
-            "weekly_active_users": [],
-            "monthly_active_users": []
-        }
-        
-        # Calculate DAU, WAU, MAU
-        for i in range(min(days, 30)):
-            day_start = datetime.utcnow() - timedelta(days=i+1)
-            day_end = datetime.utcnow() - timedelta(days=i)
-            
-            dau = await db.users.count_documents({
-                "last_login": {"$gte": day_start, "$lt": day_end}
-            })
-            
-            engagement_metrics["daily_active_users"].append({
-                "date": day_start.strftime("%Y-%m-%d"),
-                "count": dau
-            })
+        # Apply pagination
+        paginated_users = users_with_analytics[offset:offset + limit]
         
         return {
-            "user_statistics": {
-                "total_users": total_users,
-                "active_users": active_users,
-                "students": len(students),
-                "teachers": len(teachers),
-                "engagement_rate": round((active_users / max(total_users, 1)) * 100, 2)
-            },
-            "student_performance": student_performance,
-            "teacher_activity": teacher_activity,
-            "engagement_metrics": engagement_metrics,
-            "period_days": days,
-            "generated_at": datetime.utcnow().isoformat()
+            "users": paginated_users,
+            "total_count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + limit < total_count
         }
         
     except Exception as e:
