@@ -40,7 +40,7 @@ const BatchSelector: React.FC<BatchSelectorProps> = ({
   const [localSelectedBatches, setLocalSelectedBatches] = useState<string[]>(selectedBatches)
 
   const filteredBatches = batches.filter(batch =>
-    batch.name.toLowerCase().includes(searchTerm.toLowerCase())
+    batch.name?.toLowerCase().includes(searchTerm.toLowerCase() || '')
   )
 
   const handleBatchToggle = (batchId: string) => {
@@ -138,9 +138,9 @@ const BatchSelector: React.FC<BatchSelectorProps> = ({
                     className="w-4 h-4 text-blue-500 bg-blue-900 border-blue-500 rounded focus:ring-blue-500"
                   />
                   <div className="flex-1">
-                    <h4 className="text-blue-200 font-medium">{batch.name}</h4>
+                    <h4 className="text-blue-200 font-medium">{batch.name || 'Unnamed Batch'}</h4>
                     <p className="text-blue-300 text-sm">
-                      {batch.studentCount} students • Created {new Date(batch.createdAt).toLocaleDateString()}
+                      {batch.studentCount || 0} students • Created {new Date(batch.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 </div>

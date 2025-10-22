@@ -116,14 +116,14 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-200">
-                {batches.reduce((sum, batch) => sum + batch.studentCount, 0)}
+                {batches.reduce((sum, batch) => sum + (batch.studentCount || 0), 0)}
               </div>
               <div className="text-blue-300 text-sm">Total Students</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-200">
                 {batches.length > 0 
-                  ? Math.round(batches.reduce((sum, batch) => sum + batch.studentCount, 0) / batches.length)
+                  ? Math.round(batches.reduce((sum, batch) => sum + (batch.studentCount || 0), 0) / batches.length)
                   : 0
                 }
               </div>

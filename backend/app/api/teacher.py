@@ -110,17 +110,21 @@ async def get_teacher_dashboard(current_user: UserModel = Depends(require_teache
             detail=f"Failed to get teacher dashboard: {str(e)}"
         )
 
-@router.get("/batches", response_model=List[BatchOverviewResponse])
+@router.get("/batches")
 async def get_batch_overview(current_user: UserModel = Depends(require_teacher_or_admin)):
     """Get overview of all batches"""
     try:
         db = await get_db()
         
+        print(f"[DEBUG] [TEACHER] Getting batches for teacher: {current_user.id}")
+        
         # Get batches from database
         batches_cursor = db.batches.find({"teacher_id": current_user.id})
         batches = await batches_cursor.to_list(length=100)
         
-        batch_overviews = []
+        print(f"[DEBUG] [TEACHER] Found {len(batches)} batches")
+        
+        batch_list = []
         for batch in batches:
             # Count students in this batch (handle both ObjectId and string batch_id)
             student_count = await db.users.count_documents({
@@ -130,33 +134,24 @@ async def get_batch_overview(current_user: UserModel = Depends(require_teacher_o
                 ]
             })
             
-            # Get performance metrics for this batch (handle both ObjectId and string batch_id)
-            results_cursor = db.results.find({
-                "$or": [
-                    {"batch_id": batch["_id"]},
-                    {"batch_id": str(batch["_id"])}
-                ]
-            })
-            results = await results_cursor.to_list(length=1000)
-            
-            if results:
-                avg_score = sum(r.get("score", 0) for r in results) / len(results)
-                completion_rate = len([r for r in results if r.get("completed", False)]) / len(results) if results else 0
+            # Format created_at
+            created_at = batch.get("created_at", datetime.utcnow())
+            if hasattr(created_at, 'isoformat'):
+                created_at_str = created_at.isoformat()
             else:
-                avg_score = 0
-                completion_rate = 0
+                created_at_str = str(created_at)
             
-            batch_overviews.append(BatchOverviewResponse(
-                batch_id=str(batch["_id"]),
-                batch_name=batch.get("name", "Unnamed Batch"),
-                total_students=student_count,
-                active_students=student_count,  # Simplified for now
-                average_score=avg_score,
-                completion_rate=completion_rate,
-                health_score=min(1.0, completion_rate * 1.2)  # Simple health calculation
-            ))
+            batch_list.append({
+                "id": str(batch["_id"]),
+                "name": batch.get("name", "Unnamed Batch"),
+                "student_count": student_count,
+                "created_at": created_at_str,
+                "status": batch.get("status", "active"),
+                "description": batch.get("description", "")
+            })
         
-        return batch_overviews
+        print(f"[SUCCESS] [TEACHER] Returning {len(batch_list)} batches")
+        return batch_list
         
     except Exception as e:
         raise HTTPException(
@@ -193,19 +188,30 @@ async def get_students(
             if results:
                 progress = sum(r.get("score", 0) for r in results) / len(results)
             else:
-                progress = 0
+                progress = student.get("average_score", 0)
             
             # Get last activity
-            last_activity = student.get("last_login", student.get("created_at", ""))
+            last_activity = student.get("last_activity", student.get("last_login", student.get("created_at", datetime.utcnow())))
+            if hasattr(last_activity, 'isoformat'):
+                last_activity = last_activity.isoformat()
+            else:
+                last_activity = str(last_activity)
+            
+            # Get batch info
+            batch_name = "No Batch"
+            batch_id_str = None
+            if student.get("batch_id"):
+                batch_id_str = str(student["batch_id"]) if isinstance(student["batch_id"], ObjectId) else student["batch_id"]
+                batch_name = student.get("batch_name", "Unknown Batch")
             
             student_list.append({
                 "id": str(student["_id"]),
-                "name": student.get("name") or student.get("username") or "Unknown",
-                "email": student.get("email") or "",
-                "progress": progress or 0,
-                "lastActive": last_activity or "",
-                "batch": student.get("batch_name") or "No Batch",
-                "batchId": str(student.get("batch_id", "")) if student.get("batch_id") else None
+                "name": student.get("full_name") or student.get("username") or student.get("email", "Unknown"),
+                "email": student.get("email", ""),
+                "progress": round(progress, 2) if progress else 0,
+                "lastActive": last_activity,
+                "batch": batch_name,
+                "batchId": batch_id_str
             })
         
         return {"success": True, "students": student_list}
@@ -559,15 +565,26 @@ async def add_student_to_batch(
         
         if not student:
             # Create new student if they don't exist
+            from passlib.context import CryptContext
+            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            
             student_doc = {
                 "email": student_data.email,
-                "name": student_data.name or student_data.email.split("@")[0],
+                "username": student_data.name or student_data.email.split("@")[0],
+                "full_name": student_data.name or student_data.email.split("@")[0],
                 "role": "student",
                 "batch_id": ObjectId(student_data.batch_id),
                 "batch_name": batch["name"],
                 "created_at": datetime.utcnow(),
+                "last_login": None,
+                "last_activity": datetime.utcnow(),
                 "is_active": True,
-                "password": "temp_password_123"  # Temporary password, student should change on first login
+                "password_hash": pwd_context.hash("temppass123"),  # Temporary password
+                "level": 1,
+                "xp": 0,
+                "badges": [],
+                "completed_assessments": 0,
+                "average_score": 0.0
             }
             
             result = await db.users.insert_one(student_doc)

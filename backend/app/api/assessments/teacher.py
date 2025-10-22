@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from bson import ObjectId
+import logging
 from ...db import get_db
 from ...schemas.schemas import (
     QuestionCreate, QuestionResponse, CodingQuestionCreate, CodingQuestionResponse,
@@ -13,6 +14,8 @@ from ...schemas.schemas import (
 )
 from ...dependencies import require_teacher, get_current_user
 from ...models.models import UserModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/assessments", tags=["assessments-teacher"])
 
@@ -107,28 +110,51 @@ async def get_student_detailed_results(
 ):
     """Get detailed results for a specific student"""
     try:
+        logger.info(f"🔍 [STUDENT-RESULTS] Getting results for student: {student_id}, teacher: {user.email}")
         db = await get_db()
         
         if not ObjectId.is_valid(student_id):
+            logger.error(f"❌ [STUDENT-RESULTS] Invalid student ID: {student_id}")
             raise HTTPException(status_code=400, detail="Invalid student ID")
         
         # Verify student belongs to teacher's batch
+        logger.info(f"🔍 [STUDENT-RESULTS] Looking for student in database...")
         student = await db.users.find_one({
             "_id": ObjectId(student_id),
             "role": "student"
         })
         
         if not student:
+            logger.error(f"❌ [STUDENT-RESULTS] Student not found: {student_id}")
             raise HTTPException(status_code=404, detail="Student not found")
         
+        logger.info(f"✅ [STUDENT-RESULTS] Student found: {student.get('email', 'Unknown')}")
+        
         # Check if student is in teacher's batch
+        batch_id = student.get("batch_id")
+        logger.info(f"🔍 [STUDENT-RESULTS] Student batch_id: {batch_id}, type: {type(batch_id)}")
+        
+        if not batch_id:
+            logger.error(f"❌ [STUDENT-RESULTS] Student has no batch_id")
+            raise HTTPException(status_code=403, detail="Student not assigned to any batch")
+        
+        # Ensure batch_id is an ObjectId
+        if isinstance(batch_id, str):
+            if not ObjectId.is_valid(batch_id):
+                logger.error(f"❌ [STUDENT-RESULTS] Invalid batch_id string: {batch_id}")
+                raise HTTPException(status_code=403, detail="Invalid batch assignment")
+            batch_id = ObjectId(batch_id)
+        
         student_batch = await db.batches.find_one({
-            "_id": student.get("batch_id"),
+            "_id": batch_id,
             "teacher_id": str(user.id)
         })
         
+        logger.info(f"🔍 [STUDENT-RESULTS] Batch query result: {student_batch is not None}")
+        
         if not student_batch:
-            raise HTTPException(status_code=403, detail="Access denied")
+            logger.error(f"❌ [STUDENT-RESULTS] Student's batch not found or not owned by teacher")
+            raise HTTPException(status_code=403, detail="Access denied - student not in your batch")
         
         # Get student's submissions
         submissions = await db.assessment_submissions.find({
@@ -192,6 +218,15 @@ async def get_student_detailed_results(
             total_questions = 0
             total_score = 0
         
+        # Handle last_activity - it could be datetime, string, or None
+        last_activity = student.get("last_activity", datetime.utcnow())
+        if isinstance(last_activity, datetime):
+            last_activity_str = last_activity.isoformat()
+        elif isinstance(last_activity, str):
+            last_activity_str = last_activity
+        else:
+            last_activity_str = datetime.utcnow().isoformat()
+        
         return {
             "student_info": {
                 "id": student_id,
@@ -207,12 +242,15 @@ async def get_student_detailed_results(
                 "average_percentage": round(avg_percentage, 2),
                 "total_questions_answered": total_questions,
                 "total_score": total_score,
-                "last_activity": student.get("last_activity", datetime.utcnow()).isoformat()
+                "last_activity": last_activity_str
             },
             "results": all_results
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"❌ [STUDENT-RESULTS] Unexpected error: {type(e).__name__}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/teacher/assessment-analytics/{assessment_id}")

@@ -194,12 +194,13 @@ const CreateAssessment: React.FC = () => {
           return
         }
 
-        response = await api.post("/api/teacher/assessments/generate", {
+        response = await api.post("/api/teacher/assessments/create", {
           title,
           topic,
           difficulty,
           question_count: questionCount,
-          time_limit: timeLimit
+          batches: selectedBatches,
+          type: "ai_generated"
         })
       } else if (activeType === "mcq") {
         if (questions.length === 0) {
@@ -237,12 +238,17 @@ const CreateAssessment: React.FC = () => {
       if (response?.data) {
         const assessmentId = response.data.assessment_id || response.data.id
 
-        // Assign to batches
-        if (selectedBatches.length > 0 && assessmentId) {
-          await api.post(`/api/assessments/${assessmentId}/assign-batches`, selectedBatches)
+        // For non-AI assessments, assign to batches separately
+        if (activeType !== "ai" && selectedBatches.length > 0 && assessmentId) {
+          try {
+            await api.post(`/api/assessments/${assessmentId}/assign-batches`, selectedBatches)
+          } catch (err) {
+            console.warn("Failed to assign batches:", err)
+            // Continue anyway as the assessment was created
+          }
         }
 
-        success("Assessment Created", "Assessment created and assigned successfully!")
+        success("Assessment Created", response.data.message || "Assessment created successfully!")
         navigate("/teacher/assessment-management")
       }
     } catch (err: any) {
@@ -484,38 +490,40 @@ const CreateAssessment: React.FC = () => {
         {batches.length === 0 ? (
           <p className="text-muted-foreground">No batches available. Create a batch first.</p>
         ) : (
-          batches.map((batch) => (
-            <div
-              key={batch.id}
-              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                selectedBatches.includes(batch.id)
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:border-muted"
-              }`}
-              onClick={() => {
-                setSelectedBatches(prev =>
-                  prev.includes(batch.id)
-                    ? prev.filter(id => id !== batch.id)
-                    : [...prev, batch.id]
-                )
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={selectedBatches.includes(batch.id)}
-                  onChange={() => {}}
-                  className="w-4 h-4"
-                />
-                <div className="flex-1">
-                  <h4 className="font-medium text-foreground">{batch.name}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {batch.studentCount} students • Created {new Date(batch.createdAt).toLocaleDateString()}
-                  </p>
+          <>
+            {batches.map((batch) => (
+              <div
+                key={batch.id}
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  selectedBatches.includes(batch.id)
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-muted"
+                }`}
+                onClick={() => {
+                  setSelectedBatches(prev =>
+                    prev.includes(batch.id)
+                      ? prev.filter(id => id !== batch.id)
+                      : [...prev, batch.id]
+                  )
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedBatches.includes(batch.id)}
+                    onChange={() => {}}
+                    className="w-4 h-4"
+                  />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-foreground">{batch.name}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {batch.studentCount} students • Created {new Date(batch.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </>
         )}
       </div>
       {selectedBatches.length > 0 && (
@@ -710,15 +718,15 @@ const CreateAssessment: React.FC = () => {
                   <div className="flex flex-wrap gap-2">
                     {batches
                       .filter(b => selectedBatches.includes(b.id))
-                      .map(batch => (
+                      .map((batch) => (
                         <span
                           key={batch.id}
                           className="px-3 py-1 bg-primary/20 text-primary rounded-full text-sm font-medium"
                         >
                           {batch.name} ({batch.studentCount} students)
                         </span>
-                      ))
-                    }
+                      ))}
+
                   </div>
                 </div>
               )}

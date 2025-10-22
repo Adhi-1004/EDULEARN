@@ -91,10 +91,10 @@ const AssessmentManagement: React.FC = () => {
       const batchesResponse = await api.get("/api/teacher/batches")
       if (batchesResponse.data && Array.isArray(batchesResponse.data)) {
         const formattedBatches = batchesResponse.data.map((batch: any) => ({
-          id: batch.batch_id,
-          name: batch.batch_name,
-          studentCount: batch.total_students,
-          createdAt: new Date().toISOString().split("T")[0],
+          id: batch.id,
+          name: batch.name,
+          studentCount: batch.student_count || 0,
+          createdAt: batch.created_at || new Date().toISOString(),
         }))
         
         setBatches(formattedBatches)
