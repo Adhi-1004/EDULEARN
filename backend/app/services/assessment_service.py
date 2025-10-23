@@ -248,7 +248,7 @@ class AssessmentService:
             # Update assessment status
             result = await self.db.assessments.update_one(
                 {"_id": ObjectId(assessment_id), "created_by": user_id},
-                {"$set": {"status": "published", "is_active": True}}
+                {"$set": {"status": "active", "is_active": True}}
             )
             
             if result.matched_count == 0:

@@ -17,8 +17,116 @@ from ...models.models import UserModel
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/assessments", tags=["assessments-teacher"])
+router = APIRouter(prefix="/assessments/teacher", tags=["assessments-teacher"])
 
+@router.post("/{assessment_id}/assign-batches")
+async def assign_teacher_assessment_to_batches(
+    assessment_id: str,
+    batch_ids: List[str],
+    user: UserModel = Depends(require_teacher)
+):
+    """Assign a teacher-created assessment to batches and notify students."""
+    try:
+        db = await get_db()
+
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+
+        assessment = await db.teacher_assessments.find_one({
+            "_id": ObjectId(assessment_id),
+            "teacher_id": str(user.id)
+        })
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found or access denied")
+
+        await db.teacher_assessments.update_one(
+            {"_id": ObjectId(assessment_id)},
+            {"$set": {"batches": batch_ids}}
+        )
+
+        notifications: List[Dict[str, Any]] = []
+        for batch_id in batch_ids:
+            if not ObjectId.is_valid(batch_id):
+                continue
+            batch = await db.batches.find_one({"_id": ObjectId(batch_id)})
+            if not batch:
+                continue
+            for student_id in batch.get("student_ids", []):
+                notifications.append({
+                    "student_id": student_id,
+                    "type": "assessment_assigned",
+                    "title": f"New Assessment: {assessment.get('title', 'Untitled')}",
+                    "message": f"A new {assessment.get('difficulty', 'medium')} assessment on {assessment.get('topic', 'General')} has been assigned to you.",
+                    "assessment_id": assessment_id,
+                    "created_at": datetime.utcnow(),
+                    "is_read": False
+                })
+
+        if notifications:
+            await db.notifications.insert_many(notifications)
+
+        return {"success": True, "message": "Batches assigned and students notified"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{assessment_id}/publish")
+async def publish_teacher_assessment(
+    assessment_id: str,
+    user: UserModel = Depends(require_teacher)
+):
+    """Publish a teacher-created assessment and notify assigned batches."""
+    try:
+        db = await get_db()
+
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+
+        assessment = await db.teacher_assessments.find_one({
+            "_id": ObjectId(assessment_id),
+            "teacher_id": str(user.id)
+        })
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found or access denied")
+
+        if len(assessment.get("questions", [])) == 0:
+            raise HTTPException(status_code=400, detail="Assessment must have at least one question to publish")
+
+        await db.teacher_assessments.update_one(
+            {"_id": ObjectId(assessment_id)},
+            {"$set": {"status": "active", "is_active": True, "published_at": datetime.utcnow()}}
+        )
+
+        batch_ids = assessment.get("batches", [])
+        notifications: List[Dict[str, Any]] = []
+        for batch_id in batch_ids:
+            if not ObjectId.is_valid(batch_id):
+                continue
+            batch = await db.batches.find_one({"_id": ObjectId(batch_id)})
+            if not batch:
+                continue
+            for student_id in batch.get("student_ids", []):
+                notifications.append({
+                    "student_id": student_id,
+                    "type": "assessment_assigned",
+                    "title": f"New Assessment: {assessment.get('title', 'Untitled')}",
+                    "message": f"A new {assessment.get('difficulty', 'medium')} assessment on {assessment.get('topic', 'General')} has been assigned to you.",
+                    "assessment_id": assessment_id,
+                    "created_at": datetime.utcnow(),
+                    "is_read": False
+                })
+
+        if notifications:
+            await db.notifications.insert_many(notifications)
+
+        return {"success": True, "message": "Assessment published successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 @router.get("/teacher/class-performance")
 async def get_class_performance_overview(user: UserModel = Depends(require_teacher)):
     """Get overall class performance analytics for teacher"""

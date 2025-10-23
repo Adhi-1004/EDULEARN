@@ -93,9 +93,9 @@ async def _validate_rows(df: pd.DataFrame) -> (List[Dict[str, Any]], List[Dict[s
             row_errors.append("Teacher ID required")
 
         if row_errors:
-            errors.append({"row": row_no, "data": {"name": name, "email": email, "teacher_id": teacher_id}, "errors": row_errors})
+            errors.append({"row": str(row_no), "data": {"name": name, "email": email, "teacher_id": teacher_id}, "errors": row_errors})
         else:
-            valid.append({"row": row_no, "name": name, "email": email, "teacher_id": teacher_id})
+            valid.append({"row": str(row_no), "name": name, "email": email, "teacher_id": teacher_id})
     return valid, errors
 
 
@@ -113,10 +113,10 @@ async def _create_teachers(db: AsyncIOMotorDatabase, teachers: List[Dict[str, An
     for t in teachers:
         try:
             if t["email"] in existing["emails"]:
-                errors.append({"row": t["row"], "email": t["email"], "error": "Email already exists"})
+                errors.append({"row": str(t["row"]), "email": t["email"], "error": "Email already exists"})
                 continue
             if t["teacher_id"] in existing["teacher_ids"]:
-                errors.append({"row": t["row"], "teacher_id": t["teacher_id"], "error": "Teacher ID already exists"})
+                errors.append({"row": str(t["row"]), "teacher_id": t["teacher_id"], "error": "Teacher ID already exists"})
                 continue
 
             password_hash = get_password_hash(t["teacher_id"])  # teacher_id as password
@@ -135,9 +135,9 @@ async def _create_teachers(db: AsyncIOMotorDatabase, teachers: List[Dict[str, An
                 "login_method": "teacher_id",
             }
             res = await db.users.insert_one(doc)
-            created.append({"id": str(res.inserted_id), "name": t["name"], "email": t["email"], "teacher_id": t["teacher_id"], "row": t["row"]})
+            created.append({"id": str(res.inserted_id), "name": t["name"], "email": t["email"], "teacher_id": t["teacher_id"], "row": str(t["row"])})
         except Exception as e:
-            errors.append({"row": t["row"], "data": t, "error": f"Creation failed: {str(e)}"})
+            errors.append({"row": str(t["row"]), "data": t, "error": f"Creation failed: {str(e)}"})
     return created, errors
 
 

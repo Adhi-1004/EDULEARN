@@ -74,8 +74,8 @@ export const useStudents = (): UseStudentsReturn => {
       setError(null)
 
       const response = await api.post("/api/teacher/students/add", {
-        student_name: data.name,
-        student_email: data.email,
+        name: data.name,
+        email: data.email,
         batch_id: data.batchId
       })
       if (response.data.success) {

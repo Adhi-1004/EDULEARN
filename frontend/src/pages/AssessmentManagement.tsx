@@ -57,7 +57,6 @@ const AssessmentManagement: React.FC = () => {
   const [showAssessmentResults, setShowAssessmentResults] = useState(false)
   const [assessmentResults] = useState<any[]>([])
   const [teacherAssessments, setTeacherAssessments] = useState<any[]>([])
-  const [upcomingAssessments, setUpcomingAssessments] = useState<any[]>([])
   const [recentAssessments, setRecentAssessments] = useState<any[]>([])
   // Removed aiQuestionType since we're only implementing MCQ
   // Removed showAIGeneratedQuestions since AI generation is now handled directly
@@ -78,7 +77,6 @@ const AssessmentManagement: React.FC = () => {
   useEffect(() => {
     fetchDashboardData()
     fetchTeacherAssessments()
-    fetchUpcoming()
   }, [])
 
   const fetchDashboardData = async () => {
@@ -128,15 +126,6 @@ const AssessmentManagement: React.FC = () => {
     }
   }
 
-  const fetchUpcoming = async () => {
-    try {
-      const res = await api.get("/api/assessments/teacher/upcoming")
-      if (Array.isArray(res.data)) setUpcomingAssessments(res.data)
-    } catch (e) {
-      console.warn("⚠️ [ASSESSMENT MANAGEMENT] Unable to fetch upcoming assessments", e)
-      setUpcomingAssessments([])
-    }
-  }
 
   const handleCreateMCQ = () => {
     navigate("/teacher/create-assessment?type=mcq")
@@ -196,7 +185,7 @@ const AssessmentManagement: React.FC = () => {
       // Publish the assessment so it is assigned to selected batches and visible to students
       const publishUrl = `/api/assessments/${currentAssessment.id}/publish`
       await api.post(publishUrl)
-      success("Published", "Assessment published to selected batches. Students will see it in Upcoming Tests.")
+      success("Published", "Assessment published to selected batches. Students can now access it.")
       setShowQuestionForm(false)
     } catch (err: any) {
       const msg = err.response?.data?.detail || err.message || "Failed to publish assessment"
@@ -246,7 +235,6 @@ const AssessmentManagement: React.FC = () => {
             {/* Assessment History */}
             <AssessmentHistory 
               recentAssessments={recentAssessments}
-              upcomingAssessments={upcomingAssessments}
             />
 
 

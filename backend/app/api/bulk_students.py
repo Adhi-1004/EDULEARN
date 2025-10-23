@@ -129,7 +129,7 @@ async def validate_student_data(df: pd.DataFrame) -> List[Dict[str, Any]]:
             
             if row_errors:
                 errors.append({
-                    "row": index + 2,  # +2 because Excel is 1-indexed and we skip header
+                    "row": str(index + 2),  # +2 because Excel is 1-indexed and we skip header
                     "data": {
                         "name": name,
                         "roll_number": roll_number,
@@ -142,12 +142,12 @@ async def validate_student_data(df: pd.DataFrame) -> List[Dict[str, Any]]:
                     "name": name,
                     "roll_number": roll_number,
                     "email": email,
-                    "row": index + 2
+                    "row": str(index + 2)
                 })
                 
         except Exception as e:
             errors.append({
-                "row": index + 2,
+                "row": str(index + 2),
                 "data": dict(row),
                 "errors": [f"Data validation error: {str(e)}"]
             })
@@ -194,7 +194,7 @@ async def create_student_accounts(
             # Check for duplicates
             if student['email'] in existing_data['existing_emails']:
                 errors.append({
-                    "row": student['row'],
+                    "row": str(student['row']),
                     "email": student['email'],
                     "error": "Email already exists"
                 })
@@ -202,7 +202,7 @@ async def create_student_accounts(
             
             if student['roll_number'] in existing_data['existing_rolls']:
                 errors.append({
-                    "row": student['row'],
+                    "row": str(student['row']),
                     "roll_number": student['roll_number'],
                     "error": "Roll number already exists"
                 })
@@ -236,12 +236,12 @@ async def create_student_accounts(
                 "name": student['name'],
                 "roll_number": student['roll_number'],
                 "email": student['email'],
-                "row": student['row']
+                "row": str(student['row'])
             })
             
         except Exception as e:
             errors.append({
-                "row": student['row'],
+                "row": str(student['row']),
                 "data": student,
                 "error": f"Account creation failed: {str(e)}"
             })

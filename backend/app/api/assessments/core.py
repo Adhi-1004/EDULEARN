@@ -243,7 +243,7 @@ async def publish_assessment(assessment_id: str, user: UserModel = Depends(get_c
         # Update assessment status
         result = await db.assessments.update_one(
             {"_id": ObjectId(assessment_id), "created_by": str(user.id)},
-            {"$set": {"status": "published", "is_active": True}}
+            {"$set": {"status": "active", "is_active": True}}
         )
         
         if result.matched_count == 0:

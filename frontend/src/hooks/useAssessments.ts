@@ -32,7 +32,6 @@ interface AssessmentCreateData {
 interface UseAssessmentsReturn {
   assessments: Assessment[]
   recentAssessments: Assessment[]
-  upcomingAssessments: Assessment[]
   loading: boolean
   error: string | null
   createAssessment: (data: AssessmentCreateData) => Promise<Assessment | null>
@@ -42,14 +41,12 @@ interface UseAssessmentsReturn {
   assignToBatches: (id: string, batchIds: string[]) => Promise<boolean>
   refreshAssessments: () => Promise<void>
   refreshRecent: () => Promise<void>
-  refreshUpcoming: () => Promise<void>
 }
 
 export const useAssessments = (): UseAssessmentsReturn => {
   const { success, error: showError } = useToast()
   const [assessments, setAssessments] = useState<Assessment[]>([])
   const [recentAssessments, setRecentAssessments] = useState<Assessment[]>([])
-  const [upcomingAssessments, setUpcomingAssessments] = useState<Assessment[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -87,17 +84,6 @@ export const useAssessments = (): UseAssessmentsReturn => {
     }
   }, [])
 
-  const fetchUpcomingAssessments = useCallback(async () => {
-    try {
-      const response = await api.get("/api/assessments/teacher/upcoming")
-      if (Array.isArray(response.data)) {
-        setUpcomingAssessments(response.data)
-      }
-    } catch (err) {
-      console.warn("Failed to fetch upcoming assessments:", err)
-      setUpcomingAssessments([])
-    }
-  }, [])
 
   const createAssessment = useCallback(async (data: AssessmentCreateData): Promise<Assessment | null> => {
     try {
@@ -231,21 +217,16 @@ export const useAssessments = (): UseAssessmentsReturn => {
     await fetchRecentAssessments()
   }, [fetchRecentAssessments])
 
-  const refreshUpcoming = useCallback(async () => {
-    await fetchUpcomingAssessments()
-  }, [fetchUpcomingAssessments])
 
   // Initial data fetch
   useEffect(() => {
     fetchAssessments()
     fetchRecentAssessments()
-    fetchUpcomingAssessments()
-  }, [fetchAssessments, fetchRecentAssessments, fetchUpcomingAssessments])
+  }, [fetchAssessments, fetchRecentAssessments])
 
   return {
     assessments,
     recentAssessments,
-    upcomingAssessments,
     loading,
     error,
     createAssessment,
@@ -254,7 +235,6 @@ export const useAssessments = (): UseAssessmentsReturn => {
     publishAssessment,
     assignToBatches,
     refreshAssessments,
-    refreshRecent,
-    refreshUpcoming
+    refreshRecent
   }
 }

@@ -245,17 +245,34 @@ const StudentManagement: React.FC = () => {
   }
 
   const handleRemoveStudent = async (studentId: string) => {
-    if (!confirm("Are you sure you want to remove this student?")) {
-      return
+    const student = students.find(s => s.id === studentId);
+    const batchId = student?.batchId;
+
+    if (!batchId) {
+      showError("Cannot Remove", "This student is not assigned to a batch.");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to remove this student from their batch?")) {
+      return;
     }
 
     try {
-      // Implementation for removing student
-      success("Student removed successfully")
-      fetchDashboardData()
-    } catch (error) {
-      console.error("❌ [STUDENT MANAGEMENT] Error removing student:", error)
-      showError("Failed to remove student")
+      // This is the new, functional code
+      const response = await api.post("/api/teacher/students/remove", {
+        student_id: studentId,
+        batch_id: batchId
+      });
+
+      if (response.data.success) {
+        success("Student removed successfully", response.data.message);
+        fetchDashboardData(); // Refresh all data
+      } else {
+        showError("Failed to remove student", response.data.message || "An error occurred.");
+      }
+    } catch (error: any) {
+      console.error("❌ [STUDENT MANAGEMENT] Error removing student:", error);
+      showError("Failed to remove student", error.response?.data?.detail || "An error occurred.");
     }
   }
 

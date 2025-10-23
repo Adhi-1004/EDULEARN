@@ -1575,9 +1575,9 @@ async def get_available_assessments(user: UserModel = Depends(get_current_user))
         student_batches = await db.batches.find({"student_ids": str(user.id)}).to_list(None)
         batch_ids = [str(batch["_id"]) for batch in student_batches]
         
-        # Get published assessments assigned to these batches
+        # Get active assessments assigned to these batches
         assessments_cursor = await db.assessments.find({
-            "status": "published",
+            "status": "active",
             "assigned_batches": {"$in": batch_ids}
         }).to_list(None)
         
@@ -2837,13 +2837,23 @@ async def get_student_upcoming_assessments(user: UserModel = Depends(get_current
         print(f"🔍 [ASSESSMENT] Student {user.id} is in batches: {batch_ids}")
         
         # Find assessments assigned to these batches that are active
-        assessments = await db.assessments.find({
+        # Check both regular assessments and teacher assessments collections
+        regular_assessments = await db.assessments.find({
             "assigned_batches": {"$in": batch_ids},
             "is_active": True,
             "status": "active"
         }).to_list(length=None)
         
-        print(f"📊 [ASSESSMENT] Found {len(assessments)} assessments for batches {batch_ids}")
+        teacher_assessments = await db.teacher_assessments.find({
+            "batches": {"$in": batch_ids},
+            "is_active": True,
+            "status": {"$in": ["active", "published"]}
+        }).to_list(length=None)
+        
+        # Combine both types of assessments
+        assessments = list(regular_assessments) + list(teacher_assessments)
+        
+        print(f"📊 [ASSESSMENT] Found {len(regular_assessments)} regular assessments and {len(teacher_assessments)} teacher assessments for batches {batch_ids}")
         
         # Check if student has already submitted these assessments
         submitted_ids = []
@@ -2872,17 +2882,25 @@ async def get_student_upcoming_assessments(user: UserModel = Depends(get_current
         # Get teacher names for each assessment
         result = []
         for assessment in upcoming_assessments:
-            teacher = await db.users.find_one({"_id": ObjectId(assessment["created_by"])})
+            # Handle different field names for regular vs teacher assessments
+            created_by = assessment.get("created_by") or assessment.get("teacher_id")
+            teacher = await db.users.find_one({"_id": ObjectId(created_by)}) if created_by else None
             teacher_name = teacher.get("name", "Unknown Teacher") if teacher else "Unknown Teacher"
+            
+            # Handle different field structures
+            subject = assessment.get("subject") or assessment.get("topic", "General")
+            description = assessment.get("description", "")
+            time_limit = assessment.get("time_limit", 30)
+            question_count = assessment.get("question_count", len(assessment.get("questions", [])))
             
             result.append(StudentAssessment(
                 id=str(assessment["_id"]),
                 title=assessment["title"],
-                subject=assessment["subject"],
+                subject=subject,
                 difficulty=assessment["difficulty"],
-                description=assessment["description"],
-                time_limit=assessment["time_limit"],
-                question_count=assessment["question_count"],
+                description=description,
+                time_limit=time_limit,
+                question_count=question_count,
                 type=assessment.get("type", "mcq"),
                 is_active=assessment["is_active"],
                 created_at=assessment["created_at"].isoformat(),

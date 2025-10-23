@@ -941,11 +941,15 @@ async def generate_student_report(payload: GenerateReportRequest, current_user: 
 # Teacher Assessment Management
 class TeacherAssessmentCreate(BaseModel):
     title: str
-    topic: str
+    topic: Optional[str] = None
     difficulty: str
-    question_count: int
-    batches: List[str]
+    question_count: Optional[int] = None
+    batches: Optional[List[str]] = None
     type: str = "ai_generated"
+    # Additional fields for different assessment types
+    description: Optional[str] = None
+    questions: Optional[List[dict]] = None
+    time_limit: Optional[int] = None
 
 class TeacherAssessmentResponse(BaseModel):
     success: bool
@@ -957,24 +961,38 @@ async def create_teacher_assessment(
     assessment_data: TeacherAssessmentCreate,
     current_user: UserModel = Depends(require_teacher_or_admin)
 ):
-    """Create an AI-generated assessment for students"""
+    """Create an assessment for students"""
     try:
         db = await get_db()
         
-        print(f"🤖 [TEACHER ASSESSMENT] Creating AI assessment: {assessment_data.title}")
+        print(f"🤖 [TEACHER ASSESSMENT] Creating {assessment_data.type} assessment: {assessment_data.title}")
         
         # Generate unique assessment ID
         assessment_id = str(ObjectId())
         
-        # Generate questions using Gemini AI
-        from app.services.gemini_coding_service import GeminiCodingService
-        gemini_service = GeminiCodingService()
+        # Validate required fields
+        if not assessment_data.batches or len(assessment_data.batches) == 0:
+            raise HTTPException(status_code=400, detail="At least one batch must be selected")
         
-        generated_questions = await gemini_service.generate_mcq_questions(
-            topic=assessment_data.topic,
-            difficulty=assessment_data.difficulty,
-            count=assessment_data.question_count
-        )
+        # Handle different assessment types
+        if assessment_data.type == "ai_generated":
+            if not assessment_data.topic or not assessment_data.question_count:
+                raise HTTPException(status_code=400, detail="Topic and question count are required for AI-generated assessments")
+            
+            # Generate questions using Gemini AI
+            from app.services.gemini_coding_service import GeminiCodingService
+            gemini_service = GeminiCodingService()
+            
+            generated_questions = await gemini_service.generate_mcq_questions(
+                topic=assessment_data.topic,
+                difficulty=assessment_data.difficulty,
+                count=assessment_data.question_count
+            )
+        else:
+            # Use provided questions for manual assessments
+            generated_questions = assessment_data.questions or []
+            if len(generated_questions) == 0:
+                raise HTTPException(status_code=400, detail="At least one question is required for manual assessments")
         
         # Store in teacher_assessments collection
         teacher_assessment = {
@@ -982,15 +1000,21 @@ async def create_teacher_assessment(
             "title": assessment_data.title,
             "topic": assessment_data.topic,
             "difficulty": assessment_data.difficulty,
-            "question_count": assessment_data.question_count,
+            "question_count": assessment_data.question_count or len(generated_questions),
             "questions": generated_questions,
-            "batches": assessment_data.batches,
+            "batches": assessment_data.batches or [],
             "teacher_id": current_user.id,
             "type": assessment_data.type,
             "created_at": datetime.utcnow(),
             "is_active": True,
-            "status": "published"
+            "status": "active"
         }
+        
+        # Add optional fields if provided
+        if assessment_data.description:
+            teacher_assessment["description"] = assessment_data.description
+        if assessment_data.time_limit:
+            teacher_assessment["time_limit"] = assessment_data.time_limit
         
         await db.teacher_assessments.insert_one(teacher_assessment)
         
@@ -1022,7 +1046,8 @@ async def create_teacher_assessment(
         
         # Get all students from selected batches
         student_ids = []
-        for batch_id in assessment_data.batches:
+        batches = assessment_data.batches or []
+        for batch_id in batches:
             batch = await db.batches.find_one({"_id": ObjectId(batch_id)})
             if batch and batch.get("student_ids"):
                 # Get students by their IDs from the batch

@@ -145,23 +145,13 @@ const Dashboard: React.FC = () => {
     try {
       console.log("📊 [DASHBOARD] Fetching upcoming tests for user:", user?.email)
       
-      // Fetch both student-generated and teacher-assigned assessments
-      const [studentAssessments, teacherAssessments] = await Promise.all([
-        api.get("/api/assessments/student/upcoming").catch(() => ({ data: [] })),
-        api.get("/api/assessments/teacher/upcoming").catch(() => ({ data: [] }))
-      ])
+      // Fetch upcoming assessments for the student
+      const response = await api.get("/api/assessments/student/upcoming")
       
-      console.log("📊 [DASHBOARD] Student assessments response:", studentAssessments.data)
-      console.log("📊 [DASHBOARD] Teacher assessments response:", teacherAssessments.data)
+      console.log("📊 [DASHBOARD] Upcoming tests response:", response.data)
       
-      // Combine both types of assessments
-      const allAssessments = [
-        ...(studentAssessments.data || []),
-        ...(teacherAssessments.data || [])
-      ]
-      
-      console.log("📊 [DASHBOARD] Combined upcoming tests:", allAssessments)
-      setUpcomingTests(allAssessments)
+      const upcomingAssessments = response.data || []
+      setUpcomingTests(upcomingAssessments)
     } catch (error: any) {
       console.error("❌ [DASHBOARD] Error in fetchUpcomingTests:", error)
       console.error("❌ [DASHBOARD] Error details:", {
@@ -174,6 +164,7 @@ const Dashboard: React.FC = () => {
       setUpcomingTests([])
     }
   }
+
 
   const statCards = [
     {
@@ -408,6 +399,11 @@ const Dashboard: React.FC = () => {
                             <p className="text-blue-400 text-sm mt-1">
                               {test.question_count} questions
                             </p>
+                            {test.teacher_name && (
+                              <p className="text-blue-300 text-xs mt-1">
+                                By: {test.teacher_name}
+                              </p>
+                            )}
                           </div>
                           <div className="text-right">
                             <Link to={`/assessment/${test.id}`}>

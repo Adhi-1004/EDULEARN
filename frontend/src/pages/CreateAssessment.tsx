@@ -22,6 +22,7 @@ import Button from "../components/ui/Button"
 import Input from "../components/ui/Input"
 import api from "../utils/api"
 import { ANIMATION_VARIANTS } from "../utils/constants"
+import { getErrorMessage } from "../utils/errorHandler"
 
 type AssessmentType = "ai" | "mcq" | "challenge" | "coding"
 
@@ -238,22 +239,35 @@ const CreateAssessment: React.FC = () => {
       if (response?.data) {
         const assessmentId = response.data.assessment_id || response.data.id
 
-        // For non-AI assessments, assign to batches separately
-        if (activeType !== "ai" && selectedBatches.length > 0 && assessmentId) {
+        // Always assign batches for teacher-created assessments
+        if (selectedBatches.length > 0 && assessmentId) {
           try {
-            await api.post(`/api/assessments/${assessmentId}/assign-batches`, selectedBatches)
+            await api.post(`/api/assessments/teacher/${assessmentId}/assign-batches`, selectedBatches)
           } catch (err) {
-            console.warn("Failed to assign batches:", err)
-            // Continue anyway as the assessment was created
+            console.warn("Failed to assign batches (teacher):", err)
+            const errorMessage = getErrorMessage(err, "Failed to assign batches")
+            showError("Batch Assignment Failed", errorMessage)
+            return
           }
         }
 
-        success("Assessment Created", response.data.message || "Assessment created successfully!")
+        // Publish teacher assessment so students can see it
+        try {
+          await api.post(`/api/assessments/teacher/${assessmentId}/publish`)
+        } catch (err) {
+          console.warn("Failed to publish teacher assessment:", err)
+          const errorMessage = getErrorMessage(err, "Failed to publish assessment")
+          showError("Publish Failed", errorMessage)
+          return
+        }
+
+        success("Assessment Published", response.data.message || "Assessment published and assigned!")
         navigate("/teacher/assessment-management")
       }
     } catch (err: any) {
       console.error("Failed to create assessment:", err)
-      showError("Creation Failed", err.response?.data?.detail || "Failed to create assessment")
+      const errorMessage = getErrorMessage(err, "Failed to create assessment")
+      showError("Creation Failed", errorMessage)
     } finally {
       setLoading(false)
     }
@@ -739,4 +753,5 @@ const CreateAssessment: React.FC = () => {
 }
 
 export default CreateAssessment
+
 

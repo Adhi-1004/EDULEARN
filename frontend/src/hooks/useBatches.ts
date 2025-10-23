@@ -151,8 +151,8 @@ export const useBatches = (): UseBatchesReturn => {
 
       const response = await api.post("/api/teacher/students/add", {
         batch_id: batchId,
-        student_email: studentEmail,
-        student_name: studentName
+        email: studentEmail,
+        name: studentName
       })
       if (response.data.success) {
         // Update the batch's student count
@@ -214,7 +214,7 @@ export const useBatches = (): UseBatchesReturn => {
       setLoading(true)
       setError(null)
 
-      const response = await api.post("/api/teacher/batches/assign-students", {
+      const response = await api.post("/api/teacher/students/assign-batch", {
         batch_id: batchId,
         student_ids: studentIds
       })
