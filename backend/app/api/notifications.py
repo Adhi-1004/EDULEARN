@@ -66,10 +66,23 @@ async def get_notifications(
     Get all notifications for the current user.
     """
     try:
+        print(f"🔔 [NOTIFICATIONS] Fetching notifications for user: {current_user.email} (ID: {current_user.id})")
         user_id = current_user.id
+        
+        # Try both user_id and student_id fields
         notifications = await db.notifications.find(
-            {"user_id": ObjectId(user_id)}
+            {"$or": [
+                {"user_id": ObjectId(user_id)},
+                {"student_id": str(user_id)},
+                {"user_id": str(user_id)}
+            ]}
         ).sort("created_at", -1).to_list(length=100)
+        
+        print(f"📊 [NOTIFICATIONS] Found {len(notifications)} notifications for user {user_id}")
+        
+        # Log notification details
+        for i, notification in enumerate(notifications):
+            print(f"  📝 Notification {i+1}: {notification.get('title', 'No title')} - {notification.get('type', 'No type')}")
         
         # Convert ObjectId to string for JSON serialization and map fields
         for notification in notifications:
@@ -80,7 +93,8 @@ async def get_notifications(
             
             # Map specific fields for frontend compatibility
             notification["id"] = str(notification["_id"])
-            notification["user_id"] = str(notification["user_id"])
+            if "user_id" in notification:
+                notification["user_id"] = str(notification["user_id"])
             
             # Map 'read' to 'is_read' for frontend compatibility
             if "read" in notification:

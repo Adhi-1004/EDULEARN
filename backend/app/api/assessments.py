@@ -2822,28 +2822,39 @@ async def get_assigned_students(assessment_id: str, user: UserModel = Depends(re
 async def get_student_upcoming_assessments(user: UserModel = Depends(get_current_user)):
     """Get upcoming assessments for a student"""
     try:
+        print("=" * 50)
+        print(f"STUDENT UPCOMING ENDPOINT CALLED!")
+        print(f"Student: {user.email} (ID: {user.id})")
+        print("=" * 50)
         db = await get_db()
         
         # Get student's batch_id from batches collection
+        print(f"🔍 [STUDENT-UPCOMING] Looking for batches containing student {user.id}")
         student_batches = await db.batches.find({
             "student_ids": str(user.id)
         }).to_list(length=None)
         
+        print(f"📊 [STUDENT-UPCOMING] Found {len(student_batches)} batches for student")
+        for batch in student_batches:
+            print(f"  - Batch: {batch.get('name', 'Unknown')} (ID: {batch['_id']})")
+        
         if not student_batches:
-            print(f"❌ [ASSESSMENT] Student {user.id} is not in any batch")
+            print(f"❌ [STUDENT-UPCOMING] Student {user.id} is not in any batch")
             return []
         
         batch_ids = [str(batch["_id"]) for batch in student_batches]
-        print(f"🔍 [ASSESSMENT] Student {user.id} is in batches: {batch_ids}")
+        print(f"🔍 [STUDENT-UPCOMING] Student {user.id} is in batches: {batch_ids}")
         
         # Find assessments assigned to these batches that are active
         # Check both regular assessments and teacher assessments collections
+        print(f"🔍 [STUDENT-UPCOMING] Searching for regular assessments in batches: {batch_ids}")
         regular_assessments = await db.assessments.find({
             "assigned_batches": {"$in": batch_ids},
             "is_active": True,
             "status": "active"
         }).to_list(length=None)
         
+        print(f"🔍 [STUDENT-UPCOMING] Searching for teacher assessments in batches: {batch_ids}")
         teacher_assessments = await db.teacher_assessments.find({
             "batches": {"$in": batch_ids},
             "is_active": True,
@@ -2853,25 +2864,45 @@ async def get_student_upcoming_assessments(user: UserModel = Depends(get_current
         # Combine both types of assessments
         assessments = list(regular_assessments) + list(teacher_assessments)
         
-        print(f"📊 [ASSESSMENT] Found {len(regular_assessments)} regular assessments and {len(teacher_assessments)} teacher assessments for batches {batch_ids}")
+        print(f"📊 [STUDENT-UPCOMING] Found {len(regular_assessments)} regular assessments and {len(teacher_assessments)} teacher assessments for batches {batch_ids}")
+        
+        # Log details of found assessments
+        for i, assessment in enumerate(regular_assessments):
+            print(f"  📝 Regular Assessment {i+1}: {assessment.get('title', 'Untitled')} (ID: {assessment['_id']})")
+        
+        for i, assessment in enumerate(teacher_assessments):
+            print(f"  📝 Teacher Assessment {i+1}: {assessment.get('title', 'Untitled')} (ID: {assessment['_id']})")
         
         # Check if student has already submitted these assessments
         submitted_ids = []
+        print(f"🔍 [STUDENT-UPCOMING] Checking submissions for student {user.id}")
+        
         try:
             submitted_assessments = await db.assessment_submissions.find({
                 "student_id": user.id
             }).to_list(length=None)
+            print(f"📊 [STUDENT-UPCOMING] Found {len(submitted_assessments)} regular submissions")
+            for sub in submitted_assessments:
+                print(f"  - Assessment ID: {sub.get('assessment_id')}")
             submitted_ids.extend([str(sub.get("assessment_id")) for sub in submitted_assessments if sub.get("assessment_id")])
-        except Exception:
+        except Exception as e:
+            print(f"❌ [STUDENT-UPCOMING] Error checking regular submissions: {e}")
             pass
+            
         # Also include teacher_assessment_results if any assessments are mirrored there
         try:
             teacher_submissions = await db.teacher_assessment_results.find({
                 "student_id": user.id
             }).to_list(length=None)
+            print(f"📊 [STUDENT-UPCOMING] Found {len(teacher_submissions)} teacher submissions")
+            for sub in teacher_submissions:
+                print(f"  - Assessment ID: {sub.get('assessment_id')}")
             submitted_ids.extend([str(sub.get("assessment_id")) for sub in teacher_submissions if sub.get("assessment_id")])
-        except Exception:
+        except Exception as e:
+            print(f"❌ [STUDENT-UPCOMING] Error checking teacher submissions: {e}")
             pass
+        
+        print(f"📋 [STUDENT-UPCOMING] Total submitted assessment IDs: {submitted_ids}")
         
         # Filter out already submitted assessments
         upcoming_assessments = [
@@ -2879,38 +2910,112 @@ async def get_student_upcoming_assessments(user: UserModel = Depends(get_current
             if str(assessment["_id"]) not in submitted_ids
         ]
         
+        print(f"📊 [STUDENT-UPCOMING] After filtering submissions: {len(upcoming_assessments)} upcoming assessments")
+        for assessment in upcoming_assessments:
+            print(f"  - {assessment.get('title', 'Untitled')} (ID: {assessment['_id']})")
+        
         # Get teacher names for each assessment
         result = []
-        for assessment in upcoming_assessments:
-            # Handle different field names for regular vs teacher assessments
-            created_by = assessment.get("created_by") or assessment.get("teacher_id")
-            teacher = await db.users.find_one({"_id": ObjectId(created_by)}) if created_by else None
-            teacher_name = teacher.get("name", "Unknown Teacher") if teacher else "Unknown Teacher"
-            
-            # Handle different field structures
-            subject = assessment.get("subject") or assessment.get("topic", "General")
-            description = assessment.get("description", "")
-            time_limit = assessment.get("time_limit", 30)
-            question_count = assessment.get("question_count", len(assessment.get("questions", [])))
-            
-            result.append(StudentAssessment(
-                id=str(assessment["_id"]),
-                title=assessment["title"],
-                subject=subject,
-                difficulty=assessment["difficulty"],
-                description=description,
-                time_limit=time_limit,
-                question_count=question_count,
-                type=assessment.get("type", "mcq"),
-                is_active=assessment["is_active"],
-                created_at=assessment["created_at"].isoformat(),
-                teacher_name=teacher_name
-            ))
+        print(f"📊 [STUDENT-UPCOMING] Processing {len(upcoming_assessments)} upcoming assessments for response formatting")
         
+        for i, assessment in enumerate(upcoming_assessments):
+            print(f"📝 [STUDENT-UPCOMING] Processing assessment {i+1}: {assessment.get('title', 'Untitled')}")
+            
+            try:
+                # Handle different field names for regular vs teacher assessments
+                created_by = assessment.get("created_by") or assessment.get("teacher_id")
+                print(f"  - Created by: {created_by}")
+                
+                teacher = await db.users.find_one({"_id": ObjectId(created_by)}) if created_by else None
+                teacher_name = teacher.get("name", "Unknown Teacher") if teacher else "Unknown Teacher"
+                print(f"  - Teacher name: {teacher_name}")
+                
+                # Handle different field structures
+                subject = assessment.get("subject") or assessment.get("topic", "General")
+                description = assessment.get("description", "")
+                time_limit = assessment.get("time_limit", 30)
+                question_count = assessment.get("question_count", len(assessment.get("questions", [])))
+                
+                print(f"  - Subject: {subject}")
+                print(f"  - Description: {description}")
+                print(f"  - Time limit: {time_limit}")
+                print(f"  - Question count: {question_count}")
+                print(f"  - Type: {assessment.get('type', 'mcq')}")
+                print(f"  - Difficulty: {assessment['difficulty']}")
+                print(f"  - Is active: {assessment['is_active']}")
+                print(f"  - Created at: {assessment.get('created_at')}")
+                
+                # Handle created_at field properly
+                created_at_str = assessment.get("created_at")
+                if created_at_str:
+                    if hasattr(created_at_str, 'isoformat'):
+                        created_at_str = created_at_str.isoformat()
+                    else:
+                        created_at_str = str(created_at_str)
+                else:
+                    created_at_str = "2025-01-01T00:00:00"  # Default value
+                
+                print(f"  - Created at (formatted): {created_at_str}")
+                
+                student_assessment = StudentAssessment(
+                    id=str(assessment["_id"]),
+                    title=assessment["title"],
+                    subject=subject,
+                    difficulty=assessment["difficulty"],
+                    description=description,
+                    time_limit=time_limit,
+                    question_count=question_count,
+                    type=assessment.get("type", "mcq"),
+                    is_active=assessment["is_active"],
+                    created_at=created_at_str,
+                    teacher_name=teacher_name
+                )
+                
+                result.append(student_assessment)
+                print(f"  ✅ [STUDENT-UPCOMING] Successfully created StudentAssessment object")
+                
+            except Exception as e:
+                print(f"  ❌ [STUDENT-UPCOMING] Error creating StudentAssessment for {assessment.get('title')}: {e}")
+                import traceback
+                print(f"  ❌ [STUDENT-UPCOMING] Traceback: {traceback.format_exc()}")
+                continue
+        
+        print(f"📊 [STUDENT-UPCOMING] Final result: {len(result)} assessments")
+        
+        # If no assessments found, try a simpler query as fallback
+        if len(result) == 0 and len(upcoming_assessments) > 0:
+            print("⚠️ [STUDENT-UPCOMING] No assessments in result but found in upcoming_assessments, trying fallback...")
+            try:
+                # Simple fallback - return basic assessment info
+                for assessment in upcoming_assessments[:5]:  # Limit to 5 to avoid issues
+                    try:
+                        result.append(StudentAssessment(
+                            id=str(assessment["_id"]),
+                            title=assessment.get("title", "Untitled Assessment"),
+                            subject=assessment.get("topic", "General"),
+                            difficulty=assessment.get("difficulty", "medium"),
+                            description=assessment.get("description", ""),
+                            time_limit=assessment.get("time_limit", 30),
+                            question_count=assessment.get("question_count", 0),
+                            type=assessment.get("type", "mcq"),
+                            is_active=assessment.get("is_active", True),
+                            created_at="2025-01-01T00:00:00",
+                            teacher_name="Teacher"
+                        ))
+                        print(f"✅ [STUDENT-UPCOMING] Added fallback assessment: {assessment.get('title')}")
+                    except Exception as e:
+                        print(f"❌ [STUDENT-UPCOMING] Error in fallback: {e}")
+                        continue
+            except Exception as e:
+                print(f"❌ [STUDENT-UPCOMING] Fallback failed: {e}")
+        
+        print(f"📊 [STUDENT-UPCOMING] Final result after fallback: {len(result)} assessments")
         return result
         
     except Exception as e:
         print(f"❌ [ASSESSMENT] Error fetching upcoming assessments: {str(e)}")
+        import traceback
+        print(f"❌ [ASSESSMENT] Traceback: {traceback.format_exc()}")
         return []
 
 @router.get("/{assessment_id}/questions")

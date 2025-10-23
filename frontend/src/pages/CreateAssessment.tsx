@@ -177,6 +177,17 @@ const CreateAssessment: React.FC = () => {
   }
 
   const handleCreateAssessment = async () => {
+    console.log("🎯 [CREATE-ASSESSMENT] Starting assessment creation process")
+    console.log("📝 [CREATE-ASSESSMENT] Assessment details:", {
+      title,
+      type: activeType,
+      difficulty,
+      selectedBatches,
+      topic: activeType === "ai" ? topic : undefined,
+      questionCount: activeType === "ai" ? questionCount : undefined,
+      questionsCount: activeType === "mcq" ? questions.length : undefined
+    })
+    
     if (!validateBasicInfo()) return
 
     setLoading(true)
@@ -195,14 +206,20 @@ const CreateAssessment: React.FC = () => {
           return
         }
 
-        response = await api.post("/api/teacher/assessments/create", {
+        console.log("🤖 [CREATE-ASSESSMENT] Creating AI-generated assessment...")
+        const assessmentData = {
           title,
           topic,
           difficulty,
           question_count: questionCount,
           batches: selectedBatches,
           type: "ai_generated"
-        })
+        }
+        console.log("📤 [CREATE-ASSESSMENT] Sending assessment data:", assessmentData)
+        
+        response = await api.post("/api/teacher/assessments/create", assessmentData)
+        console.log("📥 [CREATE-ASSESSMENT] Assessment creation response:", response.data)
+        
       } else if (activeType === "mcq") {
         if (questions.length === 0) {
           showError("Validation Error", "Please add at least one question")
@@ -210,41 +227,63 @@ const CreateAssessment: React.FC = () => {
           return
         }
 
-        response = await api.post("/api/teacher/assessments/create", {
+        console.log("📝 [CREATE-ASSESSMENT] Creating manual MCQ assessment...")
+        const assessmentData = {
           title,
           description,
           difficulty,
           questions,
           time_limit: timeLimit,
           type: "mcq"
-        })
+        }
+        console.log("📤 [CREATE-ASSESSMENT] Sending assessment data:", assessmentData)
+        
+        response = await api.post("/api/teacher/assessments/create", assessmentData)
+        console.log("📥 [CREATE-ASSESSMENT] Assessment creation response:", response.data)
+        
       } else if (activeType === "challenge") {
-        response = await api.post("/api/teacher/assessments/create", {
+        console.log("🎯 [CREATE-ASSESSMENT] Creating challenge assessment...")
+        const assessmentData = {
           title,
           description,
           difficulty,
           type: "challenge",
           time_limit: timeLimit
-        })
+        }
+        console.log("📤 [CREATE-ASSESSMENT] Sending assessment data:", assessmentData)
+        
+        response = await api.post("/api/teacher/assessments/create", assessmentData)
+        console.log("📥 [CREATE-ASSESSMENT] Assessment creation response:", response.data)
+        
       } else if (activeType === "coding") {
-        response = await api.post("/api/teacher/assessments/create", {
+        console.log("💻 [CREATE-ASSESSMENT] Creating coding assessment...")
+        const assessmentData = {
           title,
           description,
           difficulty,
           type: "coding",
           time_limit: timeLimit
-        })
+        }
+        console.log("📤 [CREATE-ASSESSMENT] Sending assessment data:", assessmentData)
+        
+        response = await api.post("/api/teacher/assessments/create", assessmentData)
+        console.log("📥 [CREATE-ASSESSMENT] Assessment creation response:", response.data)
       }
 
       if (response?.data) {
         const assessmentId = response.data.assessment_id || response.data.id
+        console.log("✅ [CREATE-ASSESSMENT] Assessment created successfully! ID:", assessmentId)
 
         // Always assign batches for teacher-created assessments
         if (selectedBatches.length > 0 && assessmentId) {
+          console.log("🔗 [CREATE-ASSESSMENT] Assigning batches to assessment...")
+          console.log("📤 [CREATE-ASSESSMENT] Batch IDs to assign:", selectedBatches)
+          
           try {
-            await api.post(`/api/assessments/teacher/${assessmentId}/assign-batches`, selectedBatches)
+            const assignResponse = await api.post(`/api/assessments/teacher/${assessmentId}/assign-batches`, selectedBatches)
+            console.log("✅ [CREATE-ASSESSMENT] Batch assignment successful:", assignResponse.data)
           } catch (err) {
-            console.warn("Failed to assign batches (teacher):", err)
+            console.error("❌ [CREATE-ASSESSMENT] Failed to assign batches:", err)
             const errorMessage = getErrorMessage(err, "Failed to assign batches")
             showError("Batch Assignment Failed", errorMessage)
             return
@@ -252,20 +291,23 @@ const CreateAssessment: React.FC = () => {
         }
 
         // Publish teacher assessment so students can see it
+        console.log("📢 [CREATE-ASSESSMENT] Publishing assessment...")
         try {
-          await api.post(`/api/assessments/teacher/${assessmentId}/publish`)
+          const publishResponse = await api.post(`/api/assessments/teacher/${assessmentId}/publish`)
+          console.log("✅ [CREATE-ASSESSMENT] Assessment published successfully:", publishResponse.data)
         } catch (err) {
-          console.warn("Failed to publish teacher assessment:", err)
+          console.error("❌ [CREATE-ASSESSMENT] Failed to publish assessment:", err)
           const errorMessage = getErrorMessage(err, "Failed to publish assessment")
           showError("Publish Failed", errorMessage)
           return
         }
 
+        console.log("🎉 [CREATE-ASSESSMENT] Complete assessment creation flow successful!")
         success("Assessment Published", response.data.message || "Assessment published and assigned!")
         navigate("/teacher/assessment-management")
       }
     } catch (err: any) {
-      console.error("Failed to create assessment:", err)
+      console.error("❌ [CREATE-ASSESSMENT] Failed to create assessment:", err)
       const errorMessage = getErrorMessage(err, "Failed to create assessment")
       showError("Creation Failed", errorMessage)
     } finally {

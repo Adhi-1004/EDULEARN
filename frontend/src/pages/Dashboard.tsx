@@ -144,14 +144,22 @@ const Dashboard: React.FC = () => {
   const fetchUpcomingTests = async () => {
     try {
       console.log("📊 [DASHBOARD] Fetching upcoming tests for user:", user?.email)
+      console.log("👤 [DASHBOARD] User ID:", user?.id)
+      console.log("🌐 [DASHBOARD] Making upcoming tests API request to: /api/assessments/student/upcoming")
       
       // Fetch upcoming assessments for the student
       const response = await api.get("/api/assessments/student/upcoming")
       
       console.log("📊 [DASHBOARD] Upcoming tests response:", response.data)
+      console.log("📊 [DASHBOARD] Response status:", response.status)
+      console.log("📊 [DASHBOARD] Response headers:", response.headers)
       
       const upcomingAssessments = response.data || []
+      console.log("📋 [DASHBOARD] Number of upcoming assessments:", upcomingAssessments.length)
+      console.log("📋 [DASHBOARD] Upcoming assessments:", upcomingAssessments)
+      
       setUpcomingTests(upcomingAssessments)
+      console.log("✅ [DASHBOARD] fetchUpcomingTests completed successfully")
     } catch (error: any) {
       console.error("❌ [DASHBOARD] Error in fetchUpcomingTests:", error)
       console.error("❌ [DASHBOARD] Error details:", {

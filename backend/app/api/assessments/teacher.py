@@ -27,32 +27,65 @@ async def assign_teacher_assessment_to_batches(
 ):
     """Assign a teacher-created assessment to batches and notify students."""
     try:
+        print(f"🔔 [ASSIGN-BATCHES] Starting batch assignment for assessment {assessment_id}")
+        print(f"🔔 [ASSIGN-BATCHES] Teacher: {user.email} (ID: {user.id})")
+        print(f"🔔 [ASSIGN-BATCHES] Batch IDs to assign: {batch_ids}")
+        
         db = await get_db()
 
         if not ObjectId.is_valid(assessment_id):
+            print(f"❌ [ASSIGN-BATCHES] Invalid assessment ID: {assessment_id}")
             raise HTTPException(status_code=400, detail="Invalid assessment ID")
 
+        print(f"🔍 [ASSIGN-BATCHES] Looking for assessment {assessment_id} owned by teacher {user.id}")
+        
         assessment = await db.teacher_assessments.find_one({
             "_id": ObjectId(assessment_id),
             "teacher_id": str(user.id)
         })
         if not assessment:
+            print(f"🔍 [ASSIGN-BATCHES] Assessment not found with string teacher_id, trying ObjectId...")
+            # Try with ObjectId comparison as well
+            assessment = await db.teacher_assessments.find_one({
+                "_id": ObjectId(assessment_id),
+                "teacher_id": ObjectId(user.id)
+            })
+        if not assessment:
+            print(f"❌ [ASSIGN-BATCHES] Assessment not found or access denied")
             raise HTTPException(status_code=404, detail="Assessment not found or access denied")
+
+        print(f"✅ [ASSIGN-BATCHES] Found assessment: {assessment.get('title', 'Untitled')}")
+        print(f"📝 [ASSIGN-BATCHES] Assessment details: ID={assessment_id}, Title={assessment.get('title')}, Topic={assessment.get('topic')}")
 
         await db.teacher_assessments.update_one(
             {"_id": ObjectId(assessment_id)},
             {"$set": {"batches": batch_ids}}
         )
+        print(f"✅ [ASSIGN-BATCHES] Updated assessment with batch IDs: {batch_ids}")
 
         notifications: List[Dict[str, Any]] = []
+        total_students_notified = 0
+        
         for batch_id in batch_ids:
+            print(f"🔍 [ASSIGN-BATCHES] Processing batch: {batch_id}")
+            
             if not ObjectId.is_valid(batch_id):
+                print(f"❌ [ASSIGN-BATCHES] Invalid batch ID: {batch_id}")
                 continue
+                
             batch = await db.batches.find_one({"_id": ObjectId(batch_id)})
             if not batch:
+                print(f"❌ [ASSIGN-BATCHES] Batch not found: {batch_id}")
                 continue
-            for student_id in batch.get("student_ids", []):
-                notifications.append({
+                
+            print(f"✅ [ASSIGN-BATCHES] Found batch: {batch.get('name', 'Unknown')}")
+            student_ids = batch.get("student_ids", [])
+            print(f"👥 [ASSIGN-BATCHES] Batch has {len(student_ids)} students: {student_ids}")
+            
+            for student_id in student_ids:
+                print(f"🔔 [ASSIGN-BATCHES] Creating notification for student: {student_id}")
+                
+                notification = {
                     "student_id": student_id,
                     "type": "assessment_assigned",
                     "title": f"New Assessment: {assessment.get('title', 'Untitled')}",
@@ -60,16 +93,29 @@ async def assign_teacher_assessment_to_batches(
                     "assessment_id": assessment_id,
                     "created_at": datetime.utcnow(),
                     "is_read": False
-                })
+                }
+                notifications.append(notification)
+                total_students_notified += 1
+                print(f"📝 [ASSIGN-BATCHES] Notification created: {notification['title']}")
+
+        print(f"📊 [ASSIGN-BATCHES] Total notifications to create: {len(notifications)}")
+        print(f"👥 [ASSIGN-BATCHES] Total students to notify: {total_students_notified}")
 
         if notifications:
-            await db.notifications.insert_many(notifications)
+            result = await db.notifications.insert_many(notifications)
+            print(f"✅ [ASSIGN-BATCHES] Inserted {len(result.inserted_ids)} notifications successfully")
+            print(f"📝 [ASSIGN-BATCHES] Notification IDs: {[str(id) for id in result.inserted_ids]}")
+        else:
+            print(f"⚠️ [ASSIGN-BATCHES] No notifications created - no students found in batches")
 
-        return {"success": True, "message": "Batches assigned and students notified"}
+        return {"success": True, "message": f"Batches assigned and {total_students_notified} students notified"}
 
     except HTTPException:
         raise
     except Exception as e:
+        print(f"❌ [ASSIGN-BATCHES] Error: {str(e)}")
+        import traceback
+        print(f"❌ [ASSIGN-BATCHES] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{assessment_id}/publish")
@@ -79,36 +125,73 @@ async def publish_teacher_assessment(
 ):
     """Publish a teacher-created assessment and notify assigned batches."""
     try:
+        print(f"📢 [PUBLISH] Starting publish for assessment {assessment_id}")
+        print(f"📢 [PUBLISH] Teacher: {user.email} (ID: {user.id})")
+        
         db = await get_db()
 
         if not ObjectId.is_valid(assessment_id):
+            print(f"❌ [PUBLISH] Invalid assessment ID: {assessment_id}")
             raise HTTPException(status_code=400, detail="Invalid assessment ID")
 
+        print(f"🔍 [PUBLISH] Looking for assessment {assessment_id} owned by teacher {user.id}")
+        
         assessment = await db.teacher_assessments.find_one({
             "_id": ObjectId(assessment_id),
             "teacher_id": str(user.id)
         })
         if not assessment:
+            print(f"🔍 [PUBLISH] Assessment not found with string teacher_id, trying ObjectId...")
+            # Try with ObjectId comparison as well
+            assessment = await db.teacher_assessments.find_one({
+                "_id": ObjectId(assessment_id),
+                "teacher_id": ObjectId(user.id)
+            })
+        if not assessment:
+            print(f"❌ [PUBLISH] Assessment not found or access denied")
             raise HTTPException(status_code=404, detail="Assessment not found or access denied")
 
-        if len(assessment.get("questions", [])) == 0:
+        print(f"✅ [PUBLISH] Found assessment: {assessment.get('title', 'Untitled')}")
+        
+        questions = assessment.get("questions", [])
+        print(f"📝 [PUBLISH] Assessment has {len(questions)} questions")
+        
+        if len(questions) == 0:
+            print(f"❌ [PUBLISH] Assessment has no questions, cannot publish")
             raise HTTPException(status_code=400, detail="Assessment must have at least one question to publish")
 
         await db.teacher_assessments.update_one(
             {"_id": ObjectId(assessment_id)},
             {"$set": {"status": "active", "is_active": True, "published_at": datetime.utcnow()}}
         )
+        print(f"✅ [PUBLISH] Updated assessment status to active and published")
 
         batch_ids = assessment.get("batches", [])
+        print(f"🔍 [PUBLISH] Assessment assigned to batches: {batch_ids}")
+        
         notifications: List[Dict[str, Any]] = []
+        total_students_notified = 0
+        
         for batch_id in batch_ids:
+            print(f"🔍 [PUBLISH] Processing batch: {batch_id}")
+            
             if not ObjectId.is_valid(batch_id):
+                print(f"❌ [PUBLISH] Invalid batch ID: {batch_id}")
                 continue
+                
             batch = await db.batches.find_one({"_id": ObjectId(batch_id)})
             if not batch:
+                print(f"❌ [PUBLISH] Batch not found: {batch_id}")
                 continue
-            for student_id in batch.get("student_ids", []):
-                notifications.append({
+                
+            print(f"✅ [PUBLISH] Found batch: {batch.get('name', 'Unknown')}")
+            student_ids = batch.get("student_ids", [])
+            print(f"👥 [PUBLISH] Batch has {len(student_ids)} students: {student_ids}")
+            
+            for student_id in student_ids:
+                print(f"🔔 [PUBLISH] Creating notification for student: {student_id}")
+                
+                notification = {
                     "student_id": student_id,
                     "type": "assessment_assigned",
                     "title": f"New Assessment: {assessment.get('title', 'Untitled')}",
@@ -116,16 +199,29 @@ async def publish_teacher_assessment(
                     "assessment_id": assessment_id,
                     "created_at": datetime.utcnow(),
                     "is_read": False
-                })
+                }
+                notifications.append(notification)
+                total_students_notified += 1
+                print(f"📝 [PUBLISH] Notification created: {notification['title']}")
+
+        print(f"📊 [PUBLISH] Total notifications to create: {len(notifications)}")
+        print(f"👥 [PUBLISH] Total students to notify: {total_students_notified}")
 
         if notifications:
-            await db.notifications.insert_many(notifications)
+            result = await db.notifications.insert_many(notifications)
+            print(f"✅ [PUBLISH] Inserted {len(result.inserted_ids)} notifications successfully")
+            print(f"📝 [PUBLISH] Notification IDs: {[str(id) for id in result.inserted_ids]}")
+        else:
+            print(f"⚠️ [PUBLISH] No notifications created - no students found in batches")
 
-        return {"success": True, "message": "Assessment published successfully"}
+        return {"success": True, "message": f"Assessment published successfully and {total_students_notified} students notified"}
 
     except HTTPException:
         raise
     except Exception as e:
+        print(f"❌ [PUBLISH] Error: {str(e)}")
+        import traceback
+        print(f"❌ [PUBLISH] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 @router.get("/teacher/class-performance")
 async def get_class_performance_overview(user: UserModel = Depends(require_teacher)):
