@@ -109,14 +109,19 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
 
             <form onSubmit={handleLogin} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">Email</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  Email or Roll Number
+                </label>
                 <Input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
+                  placeholder="your@email.com or your roll number"
                   required
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Students can use their roll number instead of email
+                </p>
               </div>
 
               <div>
@@ -128,6 +133,9 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
                   placeholder="••••••••"
                   required
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  For students: password is usually your roll number
+                </p>
               </div>
 
               <Button type="submit" disabled={loading} className="w-full py-3" variant="primary">

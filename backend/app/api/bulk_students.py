@@ -15,7 +15,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.security import SecurityManager
-from app.utils.auth_utils import get_password_hash, verify_password
+from app.utils.auth_utils import verify_password
 from app.dependencies import get_db, get_current_user, require_teacher_or_admin
 from app.models.models import UserModel
 
@@ -45,7 +45,7 @@ class BulkUploadResponse(BaseModel):
     successful_imports: int
     failed_imports: int
     errors: List[Dict[str, Any]]
-    created_students: List[Dict[str, str]]
+    created_students: List[Dict[str, Any]]  # Changed from List[Dict[str, str]] to allow mixed types
     batch_id: Optional[str] = None
 
 class BulkUploadRequest(BaseModel):
@@ -209,7 +209,7 @@ async def create_student_accounts(
                 continue
             
             # Create password hash from roll number
-            password_hash = get_password_hash(student['roll_number'])
+            password_hash = UserModel.hash_password(student['roll_number'])
             
             # Create student document
             student_doc = {
@@ -230,7 +230,14 @@ async def create_student_accounts(
             
             # Insert student
             result = await db.users.insert_one(student_doc)
-            
+            print(f"✅ [BULK_UPLOAD] Created student: {student['email']} with ID: {result.inserted_id}")
+
+            # Add student to the batch's student_ids array
+            await db.batches.update_one(
+                {"_id": ObjectId(batch_id)},
+                {"$addToSet": {"student_ids": str(result.inserted_id)}}
+            )
+
             created_students.append({
                 "id": str(result.inserted_id),
                 "name": student['name'],

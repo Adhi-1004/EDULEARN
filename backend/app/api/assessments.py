@@ -670,6 +670,10 @@ async def create_assessment(assessment_data: AssessmentCreate, user: UserModel =
         result = await db.assessments.insert_one(assessment_doc)
         assessment_id = str(result.inserted_id)
         
+        # Send notifications for regular assessments with batches (if not draft)
+        if assessment_data.batches and assessment_data.type != "draft":
+            await send_assessment_notifications(db, assessment_id, assessment_data.batches, assessment_data.title)
+        
         # Generate questions if assessment type is AI-generated
         if assessment_data.type == "ai" and len(assessment_data.questions) == 0:
             try:
@@ -1559,6 +1563,17 @@ async def assign_assessment_to_batches(
             {"_id": ObjectId(assessment_id)},
             {"$set": {"assigned_batches": valid_batch_ids}}
         )
+        
+        # Send notifications to students in assigned batches
+        if valid_batch_ids:
+            assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+            if assessment:
+                await send_assessment_notifications(
+                    db, 
+                    assessment_id, 
+                    valid_batch_ids, 
+                    assessment.get("title", "New Assessment")
+                )
         
         return {"success": True, "message": f"Assessment assigned to {len(valid_batch_ids)} batch(es)"}
     except Exception as e:
@@ -2778,9 +2793,21 @@ async def get_assigned_students(assessment_id: str, user: UserModel = Depends(re
             return []
 
         # Find batches and accumulate student ids
+        # Use the same method as dashboard: query users by batch_id for consistency
         student_ids: set[str] = set()
         for bid in batch_ids:
-            # batches.student_ids are strings of user ids
+            # Get students by batch_id (same as dashboard method)
+            students_in_batch = await db.users.find({
+                "$or": [
+                    {"batch_id": ObjectId(bid), "role": "student"},
+                    {"batch_id": str(bid), "role": "student"}
+                ]
+            }).to_list(length=None)
+            
+            for student in students_in_batch:
+                student_ids.add(str(student["_id"]))
+            
+            # Also check batches.student_ids as backup (in case some students are missing from users.batch_id)
             try:
                 batch = await db.batches.find_one({"_id": ObjectId(bid)})
             except Exception:
@@ -2934,26 +2961,43 @@ async def get_student_upcoming_assessments(user: UserModel = Depends(get_current
     try:
         db = await get_db()
         
-        # Get student's batch_id from batches collection
-        student_batches = await db.batches.find({
-            "student_ids": str(user.id)
-        }).to_list(length=None)
-        
-        if not student_batches:
-            print(f"❌ [ASSESSMENT] Student {user.id} is not in any batch")
+        # Get student's batch_id from users collection (same as dashboard method)
+        student = await db.users.find_one({"_id": ObjectId(str(user.id))})
+        if not student:
+            print(f"❌ [ASSESSMENT] Student {user.id} not found in users collection")
             return []
         
-        batch_ids = [str(batch["_id"]) for batch in student_batches]
+        student_batch_id = student.get("batch_id")
+        if not student_batch_id:
+            print(f"❌ [ASSESSMENT] Student {user.id} has no batch_id")
+            return []
+        
+        # Convert to string if it's ObjectId
+        if isinstance(student_batch_id, ObjectId):
+            student_batch_id = str(student_batch_id)
+        
+        batch_ids = [student_batch_id]
         print(f"🔍 [ASSESSMENT] Student {user.id} is in batches: {batch_ids}")
         
-        # Find assessments assigned to these batches that are active
+        # Find regular assessments assigned to these batches that are active
         assessments = await db.assessments.find({
             "assigned_batches": {"$in": batch_ids},
             "is_active": True,
             "status": "active"
         }).to_list(length=None)
         
-        print(f"📊 [ASSESSMENT] Found {len(assessments)} assessments for batches {batch_ids}")
+        # Find teacher assessments assigned to these batches that are active
+        teacher_assessments = await db.teacher_assessments.find({
+            "batches": {"$in": batch_ids},
+            "is_active": True,
+            "status": "published"
+        }).to_list(length=None)
+        
+        print(f"📊 [ASSESSMENT] Found {len(assessments)} regular assessments for batches {batch_ids}")
+        print(f"📊 [ASSESSMENT] Found {len(teacher_assessments)} teacher assessments for batches {batch_ids}")
+        
+        # Combine both types of assessments
+        all_assessments = assessments + teacher_assessments
         
         # Check if student has already submitted these assessments
         submitted_ids = []
@@ -2975,23 +3019,36 @@ async def get_student_upcoming_assessments(user: UserModel = Depends(get_current
         
         # Filter out already submitted assessments
         upcoming_assessments = [
-            assessment for assessment in assessments 
+            assessment for assessment in all_assessments 
             if str(assessment["_id"]) not in submitted_ids
         ]
         
         # Get teacher names for each assessment
         result = []
         for assessment in upcoming_assessments:
-            teacher = await db.users.find_one({"_id": ObjectId(assessment["created_by"])})
-            teacher_name = teacher.get("name", "Unknown Teacher") if teacher else "Unknown Teacher"
+            # Handle both regular assessments and teacher assessments
+            if "created_by" in assessment:
+                # Regular assessment
+                teacher = await db.users.find_one({"_id": ObjectId(assessment["created_by"])})
+                teacher_name = teacher.get("name", "Unknown Teacher") if teacher else "Unknown Teacher"
+                subject = assessment.get("subject", assessment.get("topic", "General"))
+                description = assessment.get("description", "")
+                time_limit = assessment.get("time_limit", 0)
+            else:
+                # Teacher assessment
+                teacher = await db.users.find_one({"_id": ObjectId(assessment["teacher_id"])})
+                teacher_name = teacher.get("name", "Unknown Teacher") if teacher else "Unknown Teacher"
+                subject = assessment.get("topic", "General")
+                description = f"AI Generated Assessment on {subject}"
+                time_limit = 0  # Teacher assessments typically don't have time limits
             
             result.append(StudentAssessment(
                 id=str(assessment["_id"]),
                 title=assessment["title"],
-                subject=assessment["subject"],
+                subject=subject,
                 difficulty=assessment["difficulty"],
-                description=assessment["description"],
-                time_limit=assessment["time_limit"],
+                description=description,
+                time_limit=time_limit,
                 question_count=assessment["question_count"],
                 type=assessment.get("type", "mcq"),
                 is_active=assessment["is_active"],

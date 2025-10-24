@@ -185,20 +185,41 @@ async def register_user(user_data: UserCreate):
 
 @router.post("/login")
 async def login_user(user_data: UserLogin):
-    """Login with email and password"""
+    """Login with email and password (supports both email and roll number for students)"""
     try:
         db = await get_db()
         
-        # Find user by email
+        # Try to find user by email first
         user = await db.users.find_one({"email": user_data.email})
+        
+        # If not found by email, try to find by roll number (for students)
+        if not user and user_data.email:
+            # Check if the input looks like a roll number (alphanumeric, no @ symbol)
+            if not '@' in user_data.email and user_data.email.isalnum():
+                user = await db.users.find_one({
+                    "roll_number": user_data.email.upper(),
+                    "role": "student"
+                })
+                if user:
+                    print(f"[SUCCESS] [LOGIN] Found student by roll number: {user_data.email}")
+        
         if not user:
-            print(f"[ERROR] [LOGIN] Failed login attempt for email: {user_data.email}")
-            raise HTTPException(status_code=401, detail="No account found with this email. Please check your email or create an account.")
+            print(f"[ERROR] [LOGIN] Failed login attempt for: {user_data.email}")
+            raise HTTPException(status_code=401, detail="No account found with this email/roll number. Please check your credentials or contact your teacher.")
         
         # Verify password
         if not UserModel.verify_password(user_data.password, user["password_hash"]):
-            print(f"[ERROR] [LOGIN] Invalid password for user: {user_data.email}")
+            print(f"[ERROR] [LOGIN] Invalid password for user: {user.get('email', 'unknown')}")
+            print(f"[DEBUG] [LOGIN] Expected password: {user_data.password}")
+            print(f"[DEBUG] [LOGIN] Stored hash: {user.get('password_hash', 'N/A')[:20]}...")
+            print(f"[DEBUG] [LOGIN] User roll_number: {user.get('roll_number', 'N/A')}")
             raise HTTPException(status_code=401, detail="Incorrect password. Please try again.")
+        
+        # Update last login time
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"last_login": datetime.utcnow()}}
+        )
         
         # Create access token with role information
         access_token = create_access_token(
@@ -209,7 +230,7 @@ async def login_user(user_data: UserLogin):
             }
         )
         
-        print(f"[SUCCESS] [LOGIN] User logged in successfully: {user_data.email}")
+        print(f"[SUCCESS] [LOGIN] User logged in successfully: {user.get('email', 'unknown')}")
         
         return {
             "success": True,
@@ -219,10 +240,12 @@ async def login_user(user_data: UserLogin):
                 "id": str(user["_id"]),
                 "email": user["email"],
                 "username": user.get("username"),
-                "name": user.get("name"),
+                "name": user.get("name") or user.get("full_name"),
                 "profile_picture": user.get("profile_picture"),
                 "role": user.get("role", "student"),
-                "is_admin": user.get("is_admin", False)
+                "is_admin": user.get("is_admin", False),
+                "roll_number": user.get("roll_number"),
+                "batch_id": user.get("batch_id")
             }
         }
     except Exception as e:

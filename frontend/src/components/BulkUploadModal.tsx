@@ -204,6 +204,16 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({
         <p className="text-gray-600 dark:text-gray-400">
           Upload an Excel file containing student information for <strong>{batchName}</strong>
         </p>
+        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+            📋 Student Login Information
+          </h4>
+          <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+            <p>• Students can login using their <strong>email</strong> or <strong>roll number</strong></p>
+            <p>• Password will be set to their <strong>roll number</strong></p>
+            <p>• Students will be automatically registered and can login immediately</p>
+          </div>
+        </div>
       </div>
 
       <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
