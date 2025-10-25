@@ -735,7 +735,7 @@ async def get_teacher_assessments(user: UserModel = Depends(get_current_user)):
         # Teacher-created (AI/generated) assessments
         teacher_list = []
         try:
-            teacher_list = await db.teacher_assessments.find({"teacher_id": user.id}).to_list(length=None)
+            teacher_list = await db.teacher_assessments.find({"teacher_id": str(user.id)}).to_list(length=None)
         except Exception:
             teacher_list = []
 
@@ -745,36 +745,38 @@ async def get_teacher_assessments(user: UserModel = Depends(get_current_user)):
             combined.append(AssessmentResponse(
                 id=str(a.get("_id")),
                 title=a.get("title", a.get("subject", "Untitled Assessment")),
-                subject=a.get("subject"),
+                subject=a.get("subject", "General"),
                 difficulty=a.get("difficulty", "medium"),
-                description=a.get("description"),
-                time_limit=a.get("time_limit"),
+                description=a.get("description", f"Assessment on {a.get('subject', 'General')}"),
+                time_limit=a.get("time_limit", 30),
                 max_attempts=a.get("max_attempts", 1),
                 question_count=a.get("question_count", len(a.get("questions", []))),
                 created_by=str(a.get("created_by")),
-                created_at=(a.get("created_at") or datetime.utcnow()).isoformat(),
+                created_at=a.get("created_at") if isinstance(a.get("created_at"), str) else (a.get("created_at") or datetime.utcnow()).isoformat(),
                 status=a.get("status", "draft"),
                 type=a.get("type", "mcq"),
                 is_active=a.get("is_active", False),
-                total_questions=a.get("question_count", len(a.get("questions", [])))
+                total_questions=a.get("question_count", len(a.get("questions", []))),
+                assigned_batches=a.get("assigned_batches", [])
             ))
 
         for a in teacher_list:
             combined.append(AssessmentResponse(
                 id=str(a.get("_id")),
                 title=a.get("title", a.get("topic", "Untitled Assessment")),
-                subject=a.get("topic", a.get("subject")),
+                subject=a.get("topic", a.get("subject", "General")),
                 difficulty=a.get("difficulty", "medium"),
                 description=f"Teacher-created assessment on {a.get('topic', a.get('subject', 'General'))}",
-                time_limit=30,
-                max_attempts=1,
+                time_limit=a.get("time_limit", 30),
+                max_attempts=a.get("max_attempts", 1),
                 question_count=a.get("question_count", len(a.get("questions", []))),
                 created_by=str(a.get("teacher_id", user.id)),
-                created_at=(a.get("created_at") or datetime.utcnow()).isoformat(),
+                created_at=a.get("created_at") if isinstance(a.get("created_at"), str) else (a.get("created_at") or datetime.utcnow()).isoformat(),
                 status=a.get("status", "published"),
                 type=a.get("type", "teacher"),
                 is_active=a.get("is_active", True),
-                total_questions=a.get("question_count", len(a.get("questions", [])))
+                total_questions=a.get("question_count", len(a.get("questions", []))),
+                assigned_batches=a.get("batches", [])
             ))
 
         # Sort newest first
@@ -2305,17 +2307,19 @@ async def get_teacher_assessments(user: UserModel = Depends(get_current_user)):
         # Return empty list instead of raising exception to avoid 500 error
         return []
 
+# Located in backend/app/api/assessments.py
+
 @router.get("/teacher/{assessment_id}")
 async def get_teacher_assessment_details(assessment_id: str, user: UserModel = Depends(get_current_user)):
-    """Get details of a teacher-assigned assessment"""
+    """Get details of a teacher-assigned assessment, including questions"""
     try:
         db = await get_db()
-        
+
         print(f"🔍 [TEACHER_ASSESSMENT] Fetching details for assessment: {assessment_id}")
-        
+
         # Validate ID format but don't fail hard; we'll try both ObjectId and string lookups
         is_oid = ObjectId.is_valid(assessment_id)
-        
+
         # Determine storage and fetch with fallback
         collections = await db.list_collection_names()
         assessment = None
@@ -2327,63 +2331,92 @@ async def get_teacher_assessment_details(assessment_id: str, user: UserModel = D
             assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)}) if is_oid else None
             if not assessment:
                 assessment = await db.assessments.find_one({"_id": assessment_id})
+            # Standardize fields if fetched from regular assessments
             if assessment:
                 assessment.setdefault("batches", assessment.get("assigned_batches", []))
                 assessment.setdefault("is_active", assessment.get("is_active", False))
                 assessment.setdefault("topic", assessment.get("subject", "General"))
+                assessment.setdefault("type", assessment.get("type", "regular")) # Mark its type
+
+
         if not assessment:
             print(f"❌ [TEACHER_ASSESSMENT] Assessment {assessment_id} not found")
             raise HTTPException(status_code=404, detail="Assessment not found")
-        
+
         print(f"✅ [TEACHER_ASSESSMENT] Found assessment: {assessment.get('title', 'Untitled')}")
-        
+
         # Check if student has access (is in one of the assigned batches)
-        # Support both ObjectId and string user IDs in users collection
         student = None
-        try:
+        try: # Try finding user by ObjectId first
             if ObjectId.is_valid(str(user.id)):
                 student = await db.users.find_one({"_id": ObjectId(str(user.id))})
-        except Exception:
-            student = None
-        if not student:
+        except Exception: student = None
+        if not student: # Fallback to string ID
             student = await db.users.find_one({"_id": str(user.id)})
         if not student:
             print(f"❌ [TEACHER_ASSESSMENT] Student {user.id} not found")
-            raise HTTPException(status_code=403, detail="Access denied")
-        
+            raise HTTPException(status_code=403, detail="Access denied: Student not found")
+
         # Get student's batches
         student_batches = await db.batches.find({
-            "student_ids": str(user.id)
+            "student_ids": str(user.id) # Query using string ID
         }).to_list(length=None)
-        
+
         if not student_batches:
             print(f"❌ [TEACHER_ASSESSMENT] Student {user.id} is not in any batch")
-            raise HTTPException(status_code=403, detail="Access denied")
-        
+            # Return 403 instead of 404, as the assessment exists but user can't access
+            raise HTTPException(status_code=403, detail="Access denied: Not in any batch")
+
         batch_ids = [str(batch["_id"]) for batch in student_batches]
+        # Check both 'batches' (teacher_assessments) and 'assigned_batches' (assessments)
         assessment_batches = assessment.get("batches", assessment.get("assigned_batches", []))
-        
+
         # Check if student is in any of the assessment's batches
         if not any(batch_id in assessment_batches for batch_id in batch_ids):
             print(f"❌ [TEACHER_ASSESSMENT] Student {user.id} not in assessment batches. Student batches: {batch_ids}, Assessment batches: {assessment_batches}")
             raise HTTPException(status_code=403, detail="Assessment not assigned to your batch")
-        
+
         # Check if assessment is active
         if not assessment.get("is_active", False):
             print(f"❌ [TEACHER_ASSESSMENT] Assessment {assessment_id} is not active")
-            raise HTTPException(status_code=400, detail="Assessment is not active")
-        
-        # Check if student has already submitted this assessment
+            raise HTTPException(status_code=400, detail="Assessment is not currently active")
+
+        # Check if student has already submitted this assessment (check both results collections)
+        submitted = False
         if "teacher_assessment_results" in collections:
-            existing_submission = await db.teacher_assessment_results.find_one({
-                "assessment_id": assessment_id,
-                "student_id": user.id
-            })
-            if existing_submission:
-                print(f"⚠️ [TEACHER_ASSESSMENT] Student {user.id} has already submitted assessment {assessment_id}")
-                raise HTTPException(status_code=400, detail="Assessment already submitted")
-        
-        # Return assessment details
+             submission = await db.teacher_assessment_results.find_one({
+                 "assessment_id": assessment_id,
+                 "student_id": user.id # Query using user.id directly
+             })
+             if submission: submitted = True
+        if not submitted and "assessment_submissions" in collections:
+             submission = await db.assessment_submissions.find_one({
+                 "assessment_id": assessment_id,
+                 "student_id": user.id
+             })
+             if submission: submitted = True
+
+        if submitted:
+            print(f"⚠️ [TEACHER_ASSESSMENT] Student {user.id} has already submitted assessment {assessment_id}")
+            # Consider returning a specific status/message instead of 400 if frontend can handle it
+            raise HTTPException(status_code=400, detail="Assessment already submitted")
+
+        # Format questions for student (hide answers/explanations)
+        questions_data = assessment.get("questions", [])
+        questions_response = []
+        for i, q in enumerate(questions_data):
+             questions_response.append({
+                 "id": str(q.get("_id", i + 1)),
+                 "question": q.get("question", ""),
+                 "options": q.get("options", []),
+                 # Ensure sensitive info is NOT sent to student
+                 "correct_answer": None,
+                 "explanation": None,
+                 "points": q.get("points", 1)
+             })
+
+
+        # Return assessment details including formatted questions
         created_at_val = assessment.get("created_at", datetime.utcnow())
         created_at_iso = created_at_val.isoformat() if hasattr(created_at_val, 'isoformat') else str(created_at_val)
         return {
@@ -2391,15 +2424,15 @@ async def get_teacher_assessment_details(assessment_id: str, user: UserModel = D
             "title": assessment.get("title", assessment.get("subject", "Untitled Assessment")),
             "subject": assessment.get("topic", assessment.get("subject", "General")),
             "difficulty": assessment.get("difficulty", "medium"),
-            "question_count": assessment.get("question_count", len(assessment.get("questions", []))),
+            "question_count": len(questions_response), # Count formatted questions
             "time_limit": assessment.get("time_limit", 30),
             "max_attempts": assessment.get("max_attempts", 1),
-            "type": "teacher",
-            "questions": assessment.get("questions", []),
+            "type": assessment.get("type", "teacher"), # Identify type based on source if needed
+            "questions": questions_response, # RETURN FORMATTED QUESTIONS
             "created_at": created_at_iso,
             "is_active": assessment.get("is_active", True)
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -3018,56 +3051,75 @@ async def get_student_upcoming_assessments(user: UserModel = Depends(get_current
         print(f"❌ [ASSESSMENT] Traceback: {traceback.format_exc()}")
         return []
 
-@router.get("/{assessment_id}/questions")
+# Located in backend/app/api/assessments.py
+
+@router.get("/{assessment_id}/questions", response_model=List[QuestionResponse])
 async def get_assessment_questions(assessment_id: str, user: UserModel = Depends(get_current_user)):
-    """Get questions for a specific assessment"""
+    """Get questions for an assessment (for taking the test)"""
+    # NOTE: This function might be redundant if /teacher/{assessment_id} also returns questions.
+    # The 405 error likely means this path isn't correctly registered or is overridden.
     try:
         db = await get_db()
-        
-        # Get assessment details
+
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+
+        # Primarily check the 'assessments' collection for this endpoint logic
         assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+        # Removed fallback check to teacher_assessments to keep this endpoint specific
+
         if not assessment:
-            raise HTTPException(status_code=404, detail="Assessment not found")
-        
+             raise HTTPException(status_code=404, detail="Assessment not found")
+
         # Check if student has access to this assessment
-        student = await db.users.find_one({"_id": ObjectId(user.id)})
-        if not student or not student.get("batch_id"):
-            raise HTTPException(status_code=403, detail="Access denied")
-        
-        batch_id = student["batch_id"]
-        if batch_id not in assessment.get("assigned_batches", []):
-            raise HTTPException(status_code=403, detail="Assessment not assigned to your batch")
-        
+        if user.role == "student":
+            student_batches = await db.batches.find({"student_ids": str(user.id)}).to_list(None)
+            batch_ids = [str(batch["_id"]) for batch in student_batches]
+
+            # Check 'assigned_batches' field
+            assigned_batches = assessment.get("assigned_batches", [])
+            if not any(batch_id in assigned_batches for batch_id in batch_ids):
+                raise HTTPException(status_code=403, detail="Access denied - Assessment not assigned to your batch")
+        # Add checks for teacher/admin viewing if needed
+
         # Check if assessment is active
         if not assessment.get("is_active", False):
             raise HTTPException(status_code=400, detail="Assessment is not active")
-        
-        # Check if student has already submitted
-        existing_submission = await db.assessment_submissions.find_one({
-            "assessment_id": assessment_id,
-            "student_id": user.id
-        })
-        
-        if existing_submission:
-            raise HTTPException(status_code=400, detail="Assessment already submitted")
-        
-        # Return assessment with questions
-        return {
-            "id": str(assessment["_id"]),
-            "title": assessment["title"],
-            "subject": assessment["subject"],
-            "difficulty": assessment["difficulty"],
-            "description": assessment["description"],
-            "time_limit": assessment["time_limit"],
-            "question_count": assessment["question_count"],
-            "questions": assessment.get("questions", [])
-        }
-        
+
+        # Check attempt limits/previous submissions before returning questions
+        if user.role == "student":
+             submitted_count = await db.assessment_submissions.count_documents({
+                 "assessment_id": assessment_id,
+                 "student_id": user.id
+             })
+             max_attempts = assessment.get("max_attempts", 1)
+             if submitted_count >= max_attempts:
+                  raise HTTPException(status_code=400, detail=f"Maximum attempts ({max_attempts}) reached for this assessment.")
+
+
+        questions_data = assessment.get("questions", [])
+        questions_response = []
+        for i, question in enumerate(questions_data):
+            # Format based on user role
+            is_student = user.role == "student"
+            question_resp = QuestionResponse(
+                id=str(question.get("_id", i + 1)), # Use document ID if available, else index
+                question=question.get("question", ""),
+                options=question.get("options", []),
+                correct_answer=-1 if is_student else question.get("correct_answer", -1), # Hide if student
+                explanation=None if is_student else question.get("explanation", ""), # Hide if student
+                points=question.get("points", 1)
+            )
+            questions_response.append(question_resp)
+
+        return questions_response
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ [ASSESSMENT] Error fetching assessment questions: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ [ASSESSMENT QUESTIONS] Error fetching questions for {assessment_id}: {str(e)}")
+        import traceback
+        print(f"❌ [ASSESSMENT QUESTIONS] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to get assessment questions: {str(e)}")
 
 @router.post("/{assessment_id}/submit")
 async def submit_assessment_answers(

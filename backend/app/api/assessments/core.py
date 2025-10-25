@@ -93,68 +93,92 @@ async def create_assessment(assessment_data: AssessmentCreate, user: UserModel =
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# In backend/app/api/assessments/core.py
+
+
 @router.get("/", response_model=List[AssessmentResponse])
-async def get_teacher_assessments(user: UserModel = Depends(get_current_user)):
+async def get_teacher_assessments(user: UserModel = Depends(require_teacher)): # Changed dependency to require_teacher
     """Get all assessments created by the current teacher across sources (manual and teacher-created)."""
     try:
         db = await get_db()
         
+        # This endpoint is for teachers, so explicitly check the role.
+        # The dependency Depends(require_teacher) already handles this.
+        
         # Get manual assessments
-        manual_list = await db.assessments.find({"created_by": str(user.id)}).to_list(length=None)
+        manual_list = await db.assessments.find({"created_by": str(user.id)}).sort("created_at", -1).to_list(length=None)
         
         # Teacher-created (AI/generated) assessments
-        teacher_list = await db.teacher_assessments.find({"teacher_id": str(user.id)}).to_list(length=None)
+        teacher_list = []
+        try:
+            collections = await db.list_collection_names()
+            if "teacher_assessments" in collections:
+                teacher_list = await db.teacher_assessments.find({"teacher_id": str(user.id)}).sort("created_at", -1).to_list(length=None)
+        except Exception as e:
+            print(f"⚠️ Warning: Could not query teacher_assessments: {e}")
+            teacher_list = []
         
         # Combine and format both lists
         all_assessments = []
         
         # Process manual assessments
         for assessment in manual_list:
+            # --- FIX: Safely handle created_at ---
+            created_at_dt = assessment.get("created_at", datetime.utcnow()) # Default to now if missing
+            created_at_iso = created_at_dt.isoformat() if isinstance(created_at_dt, datetime) else str(created_at_dt)
+            
             all_assessments.append(AssessmentResponse(
                 id=str(assessment["_id"]),
-                title=assessment["title"],
-                subject=assessment["subject"],
-                difficulty=assessment["difficulty"],
-                description=assessment["description"],
-                time_limit=assessment["time_limit"],
-                max_attempts=assessment["max_attempts"],
-                question_count=assessment["question_count"],
-                created_by=assessment["created_by"],
-                created_at=assessment["created_at"].isoformat(),
-                status=assessment["status"],
-                type=assessment["type"],
-                is_active=assessment["is_active"],
-                total_questions=assessment["question_count"],
+                title=assessment.get("title", "Untitled Assessment"),
+                subject=assessment.get("subject", "General"),
+                difficulty=assessment.get("difficulty", "medium"),
+                description=assessment.get("description", ""),
+                time_limit=assessment.get("time_limit", 30),
+                max_attempts=assessment.get("max_attempts", 1),
+                question_count=assessment.get("question_count", len(assessment.get("questions", []))),
+                created_by=assessment.get("created_by", "Unknown"),
+                created_at=created_at_iso, # Use safe variable
+                status=assessment.get("status", "draft"),
+                type=assessment.get("type", "mcq"),
+                is_active=assessment.get("is_active", False),
+                total_questions=assessment.get("question_count", len(assessment.get("questions", []))),
                 assigned_batches=assessment.get("assigned_batches", [])
             ))
         
         # Process teacher-created assessments
         for assessment in teacher_list:
+            # --- FIX: Safely handle created_at ---
+            created_at_dt = assessment.get("created_at", datetime.utcnow()) # Default to now if missing
+            created_at_iso = created_at_dt.isoformat() if isinstance(created_at_dt, datetime) else str(created_at_dt)
+
             all_assessments.append(AssessmentResponse(
                 id=str(assessment["_id"]),
-                title=assessment["title"],
+                title=assessment.get("title", "Untitled Assessment"),
                 subject=assessment.get("topic", assessment.get("subject", "General")),
-                difficulty=assessment["difficulty"],
-                description=f"Teacher-created assessment on {assessment.get('topic', assessment.get('subject', 'General'))}",
-                time_limit=30,  # Default time limit
-                max_attempts=1,  # Default max attempts
-                question_count=assessment["question_count"],
-                created_by=str(assessment["teacher_id"]),
-                created_at=assessment["created_at"].isoformat(),
-                status=assessment["status"],
-                type=assessment["type"],
-                is_active=assessment["is_active"],
-                total_questions=assessment["question_count"],
+                difficulty=assessment.get("difficulty", "medium"),
+                description=f"Teacher-created: {assessment.get('description', '')}",
+                time_limit=assessment.get("time_limit", 30),
+                max_attempts=assessment.get("max_attempts", 1),
+                question_count=assessment.get("question_count", len(assessment.get("questions", []))),
+                created_by=str(assessment.get("teacher_id", "Unknown")),
+                created_at=created_at_iso, # Use safe variable
+                status=assessment.get("status", "published"),
+                type=assessment.get("type", "teacher"),
+                is_active=assessment.get("is_active", True),
+                total_questions=assessment.get("question_count", len(assessment.get("questions", []))),
                 assigned_batches=assessment.get("batches", [])
             ))
         
-        # Sort by creation date (newest first)
+        # Re-sort the combined list just in case
         all_assessments.sort(key=lambda x: x.created_at, reverse=True)
         
         return all_assessments
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ [GET TEACHER ASSESSMENTS] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve teacher assessments: {str(e)}")
 
 @router.get("/{assessment_id}/details")
 async def get_assessment_details(assessment_id: str, user: UserModel = Depends(get_current_user)):

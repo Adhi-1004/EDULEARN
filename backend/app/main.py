@@ -73,7 +73,7 @@ async def add_cors_headers(request: Request, call_next):
         response = await call_next(request)
     except Exception as e:
         # Log the actual error for debugging
-        print(f"CORS Middleware Error: {e}")
+        print(f"❌ [CORS MIDDLEWARE] Error: {e}")
         import traceback
         traceback.print_exc()
         # If there's an error, create a response with CORS headers
@@ -109,9 +109,22 @@ async def global_exception_handler(request: Request, exc: Exception):
     origin = request.headers.get("origin")
     allowed_origins = settings.cors_origins
     
+    # Handle specific exception types properly
+    if isinstance(exc, HTTPException):
+        # Let FastAPI handle HTTP exceptions properly
+        status_code = exc.status_code
+        content = {"detail": exc.detail}
+    else:
+        # Only return 500 for actual server errors
+        status_code = 500
+        content = {"detail": "Internal server error"}
+        print(f"❌ [GLOBAL HANDLER] Unhandled exception: {type(exc).__name__}: {str(exc)}")
+        import traceback
+        traceback.print_exc()
+    
     response = JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error", "error": str(exc)}
+        status_code=status_code,
+        content=content
     )
     
     # Set CORS headers even for exceptions
