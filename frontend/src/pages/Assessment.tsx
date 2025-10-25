@@ -251,30 +251,88 @@ const Assessment: React.FC = () => {
       if (assessmentType === 'teacher') {
         // Submit to teacher-created assessment endpoint
         const submission = {
+          assessment_id: id,
+          student_id: user?.id || '',
           answers: answers,
-          time_taken: assessment?.time_limit ? (assessment.time_limit * 60) - timeLeft : 0
+          time_taken: assessment?.time_limit ? (assessment.time_limit * 60) - timeLeft : 0,
+          score: score,
+          percentage: percentage,
+          submitted_at: new Date().toISOString(),
+          is_completed: true
         }
         
         try {
           // Try teacher assessment submit endpoint first
           const res = await api.post(`/api/assessments/teacher/${id}/submit`, submission)
-          const resultId = res.data?.result_id
           success("Success", `Test completed! Your score: ${score}/${assessment?.question_count} (${percentage}%)`)
-          setTestCompleted(true)
-          if (resultId) {
-            navigate(`/test-result/${resultId}`)
-            return
-          }
+          
+          // Prepare result state for Results page (same format as student-generated)
+          const resultState = {
+            score: score,
+            totalQuestions: assessment?.question_count || 0,
+            topic: assessment?.subject || '',
+            difficulty: assessment?.difficulty || '',
+            questions: assessment?.questions.map((q, idx) => ({
+              id: q.id,
+              question: q.question,
+              options: q.options,
+              answer: q.options[q.correct_answer], // Convert index to actual answer text
+              explanation: q.explanation,
+              difficulty: assessment?.difficulty || '',
+              topic: assessment?.subject || ''
+            })) || [],
+            userAnswers: answers.map((answerIndex, questionIndex) => {
+              const question = assessment?.questions[questionIndex];
+              return answerIndex >= 0 && question?.options[answerIndex] 
+                ? question.options[answerIndex] 
+                : '';
+            }),
+            timeTaken: assessment?.time_limit ? (assessment.time_limit * 60) - timeLeft : 0,
+            explanations: assessment?.questions.map((q, idx) => ({
+              questionIndex: idx,
+              explanation: q.explanation || "",
+            })) || []
+          };
+          
+          // Navigate to Results page with state
+          navigate("/results", { state: resultState });
+          return
         } catch (error) {
           // Fallback to regular assessment submit endpoint
           const res = await api.post(`/api/assessments/${id}/submit`, submission)
-          const resultId = res.data?.submission_id
           success("Success", `Test completed! Your score: ${score}/${assessment?.question_count} (${percentage}%)`)
-          setTestCompleted(true)
-          if (resultId) {
-            navigate(`/test-result/${resultId}`)
-            return
-          }
+          
+          // Prepare result state for Results page (same format as student-generated)
+          const resultState = {
+            score: score,
+            totalQuestions: assessment?.question_count || 0,
+            topic: assessment?.subject || '',
+            difficulty: assessment?.difficulty || '',
+            questions: assessment?.questions.map((q, idx) => ({
+              id: q.id,
+              question: q.question,
+              options: q.options,
+              answer: q.options[q.correct_answer], // Convert index to actual answer text
+              explanation: q.explanation,
+              difficulty: assessment?.difficulty || '',
+              topic: assessment?.subject || ''
+            })) || [],
+            userAnswers: answers.map((answerIndex, questionIndex) => {
+              const question = assessment?.questions[questionIndex];
+              return answerIndex >= 0 && question?.options[answerIndex] 
+                ? question.options[answerIndex] 
+                : '';
+            }),
+            timeTaken: assessment?.time_limit ? (assessment.time_limit * 60) - timeLeft : 0,
+            explanations: assessment?.questions.map((q, idx) => ({
+              questionIndex: idx,
+              explanation: q.explanation || "",
+            })) || []
+          };
+          
+          // Navigate to Results page with state
+          navigate("/results", { state: resultState });
+          return
         }
         
       } else {

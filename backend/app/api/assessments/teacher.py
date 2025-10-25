@@ -457,7 +457,7 @@ async def get_student_detailed_results(
         logger.error(f"❌ [STUDENT-RESULTS] Unexpected error: {type(e).__name__}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/teacher/assessment-analytics/{assessment_id}")
+@router.get("/assessment-analytics/{assessment_id}")
 async def get_assessment_analytics(
     assessment_id: str,
     user: UserModel = Depends(require_teacher)
@@ -769,7 +769,7 @@ async def ai_generate_questions(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/teacher/{assessment_id}")
+@router.get("/{assessment_id}")
 async def get_teacher_assessment_info(
     assessment_id: str,
     user: UserModel = Depends(get_current_user)

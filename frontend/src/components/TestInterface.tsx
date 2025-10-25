@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Clock, CheckCircle, AlertCircle, ArrowLeft, ArrowRight } from 'lucide-react';
 import api from '../utils/api';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../hooks/useAuth';
 
 interface Question {
   id: string;
@@ -24,11 +26,13 @@ interface Assessment {
 
 interface TestInterfaceProps {
   assessmentId: string;
-  onComplete: (result: any) => void;
+  onComplete?: (result: any) => void;
 }
 
 const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete }) => {
   const { error: showError, success } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
@@ -52,7 +56,7 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
   const fetchAssessment = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/api/assessments/${assessmentId}`);
+      const response = await api.get(`/api/assessments/teacher/${assessmentId}`);
       const data = response.data;
       
       setAssessment(data);
@@ -88,13 +92,66 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
     try {
       setSubmitting(true);
       
+      // Calculate score locally first
+      let score = 0;
+      assessment!.questions.forEach((question, index) => {
+        if (answers[index] === question.correct_answer) {
+          score++;
+        }
+      });
+      
+      const percentage = Math.round((score / assessment!.questions.length) * 100);
+      const timeTaken = assessment!.time_limit * 60 - timeLeft;
+      
+      // Submit to backend
       const response = await api.post(`/api/assessments/${assessmentId}/submit`, {
+        assessment_id: assessmentId,
+        student_id: user?.id || '',
         answers: answers,
-        time_taken: assessment!.time_limit * 60 - timeLeft
+        time_taken: timeTaken,
+        score: score,
+        percentage: percentage,
+        submitted_at: new Date().toISOString(),
+        is_completed: true
       });
       
       success('Success', 'Assessment submitted successfully!');
-      onComplete(response.data);
+      
+      // Prepare result state for Results page
+      const resultState = {
+        score: score,
+        totalQuestions: assessment!.questions.length,
+        topic: assessment!.topic,
+        difficulty: assessment!.difficulty,
+        questions: assessment!.questions.map((q, idx) => ({
+          id: q.id,
+          question: q.question,
+          options: q.options,
+          answer: q.options[q.correct_answer], // Convert index to actual answer text
+          explanation: q.explanation,
+          difficulty: assessment!.difficulty,
+          topic: assessment!.topic
+        })),
+        userAnswers: answers.map((answerIndex, questionIndex) => {
+          const question = assessment!.questions[questionIndex];
+          return answerIndex >= 0 && question?.options[answerIndex] 
+            ? question.options[answerIndex] 
+            : '';
+        }),
+        timeTaken: timeTaken,
+        explanations: assessment!.questions.map((q, idx) => ({
+          questionIndex: idx,
+          explanation: q.explanation || "",
+        }))
+      };
+      
+      // Navigate to Results page with state
+      navigate('/results', { state: resultState });
+      
+      // Call onComplete if provided (for backward compatibility)
+      if (onComplete) {
+        onComplete(response.data);
+      }
     } catch (error) {
       console.error('Failed to submit assessment:', error);
       showError('Error', 'Failed to submit assessment. Please try again.');

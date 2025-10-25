@@ -84,10 +84,10 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({ result, onClose }
               <Trophy className="w-5 h-5 text-yellow-500" />
               <span className="text-muted-fg font-medium">Score</span>
             </div>
-            <div className={`text-2xl font-bold ${getGradeColor(result.percentage)}`}>
-              {result.score}/{result.total_questions}
+            <div className={`text-2xl font-bold ${getGradeColor(result.percentage || 0)}`}>
+              {result.score || 0}/{result.total_questions || 0}
             </div>
-            <div className="text-sm text-muted-fg">{result.percentage.toFixed(1)}%</div>
+            <div className="text-sm text-muted-fg">{(result.percentage || 0).toFixed(1)}%</div>
           </div>
 
           <div className="bg-elevated rounded-lg p-4 border border-base">
@@ -95,10 +95,10 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({ result, onClose }
               <Target className="w-5 h-5 text-green-400" />
               <span className="text-muted-fg font-medium">Accuracy</span>
             </div>
-            <div className={`text-2xl font-bold ${getGradeColor(result.percentage)}`}>
-              {result.percentage.toFixed(1)}%
+            <div className={`text-2xl font-bold ${getGradeColor(result.percentage || 0)}`}>
+              {(result.percentage || 0).toFixed(1)}%
             </div>
-            <div className="text-sm text-muted-fg">{getGradeText(result.percentage)}</div>
+            <div className="text-sm text-muted-fg">{getGradeText(result.percentage || 0)}</div>
           </div>
 
           <div className="bg-elevated rounded-lg p-4 border border-base">
@@ -106,8 +106,8 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({ result, onClose }
               <Clock className="w-5 h-5 text-blue-400" />
               <span className="text-muted-fg font-medium">Time Taken</span>
             </div>
-            <div className="text-2xl font-bold text-blue-400">{formatTime(result.time_taken)}</div>
-            <div className="text-sm text-muted-fg">Attempt #{result.attempt_number}</div>
+            <div className="text-2xl font-bold text-blue-400">{formatTime(result.time_taken || 0)}</div>
+            <div className="text-sm text-muted-fg">Attempt #{result.attempt_number || 1}</div>
           </div>
 
           <div className="bg-elevated rounded-lg p-4 border border-base">
@@ -115,8 +115,8 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({ result, onClose }
               <TrendingUp className="w-5 h-5 text-purple-400" />
               <span className="text-muted-fg font-medium">Performance</span>
             </div>
-            <div className={`text-2xl font-bold ${getGradeColor(result.percentage)}`}>
-              {result.percentage >= 80 ? "A" : result.percentage >= 70 ? "B" : result.percentage >= 60 ? "C" : "D"}
+            <div className={`text-2xl font-bold ${getGradeColor(result.percentage || 0)}`}>
+              {(result.percentage || 0) >= 80 ? "A" : (result.percentage || 0) >= 70 ? "B" : (result.percentage || 0) >= 60 ? "C" : "D"}
             </div>
             <div className="text-sm text-muted-fg">Grade</div>
           </div>
@@ -126,7 +126,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({ result, onClose }
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-fg mb-4">Question Review</h3>
 
-          {result.questions.map((question, index) => (
+          {(result.questions || []).map((question, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 20 }}

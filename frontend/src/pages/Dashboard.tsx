@@ -4,25 +4,16 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import type { Analytics, TestResult } from "../types"
+import type { TestResult } from "../types"
 import { useTheme } from "../contexts/ThemeContext"
 import { useToast } from "../contexts/ToastContext"
 import { useAuth } from "../hooks/useAuth"
-import ProgressCharts from "../components/ProgressCharts"
 import Card from "../components/ui/Card"
 import Button from "../components/ui/Button"
-import StatsCard from "../components/StatsCard"
 import ErrorState from "../components/ErrorState"
-import GamificationPanel from "../components/GamificationPanel"
 import api from "../utils/api"
 import { ANIMATION_VARIANTS } from "../utils/constants"
 
-interface DashboardStats {
-  completedAssessments: number
-  averageScore: number
-  totalQuestions: number
-  topicsStudied: number
-}
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth()
@@ -31,68 +22,18 @@ const Dashboard: React.FC = () => {
   const { } = useTheme()
   const { } = useToast()
 
-  const [stats, setStats] = useState<DashboardStats>({
-    completedAssessments: 0,
-    averageScore: 0,
-    totalQuestions: 0,
-    topicsStudied: 0,
-  })
-  const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [recentTests, setRecentTests] = useState<TestResult[]>([])
   const [upcomingTests, setUpcomingTests] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error] = useState<string | null>(null)
 
   useEffect(() => {
     if (user?._id || user?.id) {
       console.log("📊 [DASHBOARD] Fetching analytics for user:", user.email)
-      fetchStats()
       fetchRecentTests()
       fetchUpcomingTests()
     }
   }, [user?._id, user?.id])
 
-  const fetchStats = async () => {
-    try {
-      if (!user) return;
-      const userId = user._id || user.id
-      setLoading(true)
-      setError(null)
-
-      const url = `/api/results/analytics/${userId}`
-      const response = await api.get(url)
-
-      if (response.data.success) {
-        const analyticsData: Analytics = response.data.analytics
-        console.log("📊 [DASHBOARD] Analytics loaded for user:", user.email)
-        console.log("📊 [DASHBOARD] Analytics data:", analyticsData)
-
-        setAnalytics(analyticsData)
-
-        const newStats = {
-          completedAssessments: analyticsData.total_assessments || 0,
-          averageScore: analyticsData.average_score || 0,
-          totalQuestions: analyticsData.total_questions || 0,
-          topicsStudied: analyticsData.topics?.length || 0,
-        }
-
-        setStats(newStats)
-      } else {
-        throw new Error(response.data.error || "Failed to fetch analytics")
-      }
-    } catch (error: any) {
-      console.error("❌ [DASHBOARD] Analytics error:", error.message)
-      let errorMessage = "Failed to load dashboard statistics"
-      if (error.response?.data?.detail) {
-        errorMessage = error.response.data.detail
-      } else if (error.message) {
-        errorMessage = error.message
-      }
-      setError(errorMessage)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const fetchRecentTests = async () => {
     try {
@@ -174,67 +115,6 @@ const Dashboard: React.FC = () => {
   }
 
 
-  const statCards = [
-    {
-      title: "Completed Assessments",
-      value: stats.completedAssessments,
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      ),
-      color: "from-emerald-500 to-green-400",
-      bgClass: "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15 hover:border-emerald-500/50",
-    },
-    {
-      title: "Average Score",
-      value: `${Math.round(stats.averageScore)}%`,
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-        </svg>
-      ),
-      color: "from-indigo-500 to-violet-400",
-      bgClass: "bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/15 hover:border-indigo-500/50",
-    },
-    {
-      title: "Total Questions",
-      value: stats.totalQuestions,
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      ),
-      color: "from-amber-500 to-yellow-400",
-      bgClass: "bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/15 hover:border-amber-500/50",
-    },
-    {
-      title: "Topics Studied",
-      value: stats.topicsStudied,
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-          />
-        </svg>
-      ),
-      color: "from-fuchsia-500 to-pink-400",
-      bgClass: "bg-fuchsia-500/10 border-fuchsia-500/30 hover:bg-fuchsia-500/15 hover:border-fuchsia-500/50",
-    },
-  ]
 
   return (
     <>
@@ -316,57 +196,14 @@ const Dashboard: React.FC = () => {
               </motion.div>
             </motion.div>
 
-            {/* Gamification Panel */}
-            <motion.div
-              variants={ANIMATION_VARIANTS.slideUp}
-              initial="initial"
-              animate="animate"
-              transition={{ delay: 0.3 }}
-              className="mb-8"
-            >
-              {user && <GamificationPanel user={user} />}
-            </motion.div>
 
-            {/* Quick Stats Grid */}
-            <motion.div
-              variants={ANIMATION_VARIANTS.stagger}
-              initial="initial"
-              animate="animate"
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-            >
-              {statCards.map((stat, index) => (
-                <motion.div key={stat.title} variants={ANIMATION_VARIANTS.slideUp} transition={{ delay: index * 0.1 }}>
-                  <StatsCard
-                    title={stat.title}
-                    value={stat.value}
-                    icon={stat.icon}
-                    color={stat.color}
-                    bgClass={stat.bgClass}
-                    loading={loading}
-                  />
-                </motion.div>
-              ))}
-            </motion.div>
-
-            {/* Progress Charts */}
-            {!loading && !error && (
-              <motion.div
-                variants={ANIMATION_VARIANTS.slideUp}
-                initial="initial"
-                animate="animate"
-                transition={{ delay: 0.4 }}
-                className="mb-8"
-              >
-                {user && <ProgressCharts user={user} analytics={analytics} />}
-              </motion.div>
-            )}
 
             {error && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-8">
                 <ErrorState
                   title="Dashboard Error"
                   message={error}
-                  onRetry={fetchStats}
+                  onRetry={() => window.location.reload()}
                   retryText="Retry"
                   showCard={false}
                 />
@@ -414,7 +251,7 @@ const Dashboard: React.FC = () => {
                             )}
                           </div>
                           <div className="text-right">
-                            <Link to={`/assessment/${test.id}`}>
+                            <Link to={`/test/${test.id}`}>
                               <Button variant="primary" size="sm">
                                 Start Test
                               </Button>
