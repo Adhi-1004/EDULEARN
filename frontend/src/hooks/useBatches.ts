@@ -48,10 +48,10 @@ export const useBatches = (): UseBatchesReturn => {
       const response = await api.get("/api/teacher/batches")
       if (response.data && Array.isArray(response.data)) {
         const formattedBatches = response.data.map((batch: any) => ({
-          id: batch.batch_id,
-          name: batch.batch_name,
-          studentCount: batch.total_students,
-          createdAt: new Date().toISOString().split("T")[0],
+          id: batch.id,
+          name: batch.name,
+          studentCount: batch.student_count,
+          createdAt: batch.created_at,
           students: batch.students,
           weaknesses: batch.weaknesses
         }))
