@@ -978,27 +978,51 @@ async def create_teacher_assessment(
         if assessment_data.type == "ai_generated":
             if not assessment_data.topic or not assessment_data.question_count:
                 raise HTTPException(status_code=400, detail="Topic and question count are required for AI-generated assessments")
-            
-            # Generate questions using Gemini AI
+
             from app.services.gemini_coding_service import GeminiCodingService
             gemini_service = GeminiCodingService()
-            
             generated_questions = await gemini_service.generate_mcq_questions(
                 topic=assessment_data.topic,
                 difficulty=assessment_data.difficulty,
                 count=assessment_data.question_count
             )
+        elif assessment_data.type == "ai_coding":
+            if not assessment_data.topic or not assessment_data.question_count:
+                raise HTTPException(status_code=400, detail="Topic and question count are required for AI Coding assessments")
+
+            from app.services.gemini_coding_service import GeminiCodingService
+            gemini_service = GeminiCodingService()
+            generated_questions = []
+            for i in range(assessment_data.question_count):
+                try:
+                    problem = await gemini_service.generate_coding_problem(
+                        topic=assessment_data.topic,
+                        difficulty=assessment_data.difficulty
+                    )
+                    generated_questions.append(problem)
+                except Exception as e:
+                    print(f"[ERROR] [AI_CODING] Failed to generate coding problem {i+1}: {e}")
+                    try:
+                        fallback_problem = gemini_service._get_fallback_problem(assessment_data.topic, assessment_data.difficulty)
+                        generated_questions.append(fallback_problem)
+                        print(f"[RECOVERY] [AI_CODING] Fallback problem used for question {i+1}")
+                    except Exception as e2:
+                        print(f"[CRITICAL] [AI_CODING] Failed to get fallback problem: {e2}")
+                        raise HTTPException(status_code=500, detail=f"Failed to generate coding problem or fallback: {e2}")
         else:
             # Use provided questions for manual assessments
             generated_questions = assessment_data.questions or []
             if len(generated_questions) == 0:
                 raise HTTPException(status_code=400, detail="At least one question is required for manual assessments")
         
+        # Get topic from request or use title as fallback for manual assessments
+        assessment_topic = assessment_data.topic if assessment_data.topic else assessment_data.title
+        
         # Store in teacher_assessments collection
         teacher_assessment = {
             "_id": ObjectId(assessment_id),
             "title": assessment_data.title,
-            "topic": assessment_data.topic,
+            "topic": assessment_topic,
             "difficulty": assessment_data.difficulty,
             "question_count": assessment_data.question_count or len(generated_questions),
             "questions": generated_questions,
@@ -1007,7 +1031,7 @@ async def create_teacher_assessment(
             "type": assessment_data.type,
             "created_at": datetime.utcnow(),
             "is_active": True,
-            "status": "active"
+            "status": "published"  # Set to published so students can see it
         }
         
         # Add optional fields if provided
@@ -1019,30 +1043,25 @@ async def create_teacher_assessment(
         await db.teacher_assessments.insert_one(teacher_assessment)
         
         # Store questions in ai_questions collection for review
+        processed_questions = []
         for question in generated_questions:
-            # Handle both "answer" and "correct_answer" fields for backward compatibility
-            correct_answer = question.get("correct_answer")
-            if correct_answer is None and "answer" in question:
-                # Convert letter answer (A, B, C, D) to index (0, 1, 2, 3)
-                answer_letter = question["answer"].upper()
-                if answer_letter in ["A", "B", "C", "D"]:
-                    correct_answer = ord(answer_letter) - ord("A")
-                else:
-                    print(f"⚠️ [WARNING] Invalid answer format: {question['answer']}")
-                    continue  # Skip this question
-            
+            # For coding, mark with source and store format
+            q_source = "ai_coding_generated" if assessment_data.type == "ai_coding" else ("teacher_generated" if assessment_data.type == "mcq" else "ai_generated")
             question_doc = {
-                "question": question["question"],
-                "options": question["options"],
-                "correct_answer": correct_answer,
-                "explanation": question.get("explanation", ""),
-                "topic": assessment_data.topic,
+                **question,
+                "topic": assessment_topic,
                 "difficulty": assessment_data.difficulty,
                 "assessment_id": assessment_id,
                 "created_at": datetime.utcnow(),
-                "source": "teacher_generated"
+                "source": q_source
             }
             await db.ai_questions.insert_one(question_doc)
+            processed_questions.append(question)
+        # Update teacher_assessment with processed questions
+        await db.teacher_assessments.update_one(
+            {"_id": ObjectId(assessment_id)},
+            {"$set": {"questions": processed_questions}}
+        )
         
         # Get all students from selected batches
         student_ids = []
@@ -1064,7 +1083,7 @@ async def create_teacher_assessment(
                 "student_id": student_id,
                 "type": "teacher_assessment_assigned",
                 "title": f"New Assessment: {assessment_data.title}",
-                "message": f"A new {assessment_data.difficulty} assessment on {assessment_data.topic} has been assigned to you.",
+                "message": f"A new {assessment_data.difficulty} assessment on {assessment_topic} has been assigned to you.",
                 "assessment_id": assessment_id,
                 "created_at": datetime.utcnow(),
                 "is_read": False
@@ -1084,7 +1103,10 @@ async def create_teacher_assessment(
         )
         
     except Exception as e:
+        import traceback
         print(f"❌ [TEACHER ASSESSMENT] Error creating assessment: {str(e)}")
+        print(f"❌ [TEACHER ASSESSMENT] Traceback:")
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Failed to create assessment: {str(e)}"

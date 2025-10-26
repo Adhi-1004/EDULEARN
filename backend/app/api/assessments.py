@@ -2566,12 +2566,55 @@ async def submit_teacher_assessment(
             teacher_id
         )
         
+        # Generate question reviews for immediate display
+        question_reviews = []
+        for i, question in enumerate(questions):
+            if i < len(answers):
+                user_answer_raw = answers[i]
+                options = question.get("options", [])
+                correct_answer_index = question.get("correct_answer", -1)
+                correct_answer = ""
+                
+                # Handle both string and integer correct answers
+                if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
+                    if correct_answer_index < len(options):
+                        correct_answer = options[correct_answer_index]
+                else:
+                    correct_answer = question.get("answer", "")
+                
+                # If correct answer is just a letter (A, B, C, D), find the matching option
+                if len(correct_answer) == 1 and correct_answer.isalpha():
+                    letter = correct_answer.upper()
+                    for option in options:
+                        if option.startswith(f"{letter})"):
+                            correct_answer = option
+                            break
+                
+                # Convert user answer to text if it's an index
+                if isinstance(user_answer_raw, int) and 0 <= user_answer_raw < len(options):
+                    user_answer_text = options[user_answer_raw]
+                else:
+                    user_answer_text = str(user_answer_raw)
+                
+                is_correct = user_answer_text == correct_answer
+                
+                question_reviews.append({
+                    "question_index": i,
+                    "question": question["question"],
+                    "options": options,
+                    "correct_answer": correct_answer,
+                    "user_answer": user_answer_text,
+                    "is_correct": is_correct,
+                    "explanation": question.get("explanation", "")
+                })
+        
         return {
             "success": True,
             "result_id": str(result.inserted_id),
             "score": score,
             "total_questions": len(questions),
             "percentage": percentage,
+            "question_reviews": question_reviews,
             "message": f"Assessment submitted successfully! Score: {score}/{len(questions)} ({percentage:.1f}%)"
         }
         

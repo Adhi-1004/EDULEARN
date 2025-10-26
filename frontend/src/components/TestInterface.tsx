@@ -242,7 +242,7 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
             </h2>
             
             <div className="space-y-3">
-              {currentQuestion.options.map((option, index) => (
+              {(currentQuestion.options || []).map((option, index) => (
                 <label
                   key={index}
                   className={`flex items-center p-4 rounded-lg border cursor-pointer transition-all hover:bg-purple-800/30 ${

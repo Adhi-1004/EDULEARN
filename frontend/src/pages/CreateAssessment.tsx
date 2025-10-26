@@ -5,7 +5,6 @@ import { motion } from "framer-motion"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { 
   FileText, 
-  Target, 
   Code, 
   Sparkles, 
   Plus, 
@@ -24,7 +23,7 @@ import api from "../utils/api"
 import { ANIMATION_VARIANTS } from "../utils/constants"
 import { getErrorMessage } from "../utils/errorHandler"
 
-type AssessmentType = "ai" | "mcq" | "challenge" | "coding"
+type AssessmentType = "ai" | "mcq" | "ai_coding"
 
 interface Batch {
   id: string
@@ -113,19 +112,12 @@ const CreateAssessment: React.FC = () => {
       description: "Generate questions automatically using AI"
     },
     {
-      id: "challenge" as AssessmentType,
-      name: "Challenge",
-      icon: Target,
-      color: "green",
-      description: "Create challenging problem-solving tasks"
-    },
-    {
-      id: "coding" as AssessmentType,
-      name: "Coding",
+      id: "ai_coding" as AssessmentType,
+      name: "AI Coding",
       icon: Code,
-      color: "orange",
-      description: "Create programming challenges"
-    }
+      color: "blue",
+      description: "Create and auto-grade AI-powered coding problems"
+    },
   ]
 
   const validateBasicInfo = () => {
@@ -233,36 +225,38 @@ const CreateAssessment: React.FC = () => {
           description,
           difficulty,
           questions,
+          batches: selectedBatches,
           time_limit: timeLimit,
-          type: "mcq"
+          type: "mcq",
+          question_count: questions.length
         }
         console.log("📤 [CREATE-ASSESSMENT] Sending assessment data:", assessmentData)
         
         response = await api.post("/api/teacher/assessments/create", assessmentData)
         console.log("📥 [CREATE-ASSESSMENT] Assessment creation response:", response.data)
         
-      } else if (activeType === "challenge") {
-        console.log("🎯 [CREATE-ASSESSMENT] Creating challenge assessment...")
-        const assessmentData = {
-          title,
-          description,
-          difficulty,
-          type: "challenge",
-          time_limit: timeLimit
+      } else if (activeType === "ai_coding") {
+        if (!topic.trim()) {
+          showError("Validation Error", "Please enter a topic for the AI Coding assessment.")
+          setLoading(false)
+          return
         }
-        console.log("📤 [CREATE-ASSESSMENT] Sending assessment data:", assessmentData)
-        
-        response = await api.post("/api/teacher/assessments/create", assessmentData)
-        console.log("📥 [CREATE-ASSESSMENT] Assessment creation response:", response.data)
-        
-      } else if (activeType === "coding") {
-        console.log("💻 [CREATE-ASSESSMENT] Creating coding assessment...")
+        if (questionCount < 1 || questionCount > 50) {
+          showError("Validation Error", "Number of questions must be between 1 and 50 for AI Coding.")
+          setLoading(false)
+          return
+        }
+
+        console.log("💻 [CREATE-ASSESSMENT] Creating AI coding assessment...")
         const assessmentData = {
           title,
           description,
           difficulty,
-          type: "coding",
-          time_limit: timeLimit
+          topic,
+          question_count: questionCount,
+          type: "ai_coding",
+          time_limit: timeLimit,
+          batches: selectedBatches
         }
         console.log("📤 [CREATE-ASSESSMENT] Sending assessment data:", assessmentData)
         
@@ -618,20 +612,44 @@ const CreateAssessment: React.FC = () => {
 
         {activeType === "ai" && renderAIGenerationForm()}
         {activeType === "mcq" && renderMCQForm()}
-        {activeType === "challenge" && (
+        {activeType === "ai_coding" && (
           <Card className="p-6 mb-6">
-            <h3 className="text-xl font-bold text-foreground mb-4">Challenge Settings</h3>
-            <p className="text-muted-foreground mb-4">
-              Challenge assessments allow you to create problem-solving tasks. You can add coding challenges after creating the assessment.
-            </p>
-          </Card>
-        )}
-        {activeType === "coding" && (
-          <Card className="p-6 mb-6">
-            <h3 className="text-xl font-bold text-foreground mb-4">Coding Settings</h3>
-            <p className="text-muted-foreground mb-4">
-              Coding assessments allow you to create programming challenges. You can add coding problems after creating the assessment.
-            </p>
+            <h3 className="text-xl font-bold text-foreground mb-4">AI Coding Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label htmlFor="topic" className="block font-medium mb-1">Topics <span className="text-red-500">*</span></label>
+                <Input
+                  id="topic"
+                  type="text"
+                  placeholder="Enter topic (e.g., Data Structures, Loops)"
+                  value={topic}
+                  onChange={e => setTopic(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="questionCount" className="block font-medium mb-1">Number of Questions <span className="text-red-500">*</span></label>
+                <Input
+                  id="questionCount"
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={questionCount}
+                  onChange={e => setQuestionCount(Number(e.target.value))}
+                  required
+                />
+              </div>
+            </div>
+            <div className="bg-primary-800 p-4 rounded-lg border border-primary-500/30 mb-4">
+              <h4 className="text-lg font-bold mb-2 text-primary-200">AI Coding Challenge Features</h4>
+              <ul className="list-disc pl-6 text-primary-300 text-base space-y-1">
+                <li>Real-time code execution and testing</li>
+                <li>Multiple programming languages supported</li>
+                <li>Automated test case generation</li>
+                <li>Performance and complexity analysis</li>
+              </ul>
+            </div>
+            {/* Other settings if necessary... */}
           </Card>
         )}
 
@@ -758,14 +776,17 @@ const CreateAssessment: React.FC = () => {
                     </span>
                   </p>
                 </div>
-              ) : (
-                <div className="bg-muted/20 border border-border rounded-lg p-4">
-                  <p className="text-muted-foreground text-sm">
-                    {activeType === "challenge" && "Coding challenge details will be added after creation."}
-                    {activeType === "coding" && "Coding problems will be added after creation."}
+              ) : activeType === "ai_coding" ? (
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
+                  <p className="text-foreground">
+                    <span className="font-semibold text-purple-400">AI Coding Assessment</span>
+                    <br />
+                    <span className="text-sm text-muted-foreground">
+                      {questionCount} coding problems will be automatically generated on topic: <span className="font-semibold text-foreground">{topic || "Not specified"}</span>
+                    </span>
                   </p>
                 </div>
-              )}
+              ) : null}
 
               {/* Assignment Info */}
               {selectedBatches.length > 0 && (

@@ -268,8 +268,8 @@ const Assessment: React.FC = () => {
           
           // Prepare result state for Results page (same format as student-generated)
           const resultState = {
-            score: score,
-            totalQuestions: assessment?.question_count || 0,
+            score: res.data.score || score,
+            totalQuestions: res.data.total_questions || assessment?.question_count || 0,
             topic: assessment?.subject || '',
             difficulty: assessment?.difficulty || '',
             questions: assessment?.questions.map((q, idx) => ({
@@ -277,6 +277,7 @@ const Assessment: React.FC = () => {
               question: q.question,
               options: q.options,
               answer: q.options[q.correct_answer], // Convert index to actual answer text
+              correct_answer: q.correct_answer, // Keep the index for backup
               explanation: q.explanation,
               difficulty: assessment?.difficulty || '',
               topic: assessment?.subject || ''
@@ -291,7 +292,8 @@ const Assessment: React.FC = () => {
             explanations: assessment?.questions.map((q, idx) => ({
               questionIndex: idx,
               explanation: q.explanation || "",
-            })) || []
+            })) || [],
+            questionReviews: res.data.question_reviews || []
           };
           
           // Navigate to Results page with state
@@ -313,6 +315,7 @@ const Assessment: React.FC = () => {
               question: q.question,
               options: q.options,
               answer: q.options[q.correct_answer], // Convert index to actual answer text
+              correct_answer: q.correct_answer, // Keep the index for backup
               explanation: q.explanation,
               difficulty: assessment?.difficulty || '',
               topic: assessment?.subject || ''

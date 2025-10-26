@@ -131,8 +131,8 @@ const AssessmentManagement: React.FC = () => {
     navigate("/teacher/create-assessment?type=mcq")
   }
 
-  const handleCreateChallenge = () => {
-    navigate("/teacher/create-assessment?type=challenge")
+  const handleCreateAICoding = () => {
+    navigate("/teacher/create-assessment?type=ai_coding")
   }
 
   const handleAIGenerate = () => {
@@ -242,9 +242,8 @@ const AssessmentManagement: React.FC = () => {
             <AssessmentForm
               batches={batches}
               onCreateMCQ={handleCreateMCQ}
-              onCreateChallenge={handleCreateChallenge}
+              onCreateAICoding={handleCreateAICoding}
               onAIGenerate={handleAIGenerate}
-              onCreateCoding={() => navigate("/teacher/create-assessment?type=coding")}
             />
 
             {/* Assessment Creation Forms - Removed, now handled in separate page */}
@@ -521,7 +520,7 @@ const AssessmentManagement: React.FC = () => {
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Question Form - Only show for MCQ and AI assessments */}
-                    {currentAssessment.type !== "challenge" && (
+                    {currentAssessment.type !== "ai_coding" && (
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-blue-200">Add New Question</h3>
 
@@ -578,7 +577,7 @@ const AssessmentManagement: React.FC = () => {
                     )}
 
                     {/* Questions List - Only show for MCQ and AI assessments */}
-                    {currentAssessment.type !== "challenge" && (
+                    {currentAssessment.type !== "ai_coding" && (
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-blue-200">Added Questions ({questions.length})</h3>
 
@@ -617,7 +616,7 @@ const AssessmentManagement: React.FC = () => {
                     )}
 
                     {/* Coding Challenge Section - Only show for coding challenges */}
-                    {currentAssessment?.type === "challenge" && (
+                    {currentAssessment?.type === "ai_coding" && (
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-blue-200">Coding Challenge Questions</h3>
                         <p className="text-blue-300">

@@ -19,17 +19,15 @@ interface Batch {
 interface AssessmentFormProps {
   batches: Batch[]
   onCreateMCQ: () => void
-  onCreateChallenge: () => void
+  onCreateAICoding: () => void
   onAIGenerate: () => void
-  onCreateCoding: () => void
 }
 
 const AssessmentForm: React.FC<AssessmentFormProps> = ({
   batches,
   onCreateMCQ,
-  onCreateChallenge,
-  onAIGenerate,
-  onCreateCoding
+  onCreateAICoding,
+  onAIGenerate
 }) => {
   return (
     <motion.div variants={ANIMATION_VARIANTS.slideUp}>
@@ -71,36 +69,19 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
             </div>
           </div>
 
-          {/* Challenge Assessment */}
-          <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
-            <div className="text-center">
-              <div className="text-3xl mb-2">🎯</div>
-              <h3 className="text-blue-200 font-semibold mb-2">Challenge</h3>
-              <p className="text-blue-300 text-sm mb-3">Create challenging problem-solving tasks</p>
-              <Button 
-                variant="primary" 
-                size="sm" 
-                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600" 
-                onClick={onCreateChallenge}
-              >
-                Create Challenge
-              </Button>
-            </div>
-          </div>
-
-          {/* Coding Assessment */}
+          {/* AI Coding Assessment */}
           <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
             <div className="text-center">
               <div className="text-3xl mb-2">💻</div>
-              <h3 className="text-blue-200 font-semibold mb-2">Coding</h3>
-              <p className="text-blue-300 text-sm mb-3">Create programming challenges</p>
+              <h3 className="text-blue-200 font-semibold mb-2">AI Coding</h3>
+              <p className="text-blue-300 text-sm mb-3">Generate coding problems automatically using AI</p>
               <Button 
                 variant="primary" 
                 size="sm" 
                 className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600" 
-                onClick={onCreateCoding}
+                onClick={onCreateAICoding}
               >
-                Create Coding
+                Create AI Coding
               </Button>
             </div>
           </div>

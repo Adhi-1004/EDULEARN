@@ -20,13 +20,14 @@ interface Explanation {
 const Results: React.FC<ResultsProps> = ({ }) => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { score, totalQuestions, topic, difficulty, questions, userAnswers, timeTaken, explanations: stateExplanations } = location.state || { 
+    const { score, totalQuestions, topic, difficulty, questions, userAnswers, timeTaken, explanations: stateExplanations, questionReviews } = location.state || { 
         score: 0, 
         totalQuestions: 0, 
         questions: [], 
         userAnswers: [],
         timeTaken: 0,
-        explanations: []
+        explanations: [],
+        questionReviews: []
     };
 
     const [explanations, setExplanations] = useState<Explanation[]>(stateExplanations || []);
@@ -216,22 +217,23 @@ const Results: React.FC<ResultsProps> = ({ }) => {
 
                                 <div className="space-y-6">
                                     {questions.map((question: Question, index: number) => {
-                                        const userAnswer = userAnswers[index];
-                                        
-                                        console.log(`🔍 [RESULTS] Question ${index + 1}: UserAnswer="${userAnswer}", QuestionAnswer="${question.answer}"`);
-                                        
-                                        // Handle both string and integer correct answers
-                                        let correctAnswer = question.answer;
-                                        // Check if answer is a number (index) and convert to option text
-                                        if (typeof question.answer === 'number' && question.answer >= 0) {
-                                            const options = question.options || [];
-                                            if (question.answer < options.length) {
-                                                correctAnswer = options[question.answer];
-                                            }
+                                        // Use questionReviews data if available, otherwise fall back to manual calculation
+                                        let questionReview = null;
+                                        if (questionReviews && questionReviews.length > index) {
+                                            questionReview = questionReviews[index];
                                         }
                                         
-                                        const isCorrect = userAnswer === correctAnswer;
-                                        const explanation = explanations.find(exp => exp.questionIndex === index);
+                                        const userAnswer = questionReview?.user_answer || userAnswers[index];
+                                        const correctAnswer = questionReview?.correct_answer || '';
+                                        const isCorrect = questionReview?.is_correct ?? false;
+                                        const explanation = questionReview?.explanation || explanations.find(exp => exp.questionIndex === index)?.explanation || '';
+                                        
+                                        console.log(`🔍 [RESULTS] Question ${index + 1}:`, {
+                                            userAnswer,
+                                            correctAnswer,
+                                            isCorrect,
+                                            hasQuestionReview: !!questionReview
+                                        });
 
                                         return (
                                             <motion.div
@@ -270,8 +272,13 @@ const Results: React.FC<ResultsProps> = ({ }) => {
                                                 {/* Options */}
                                                 <div className="space-y-3 mb-6">
                                                     {question.options.map((option, optionIndex) => {
-                                                        const isUserChoice = option === userAnswer;
-                                                        const isCorrectChoice = option === correctAnswer;
+                                                        // Use normalized comparison for better matching
+                                                        const normalizedOption = (option || '').trim();
+                                                        const normalizedUserAnswer = (userAnswer || '').trim();
+                                                        const normalizedCorrectAnswer = (correctAnswer || '').trim();
+                                                        
+                                                        const isUserChoice = normalizedOption.toLowerCase() === normalizedUserAnswer.toLowerCase();
+                                                        const isCorrectChoice = normalizedOption.toLowerCase() === normalizedCorrectAnswer.toLowerCase();
                                                         
                                                         let optionClasses = "p-4 rounded-lg border transition-all duration-200 ";
                                                         
@@ -294,27 +301,18 @@ const Results: React.FC<ResultsProps> = ({ }) => {
                                                                     </div>
                                                                     <div className="flex items-center space-x-2">
                                                                         {isCorrectChoice && (
-                                                                            <span className="text-green-400 font-medium text-sm flex items-center">
-                                                                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                                                </svg>
-                                                                                Correct
+                                                                            <span className="text-green-400 font-medium text-sm">
+                                                                                ✓ Correct
                                                                             </span>
                                                                         )}
                                                                         {isUserChoice && !isCorrect && (
-                                                                            <span className="text-red-400 font-medium text-sm flex items-center">
-                                                                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                                                </svg>
-                                                                                Your Choice
+                                                                            <span className="text-red-400 font-medium text-sm">
+                                                                                ✗ Your Choice
                                                                             </span>
                                                                         )}
                                                                         {isUserChoice && isCorrect && (
-                                                                            <span className="text-green-400 font-medium text-sm flex items-center">
-                                                                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                                                </svg>
-                                                                                Your Choice
+                                                                            <span className="text-green-400 font-medium text-sm">
+                                                                                ✓ Your Choice
                                                                             </span>
                                                                         )}
                                                                     </div>

@@ -13,8 +13,12 @@ export interface User {
 export interface Question {
   question: string;
   options: string[];
-  answer: string;
+  answer: string | number;
+  correct_answer?: number; // Index of correct answer
   explanation?: string;
+  id?: string;
+  difficulty?: string;
+  topic?: string;
 }
 
 export interface AssessmentConfig {

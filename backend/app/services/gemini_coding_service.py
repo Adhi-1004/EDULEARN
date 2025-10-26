@@ -236,35 +236,32 @@ class GeminiCodingService:
         focus_areas: List[str] = None,
         avoid_topics: List[str] = None
     ) -> Dict[str, Any]:
-        """Generate an original coding problem using Gemini AI"""
+        """Generate an MCQ question about coding concepts using Gemini AI"""
         try:
-            print(f"🧠 [GEMINI_CODING] Generating {difficulty} problem for topic: {topic}")
+            print(f"🧠 [GEMINI_CODING] Generating {difficulty} coding MCQ for topic: {topic}")
             
             if not self.available:
-                return self._get_fallback_problem(topic, difficulty)
+                return self._get_fallback_coding_mcq(topic, difficulty)
             
-            focus_str = ", ".join(focus_areas) if focus_areas else "general problem solving"
+            focus_str = ", ".join(focus_areas) if focus_areas else "general coding concepts"
             avoid_str = ", ".join(avoid_topics) if avoid_topics else "none"
             
             prompt = f"""
-            Generate a {difficulty} coding problem on {topic} for {user_skill_level} level.
+            Generate a {difficulty} multiple choice question about {topic} for {user_skill_level} level.
+            
+            The question should test understanding of coding concepts, algorithms, data structures, or programming principles related to {topic}.
             
             Return ONLY this JSON structure:
             {{
-                "title": "Problem Title",
-                "description": "Clear problem description",
+                "question": "What is the time complexity of...?",
+                "options": ["Option A", "Option B", "Option C", "Option D"],
+                "correct_answer": 0,
+                "explanation": "Detailed explanation of why this answer is correct",
                 "topic": "{topic}",
-                "difficulty": "{difficulty}",
-                "constraints": ["Constraint 1", "Constraint 2"],
-                "examples": [{{"input": "example", "output": "result", "explanation": "why"}}],
-                "test_cases": [{{"input": {{"param": "value"}}, "output": "expected"}}],
-                "hidden_test_cases": [{{"input": {{"param": "value"}}, "output": "expected"}}],
-                "expected_complexity": {{"time": "O(n)", "space": "O(1)"}},
-                "hints": ["Hint 1", "Hint 2"],
-                "tags": ["tag1", "tag2"]
+                "difficulty": "{difficulty}"
             }}
             
-            Make it original, educational, and appropriate for {difficulty} level.
+            Make it educational and test conceptual understanding of {topic}.
             """
             
             # Add timeout handling for Gemini API calls
@@ -276,11 +273,11 @@ class GeminiCodingService:
                 )
             except asyncio.TimeoutError:
                 print("[TIMEOUT] [GEMINI_CODING] Gemini API call timed out after 25 seconds")
-                return self._get_fallback_problem(topic, difficulty)
+                return self._get_fallback_coding_mcq(topic, difficulty)
             
             if not response or not response.text:
                 print("[ERROR] [GEMINI_CODING] No response from Gemini API")
-                return self._get_fallback_problem(topic, difficulty)
+                return self._get_fallback_coding_mcq(topic, difficulty)
             
             # Clean and parse JSON response
             response_text = response.text.strip()
@@ -300,47 +297,38 @@ class GeminiCodingService:
             response_text = response_text.strip()
             
             try:
-                problem_data = json.loads(response_text)
+                question_data = json.loads(response_text)
                 
-                # Validate required fields
-                required_fields = ['title', 'description', 'test_cases', 'hidden_test_cases']
+                # Validate required fields for MCQ format
+                required_fields = ['question', 'options', 'correct_answer', 'explanation']
                 for field in required_fields:
-                    if field not in problem_data:
+                    if field not in question_data:
                         raise ValueError(f"Missing required field: {field}")
                 
-                # Ensure test_cases and hidden_test_cases are lists
-                if not isinstance(problem_data.get('test_cases'), list):
-                    problem_data['test_cases'] = []
-                if not isinstance(problem_data.get('hidden_test_cases'), list):
-                    problem_data['hidden_test_cases'] = []
+                # Ensure options is a list with 4 items
+                if not isinstance(question_data.get('options'), list) or len(question_data['options']) != 4:
+                    raise ValueError("Options must be a list with exactly 4 items")
                 
-                # Ensure examples is a list
-                if not isinstance(problem_data.get('examples'), list):
-                    problem_data['examples'] = []
+                # Ensure correct_answer is an integer between 0-3
+                correct_answer = question_data.get('correct_answer')
+                if not isinstance(correct_answer, int) or correct_answer < 0 or correct_answer > 3:
+                    raise ValueError("correct_answer must be an integer between 0-3")
                 
-                # Ensure constraints is a list
-                if not isinstance(problem_data.get('constraints'), list):
-                    problem_data['constraints'] = []
+                # Add topic and difficulty if not present
+                question_data['topic'] = topic
+                question_data['difficulty'] = difficulty
                 
-                # Ensure hints is a list
-                if not isinstance(problem_data.get('hints'), list):
-                    problem_data['hints'] = []
-                
-                # Ensure tags is a list
-                if not isinstance(problem_data.get('tags'), list):
-                    problem_data['tags'] = []
-                
-                print(f"[SUCCESS] [GEMINI_CODING] Successfully generated problem: {problem_data['title']}")
-                return problem_data
+                print(f"[SUCCESS] [GEMINI_CODING] Successfully generated coding MCQ: {question_data['question'][:50]}...")
+                return question_data
                 
             except json.JSONDecodeError as e:
                 print(f"[ERROR] [GEMINI_CODING] JSON parsing error: {str(e)}")
                 print(f"[DEBUG] [GEMINI_CODING] Raw response: {response_text}")
-                return self._get_fallback_problem(topic, difficulty)
+                return self._get_fallback_coding_mcq(topic, difficulty)
             
         except Exception as e:
-            print(f"[ERROR] [GEMINI_CODING] Error generating problem: {str(e)}")
-            return self._get_fallback_problem(topic, difficulty)
+            print(f"[ERROR] [GEMINI_CODING] Error generating coding MCQ: {str(e)}")
+            return self._get_fallback_coding_mcq(topic, difficulty)
 
     async def analyze_code_solution(
         self, 
@@ -962,46 +950,119 @@ try {{
             "memory_used": 80
         }
 
-    def _get_fallback_problem(self, topic: str, difficulty: str) -> Dict[str, Any]:
-        """Get a fallback problem when AI is not available"""
+    def _get_fallback_coding_mcq(self, topic: str, difficulty: str) -> Dict[str, Any]:
+        """Get a fallback coding MCQ when AI is not available"""
         import random
         
-        # Get random problem from the topic
-        problems = self._get_comprehensive_problems()
-        if topic in problems and difficulty in problems[topic]:
-            topic_problems = problems[topic][difficulty]
-            if isinstance(topic_problems, list):
-                selected_problem = random.choice(topic_problems)
+        # Coding MCQ questions database
+        coding_mcqs = {
+            "Data Structures": {
+                "easy": [
+                    {
+                        "question": "What is the time complexity of accessing an element in an array?",
+                        "options": ["O(1)", "O(n)", "O(log n)", "O(n²)"],
+                        "correct_answer": 0,
+                        "explanation": "Array access is O(1) because we can directly access any element using its index."
+                    },
+                    {
+                        "question": "Which data structure follows LIFO (Last In, First Out) principle?",
+                        "options": ["Queue", "Stack", "Array", "Linked List"],
+                        "correct_answer": 1,
+                        "explanation": "Stack follows LIFO principle where the last element added is the first one to be removed."
+                    }
+                ],
+                "medium": [
+                    {
+                        "question": "What is the time complexity of inserting an element in a balanced binary search tree?",
+                        "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+                        "correct_answer": 1,
+                        "explanation": "In a balanced BST, insertion requires traversing the height of the tree, which is O(log n)."
+                    }
+                ],
+                "hard": [
+                    {
+                        "question": "What is the space complexity of merge sort?",
+                        "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+                        "correct_answer": 2,
+                        "explanation": "Merge sort requires O(n) extra space for the temporary arrays used during merging."
+                    }
+                ]
+            },
+            "Algorithms": {
+                "easy": [
+                    {
+                        "question": "Which sorting algorithm has the best average-case time complexity?",
+                        "options": ["Bubble Sort", "Selection Sort", "Quick Sort", "Insertion Sort"],
+                        "correct_answer": 2,
+                        "explanation": "Quick Sort has O(n log n) average-case time complexity, which is better than the O(n²) of the others."
+                    }
+                ],
+                "medium": [
+                    {
+                        "question": "What is the time complexity of Dijkstra's algorithm?",
+                        "options": ["O(V)", "O(V + E)", "O(V log V + E)", "O(V²)"],
+                        "correct_answer": 2,
+                        "explanation": "Dijkstra's algorithm with a binary heap has O(V log V + E) time complexity."
+                    }
+                ],
+                "hard": [
+                    {
+                        "question": "What is the space complexity of recursive Fibonacci without memoization?",
+                        "options": ["O(1)", "O(n)", "O(2^n)", "O(log n)"],
+                        "correct_answer": 2,
+                        "explanation": "Recursive Fibonacci without memoization has exponential time and space complexity O(2^n)."
+                    }
+                ]
+            },
+            "Python Programming": {
+                "easy": [
+                    {
+                        "question": "What is the output of: print(3 * 'abc')",
+                        "options": ["abcabcabc", "3abc", "abc3", "Error"],
+                        "correct_answer": 0,
+                        "explanation": "Multiplying a string by an integer repeats the string that many times."
+                    }
+                ],
+                "medium": [
+                    {
+                        "question": "What does the 'with' statement in Python provide?",
+                        "options": ["Loop control", "Exception handling", "Resource management", "Function definition"],
+                        "correct_answer": 2,
+                        "explanation": "The 'with' statement provides automatic resource management and cleanup."
+                    }
+                ],
+                "hard": [
+                    {
+                        "question": "What is the difference between 'is' and '==' in Python?",
+                        "options": ["No difference", "'is' compares values, '==' compares identity", "'is' compares identity, '==' compares values", "Both compare identity"],
+                        "correct_answer": 2,
+                        "explanation": "'is' checks if two variables refer to the same object (identity), while '==' checks if they have the same value."
+                    }
+                ]
+            }
+        }
+        
+        # Get questions for the topic and difficulty
+        if topic in coding_mcqs and difficulty in coding_mcqs[topic]:
+            questions = coding_mcqs[topic][difficulty]
+            if isinstance(questions, list):
+                selected_question = random.choice(questions)
             else:
-                selected_problem = topic_problems
+                selected_question = questions
         else:
-            # Default fallback
-            selected_problem = {
-                "title": "Two Sum",
-                "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
-                "test_cases": [
-                    {"input": "2 7 11 15\n9", "output": "0 1"},
-                    {"input": "3 2 4\n6", "output": "1 2"},
-                    {"input": "3 3\n6", "output": "0 1"}
-                ],
-                "hidden_test_cases": [
-                    {"input": "1 2 3 4 5\n8", "output": "2 4"},
-                    {"input": "10 20 30 40 50\n70", "output": "1 3"}
-                ],
-                "examples": [
-                    {"input": "2 7 11 15\n9", "output": "0 1", "explanation": "nums[0] + nums[1] = 2 + 7 = 9"}
-                ],
-                "constraints": ["2 <= nums.length <= 10^4", "-10^9 <= nums[i] <= 10^9", "-10^9 <= target <= 10^9"],
-                "starter_code": {
-                    "python": "def twoSum(nums, target):\n    # Your code here\n    pass",
-                    "javascript": "function twoSum(nums, target) {\n    // Your code here\n}",
-                    "java": "public int[] twoSum(int[] nums, int target) {\n    // Your code here\n    return new int[0];\n}",
-                    "cpp": "vector<int> twoSum(vector<int>& nums, int target) {\n    // Your code here\n    return {};\n}"
-                },
-                "expected_complexity": {"time": "O(n)", "space": "O(n)"}
+            # Default fallback question
+            selected_question = {
+                "question": "What is the time complexity of linear search?",
+                "options": ["O(1)", "O(log n)", "O(n)", "O(n²)"],
+                "correct_answer": 2,
+                "explanation": "Linear search checks each element one by one, so it has O(n) time complexity in the worst case."
             }
         
-        return selected_problem
+        # Add topic and difficulty
+        selected_question['topic'] = topic
+        selected_question['difficulty'] = difficulty
+        
+        return selected_question
 
     def _get_comprehensive_problems(self) -> Dict[str, Any]:
         """Get comprehensive problem database with proper test cases"""
@@ -1966,6 +2027,7 @@ Requirements:
 - Questions must be COMPLETELY UNIQUE and not similar to existing questions
 - Use varied question formats (definitions, scenarios, calculations, comparisons, etc.)
 - Include questions about different subtopics within {topic}
+- CRITICAL: The explanation must clearly explain why the correct answer (the option text) is correct
 
 {uniqueness_context}
 
@@ -1975,17 +2037,20 @@ Return ONLY a valid JSON array in this exact format:
     "question": "What is the primary purpose of variables in programming?",
     "options": ["To store data", "To display text", "To create loops", "To define functions"],
     "answer": "A",
-    "explanation": "Variables are used to store and manipulate data in programs."
+    "explanation": "To store data is correct because variables are containers that hold data values in programs."
   }},
   {{
     "question": "Which keyword is used to define a function in Python?",
     "options": ["function", "def", "define", "func"],
     "answer": "B", 
-    "explanation": "The 'def' keyword is used to define functions in Python."
+    "explanation": "def is correct because it is the specific keyword used to define functions in Python."
   }}
 ]
 
-Important: Return ONLY the JSON array, no other text or formatting."""
+IMPORTANT: 
+- The explanation must directly reference and justify the correct answer option text
+- Do not provide generic explanations that could apply to multiple options
+- Return ONLY the JSON array, no other text or formatting."""
             
             response = await self.model.generate_content_async(prompt)
             content = response.text.strip()
@@ -2063,25 +2128,25 @@ Important: Return ONLY the JSON array, no other text or formatting."""
                     "question": "What is the correct syntax to create a list in Python?",
                     "options": ["list = []", "list = {}", "list = ()", "list = []"],
                     "correct": 0,
-                    "explanation": "Lists in Python are created using square brackets []"
+                    "explanation": "'list = []' is correct because square brackets [] are the proper syntax for creating lists in Python."
                 },
                 {
                     "question": "Which keyword is used to define a function in Python?",
                     "options": ["function", "def", "define", "func"],
                     "correct": 1,
-                    "explanation": "The 'def' keyword is used to define functions in Python"
+                    "explanation": "'def' is correct because it is the specific keyword used to define functions in Python."
                 },
                 {
                     "question": "What does the 'print()' function do in Python?",
                     "options": ["Displays output", "Reads input", "Calculates values", "Stores data"],
                     "correct": 0,
-                    "explanation": "The print() function displays output to the console"
+                    "explanation": "'Displays output' is correct because the print() function outputs text to the console."
                 },
                 {
                     "question": "Which data type is used to store a sequence of characters in Python?",
                     "options": ["string", "int", "float", "boolean"],
                     "correct": 0,
-                    "explanation": "Strings are used to store sequences of characters"
+                    "explanation": "'string' is correct because it is the data type used to store sequences of characters in Python."
                 },
                 {
                     "question": "What is the result of 5 // 2 in Python?",
