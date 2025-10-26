@@ -223,7 +223,7 @@ async def publish_teacher_assessment(
         import traceback
         print(f"❌ [PUBLISH] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
-@router.get("/teacher/class-performance")
+@router.get("/class-performance")
 async def get_class_performance_overview(user: UserModel = Depends(require_teacher)):
     """Get overall class performance analytics for teacher"""
     try:
@@ -307,7 +307,7 @@ async def get_class_performance_overview(user: UserModel = Depends(require_teach
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/teacher/student-results/{student_id}")
+@router.get("/student-results/{student_id}")
 async def get_student_detailed_results(
     student_id: str,
     user: UserModel = Depends(require_teacher)
@@ -334,51 +334,93 @@ async def get_student_detailed_results(
         
         logger.info(f"✅ [STUDENT-RESULTS] Student found: {student.get('email', 'Unknown')}")
         
-        # Check if student is in teacher's batch
+        # Check if student is in teacher's batch (flexible check)
+        has_access = False
+        
+        # Method 1: Check if student has a batch_id that belongs to teacher
         batch_id = student.get("batch_id")
         logger.info(f"🔍 [STUDENT-RESULTS] Student batch_id: {batch_id}, type: {type(batch_id)}")
         
-        if not batch_id:
-            logger.error(f"❌ [STUDENT-RESULTS] Student has no batch_id")
-            raise HTTPException(status_code=403, detail="Student not assigned to any batch")
+        if batch_id:
+            # Ensure batch_id is an ObjectId
+            if isinstance(batch_id, str) and ObjectId.is_valid(batch_id):
+                batch_id = ObjectId(batch_id)
+            
+            # Check with both string and ObjectId teacher_id for compatibility
+            student_batch = await db.batches.find_one({
+                "_id": batch_id,
+                "$or": [
+                    {"teacher_id": str(user.id)},
+                    {"teacher_id": user.id}
+                ]
+            })
+            
+            if student_batch:
+                logger.info(f"✅ [STUDENT-RESULTS] Student is in teacher's batch")
+                has_access = True
         
-        # Ensure batch_id is an ObjectId
-        if isinstance(batch_id, str):
-            if not ObjectId.is_valid(batch_id):
-                logger.error(f"❌ [STUDENT-RESULTS] Invalid batch_id string: {batch_id}")
-                raise HTTPException(status_code=403, detail="Invalid batch assignment")
-            batch_id = ObjectId(batch_id)
+        # Method 2: Check if student has submitted any of teacher's assessments
+        if not has_access:
+            logger.info(f"🔍 [STUDENT-RESULTS] Checking teacher assessments...")
+            teacher_assessment_submission = await db.teacher_assessment_results.find_one({
+                "student_id": student_id
+            })
+            
+            if teacher_assessment_submission:
+                # Verify the assessment belongs to this teacher
+                assessment_id = teacher_assessment_submission.get("assessment_id")
+                if assessment_id:
+                    assessment = await db.teacher_assessments.find_one({
+                        "_id": ObjectId(assessment_id) if isinstance(assessment_id, str) else assessment_id,
+                        "$or": [
+                            {"teacher_id": str(user.id)},
+                            {"teacher_id": user.id}
+                        ]
+                    })
+                    if assessment:
+                        logger.info(f"✅ [STUDENT-RESULTS] Student has submitted teacher's assessment")
+                        has_access = True
         
-        student_batch = await db.batches.find_one({
-            "_id": batch_id,
-            "teacher_id": str(user.id)
-        })
+        if not has_access:
+            logger.error(f"❌ [STUDENT-RESULTS] Teacher does not have access to this student's results")
+            raise HTTPException(status_code=403, detail="Access denied - student not in your batch or assessments")
         
-        logger.info(f"🔍 [STUDENT-RESULTS] Batch query result: {student_batch is not None}")
+        # Get student's submissions - handle both string and ObjectId formats
+        logger.info(f"🔍 [STUDENT-RESULTS] Querying submissions for student_id: {student_id} (type: {type(student_id)})")
         
-        if not student_batch:
-            logger.error(f"❌ [STUDENT-RESULTS] Student's batch not found or not owned by teacher")
-            raise HTTPException(status_code=403, detail="Access denied - student not in your batch")
+        # Build query to handle both string and ObjectId student_id
+        query_conditions = [{"student_id": student_id}]  # String format
         
-        # Get student's submissions
-        submissions = await db.assessment_submissions.find({
-            "student_id": student_id
-        }).sort("submitted_at", -1).to_list(length=None)
+        if ObjectId.is_valid(student_id):
+            student_id_obj = ObjectId(student_id)
+            query_conditions.append({"student_id": student_id_obj})  # ObjectId format
+            logger.info(f"🔍 [STUDENT-RESULTS] Also searching for ObjectId format: {student_id_obj}")
+        
+        submission_query = {"$or": query_conditions}
+        
+        submissions = await db.assessment_submissions.find(submission_query).sort("submitted_at", -1).to_list(length=None)
+        logger.info(f"📊 [STUDENT-RESULTS] Found {len(submissions)} regular submissions")
         
         # Get teacher assessment results
-        teacher_submissions = await db.teacher_assessment_results.find({
-            "student_id": student_id
-        }).sort("submitted_at", -1).to_list(length=None)
+        teacher_submissions = await db.teacher_assessment_results.find(submission_query).sort("submitted_at", -1).to_list(length=None)
+        logger.info(f"📊 [STUDENT-RESULTS] Found {len(teacher_submissions)} teacher assessment submissions")
+        
+        # Debug: Show sample submission if found
+        if teacher_submissions:
+            sample = teacher_submissions[0]
+            logger.info(f"📋 [STUDENT-RESULTS] Sample submission - student_id: {sample.get('student_id')} (type: {type(sample.get('student_id'))}), assessment_id: {sample.get('assessment_id')}")
         
         # Combine and format results
         all_results = []
         
         for submission in submissions:
             # Get assessment details
+            assessment_id_str = str(submission["assessment_id"])
             assessment = await db.assessments.find_one({"_id": ObjectId(submission["assessment_id"])})
             if assessment:
                 all_results.append({
-                    "assessment_id": submission["assessment_id"],
+                    "result_id": str(submission["_id"]),  # Add result_id for navigation
+                    "assessment_id": assessment_id_str,  # Convert to string for frontend comparison
                     "assessment_title": assessment["title"],
                     "subject": assessment["subject"],
                     "difficulty": assessment["difficulty"],
@@ -393,10 +435,12 @@ async def get_student_detailed_results(
         
         for submission in teacher_submissions:
             # Get teacher assessment details
+            assessment_id_str = str(submission["assessment_id"])
             assessment = await db.teacher_assessments.find_one({"_id": ObjectId(submission["assessment_id"])})
             if assessment:
                 all_results.append({
-                    "assessment_id": submission["assessment_id"],
+                    "result_id": str(submission["_id"]),  # Add result_id for navigation
+                    "assessment_id": assessment_id_str,  # Convert to string for frontend comparison
                     "assessment_title": assessment["title"],
                     "subject": assessment.get("topic", "General"),
                     "difficulty": assessment["difficulty"],
@@ -431,12 +475,19 @@ async def get_student_detailed_results(
         else:
             last_activity_str = datetime.utcnow().isoformat()
         
+        # Get batch name if available
+        batch_name = "Unknown"
+        if batch_id:
+            batch_doc = await db.batches.find_one({"_id": batch_id})
+            if batch_doc:
+                batch_name = batch_doc.get("name", "Unknown")
+        
         return {
             "student_info": {
                 "id": student_id,
-                "name": student.get("username", student.get("email", "Unknown")),
+                "name": student.get("username", student.get("full_name", student.get("email", "Unknown"))),
                 "email": student["email"],
-                "batch_name": student_batch["name"],
+                "batch_name": batch_name,
                 "level": student.get("level", 1),
                 "xp": student.get("xp", 0),
                 "badges": student.get("badges", [])
@@ -450,6 +501,10 @@ async def get_student_detailed_results(
             },
             "results": all_results
         }
+        
+        logger.info(f"✅ [STUDENT-RESULTS] Returning {len(all_results)} results for student {student_id}")
+        if all_results:
+            logger.info(f"📋 [STUDENT-RESULTS] Sample result assessment_id: {all_results[0].get('assessment_id')}, result_id: {all_results[0].get('result_id')}")
         
     except HTTPException:
         raise

@@ -11,7 +11,7 @@ from ...db import get_db
 from ...dependencies import require_teacher_or_admin
 from ...models.models import UserModel
 
-router = APIRouter(prefix="/teacher", tags=["teacher-batches"])
+router = APIRouter(tags=["teacher-batches"])
 
 # Batch Response Models
 class BatchCreateRequest(BaseModel):

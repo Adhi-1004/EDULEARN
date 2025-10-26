@@ -12,7 +12,7 @@ from ...dependencies import require_teacher_or_admin
 from ...models.models import UserModel
 import re
 
-router = APIRouter(prefix="/teacher", tags=["teacher-students"])
+router = APIRouter(tags=["teacher-students"])
 
 # Helper function for email validation
 def validate_email(email: str) -> bool:

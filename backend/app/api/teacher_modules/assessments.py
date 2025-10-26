@@ -11,7 +11,7 @@ from ...db import get_db
 from ...dependencies import require_teacher_or_admin
 from ...models.models import UserModel
 
-router = APIRouter(prefix="/teacher", tags=["teacher-assessments"])
+router = APIRouter(tags=["teacher-assessments"])
 
 # Teacher Assessment Models
 class TeacherAssessmentCreate(BaseModel):
@@ -78,7 +78,7 @@ async def create_teacher_assessment(
             "question_count": assessment_data.question_count or len(generated_questions),
             "questions": generated_questions,
             "batches": assessment_data.batches or [],
-            "teacher_id": current_user.id,
+            "teacher_id": str(current_user.id),  # Store as string for consistency
             "type": assessment_data.type,
             "created_at": datetime.utcnow(),
             "is_active": True,
@@ -105,7 +105,7 @@ async def create_teacher_assessment(
                 "difficulty": assessment_data.difficulty,
                 "topic": assessment_data.topic,
                 "generated_at": datetime.utcnow(),
-                "teacher_id": current_user.id,
+                "teacher_id": str(current_user.id),  # Store as string for consistency
                 "status": "generated"
             }
             await db.ai_questions.insert_one(ai_question_doc)
@@ -164,10 +164,21 @@ async def get_teacher_assessments(current_user: UserModel = Depends(require_teac
     try:
         db = await get_db()
         
-        # Get teacher assessments
-        assessments = await db.teacher_assessments.find({
-            "teacher_id": str(current_user.id)
-        }).sort("created_at", -1).to_list(length=None)
+        # Get teacher assessments - handle both string and ObjectId for backward compatibility
+        user_id_str = str(current_user.id)
+        user_id_obj = ObjectId(user_id_str) if ObjectId.is_valid(user_id_str) else None
+        
+        query = {
+            "$or": [
+                {"teacher_id": user_id_str},
+                {"teacher_id": current_user.id}
+            ]
+        }
+        
+        if user_id_obj:
+            query["$or"].append({"teacher_id": user_id_obj})
+        
+        assessments = await db.teacher_assessments.find(query).sort("created_at", -1).to_list(length=None)
         
         # Format assessments
         assessment_list = []
@@ -344,7 +355,7 @@ async def submit_teacher_assessment(
         # Create result record
         result_doc = {
             "assessment_id": assessment_id,
-            "student_id": user.id,
+            "student_id": ObjectId(user.id) if isinstance(user.id, str) else user.id,  # Ensure ObjectId format
             "student_name": user.username or user.email,
             "score": score,
             "total_questions": len(questions),

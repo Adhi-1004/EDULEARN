@@ -956,6 +956,64 @@ class TeacherAssessmentResponse(BaseModel):
     assessment_id: str
     message: str
 
+@router.get("/assessments")
+async def get_teacher_assessments(current_user: UserModel = Depends(require_teacher_or_admin)):
+    """Get all assessments created by the teacher - fetches from teacher_assessments collection only"""
+    try:
+        db = await get_db()
+        
+        # Get teacher assessments from teacher_assessments collection
+        # Handle both string and ObjectId teacher_id for backward compatibility
+        user_id_str = str(current_user.id)
+        user_id_obj = ObjectId(user_id_str) if ObjectId.is_valid(user_id_str) else None
+        
+        query = {
+            "$or": [
+                {"teacher_id": user_id_str},
+                {"teacher_id": current_user.id}
+            ]
+        }
+        
+        if user_id_obj:
+            query["$or"].append({"teacher_id": user_id_obj})
+        
+        assessments = await db.teacher_assessments.find(query).sort("created_at", -1).to_list(length=None)
+        
+        print(f"📊 [TEACHER ASSESSMENTS] Found {len(assessments)} assessments for teacher {user_id_str}")
+        
+        # Format assessments
+        assessment_list = []
+        for assessment in assessments:
+            # Count submissions
+            submission_count = await db.teacher_assessment_results.count_documents({
+                "assessment_id": str(assessment["_id"])
+            })
+            
+            assessment_list.append({
+                "id": str(assessment["_id"]),
+                "title": assessment["title"],
+                "topic": assessment.get("topic", ""),
+                "subject": assessment.get("topic", ""),  # Alias for compatibility
+                "difficulty": assessment["difficulty"],
+                "question_count": assessment["question_count"],
+                "batches": assessment.get("batches", []),
+                "status": assessment["status"],
+                "is_active": assessment["is_active"],
+                "created_at": assessment["created_at"].isoformat(),
+                "submission_count": submission_count,
+                "time_limit": assessment.get("time_limit", 30),
+                "description": assessment.get("description", ""),
+                "type": assessment.get("type", "teacher")
+            })
+        
+        return assessment_list
+        
+    except Exception as e:
+        print(f"❌ [TEACHER ASSESSMENTS] Error fetching assessments: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/assessments/create", response_model=TeacherAssessmentResponse)
 async def create_teacher_assessment(
     assessment_data: TeacherAssessmentCreate,
@@ -1027,7 +1085,7 @@ async def create_teacher_assessment(
             "question_count": assessment_data.question_count or len(generated_questions),
             "questions": generated_questions,
             "batches": assessment_data.batches or [],
-            "teacher_id": current_user.id,
+            "teacher_id": str(current_user.id),  # Store as string for consistency
             "type": assessment_data.type,
             "created_at": datetime.utcnow(),
             "is_active": True,

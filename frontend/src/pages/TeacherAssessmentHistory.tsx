@@ -38,8 +38,8 @@ const TeacherAssessmentHistory: React.FC = () => {
       try {
         setLoading(true)
         setError(null)
-        // Use existing endpoint for teacher's assessments
-        const res = await api.get("/api/assessments/")
+        // Use teacher assessments endpoint - fetches only from teacher_assessments collection
+        const res = await api.get("/api/teacher/assessments")
         const list: AssessmentItem[] = Array.isArray(res.data) ? res.data : []
         setAssessments(list)
       } catch (err: any) {

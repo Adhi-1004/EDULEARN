@@ -113,7 +113,8 @@ const AssessmentManagement: React.FC = () => {
 
   const fetchTeacherAssessments = async () => {
     try {
-      const res = await api.get("/api/assessments/")
+      // Use teacher assessments endpoint - fetches only from teacher_assessments collection
+      const res = await api.get("/api/teacher/assessments")
       if (Array.isArray(res.data)) {
         setTeacherAssessments(res.data)
         const recent = [...res.data]

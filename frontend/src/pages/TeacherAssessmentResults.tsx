@@ -86,12 +86,12 @@ const TeacherAssessmentResults: React.FC = () => {
         }
 
         // Fetch combined results for this assessment
-        const rRes = await api.get(`/api/assessments/${assessmentId}/results`)
+        const rRes = await api.get(`/api/assessments/teacher/${assessmentId}/results`)
         setResults(rRes.data || [])
 
         // Fetch assigned students with attendance
         try {
-          const aRes = await api.get(`/api/assessments/${assessmentId}/assigned-students`)
+          const aRes = await api.get(`/api/assessments/teacher/${assessmentId}/assigned-students`)
           setAssigned(aRes.data || [])
         } catch (e) {
           // endpoint may not exist yet; degrade gracefully
@@ -130,18 +130,42 @@ const TeacherAssessmentResults: React.FC = () => {
 
   const viewStudentDetailedResult = async (studentId: string) => {
     try {
+      console.log("📊 [VIEW RESULT] Fetching results for student:", studentId, "assessment:", assessmentId)
+      
       // Fetch this student's results and find the one matching this assessment to get result_id
       const res = await api.get(`/api/assessments/teacher/student-results/${studentId}`)
+      console.log("📊 [VIEW RESULT] API Response:", res.data)
+      
       const items: TeacherStudentResultItem[] = res?.data?.results || res?.data?.student_results || []
-      const match = items.find(it => (it.assessment_id === assessmentId) || (it as any).assessmentId === assessmentId)
+      console.log("📊 [VIEW RESULT] Total results found:", items.length)
+      
+      if (items.length > 0) {
+        console.log("📊 [VIEW RESULT] Sample result:", items[0])
+        console.log("📊 [VIEW RESULT] Looking for assessment_id:", assessmentId)
+        items.forEach((item, idx) => {
+          console.log(`📊 [VIEW RESULT] Result ${idx}: assessment_id="${item.assessment_id}", result_id="${item.result_id}"`)
+        })
+      }
+      
+      const match = items.find(it => {
+        const idMatch = it.assessment_id === assessmentId || (it as any).assessmentId === assessmentId
+        console.log(`📊 [VIEW RESULT] Comparing: "${it.assessment_id}" === "${assessmentId}" = ${idMatch}`)
+        return idMatch
+      })
+      
+      console.log("📊 [VIEW RESULT] Match found:", match)
+      
       if (match && match.result_id) {
+        console.log("📊 [VIEW RESULT] Navigating to result:", match.result_id)
         navigate(`/teacher/test-result/${match.result_id}`)
         return
       }
+      
       // Fallback: try to fetch detailed result by probing possible collections? Not available from here, show error
+      console.error("❌ [VIEW RESULT] Could not locate matching result")
       setError("Could not locate detailed result for this student.")
     } catch (err: any) {
-      console.error("Failed to resolve student's result:", err)
+      console.error("❌ [VIEW RESULT] Failed to resolve student's result:", err)
       setError("Failed to open student's detailed result")
     }
   }

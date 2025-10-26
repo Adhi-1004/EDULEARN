@@ -11,7 +11,7 @@ from ...db import get_db
 from ...dependencies import require_teacher_or_admin, require_analytics_access
 from ...models.models import UserModel
 
-router = APIRouter(prefix="/teacher", tags=["teacher-reports"])
+router = APIRouter(tags=["teacher-reports"])
 
 # Response Models
 class TeacherDashboardResponse(BaseModel):
