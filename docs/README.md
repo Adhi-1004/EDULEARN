@@ -69,9 +69,14 @@ edulearn/
 │   └── index.html        # HTML entry point
 │
 ├── docs/                 # Documentation
+│   ├── COMPLETE_API_REFERENCE.md # Complete API endpoint mapping
 │   ├── PROJECT_STRUCTURE.md
 │   ├── QUICK_START.md
 │   ├── README.md
+│   ├── API_DOCUMENTATION.md
+│   ├── ARCHITECTURE.md
+│   ├── DATABASE_SCHEMA.md
+│   ├── FEATURES.md
 │   └── setup_mongodb.md
 │
 ├── scripts/              # Utility scripts (cleaned)
@@ -179,16 +184,23 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 ### API Endpoints
 
-The backend provides a comprehensive REST API:
+The backend provides a comprehensive REST API with over 100+ endpoints. For complete API documentation, see:
 
-- **Authentication**: `/auth/*` and `/api/auth/*`
-- **User Management**: `/users/*` and `/api/users/*`
-- **Assessments**: `/assessments/*` and `/api/assessments/*`
-- **Coding Platform**: `/coding/*` and `/api/coding/*`
-- **Teacher Dashboard**: `/teacher/*` and `/api/teacher/*`
-- **Admin Dashboard**: `/admin/*` and `/api/admin/*`
-- **Topics**: `/topics/*` and `/api/topics/*`
-- **Results**: `/results/*` and `/api/results/*`
+📘 **[Complete API Reference](./COMPLETE_API_REFERENCE.md)** - Comprehensive documentation of all API endpoints with request/response examples, frontend-backend mapping, and usage guides.
+
+**Quick Reference:**
+- **Authentication**: `/auth/*` - Login, register, OAuth, face recognition
+- **User Management**: `/api/users/*` - Profile, gamification, badges
+- **Assessments**: `/api/assessments/*` - Create, submit, leaderboards
+- **Coding Platform**: `/api/coding/*` - Problems, execution, analytics
+- **Teacher Dashboard**: `/api/teacher/*` - Batches, students, reports
+- **Admin Dashboard**: `/api/admin/*` - User management, analytics
+- **Notifications**: `/api/notifications/*` - Get, mark as read, delete
+- **Bulk Operations**: `/bulk-students/*`, `/bulk-teachers/*` - Bulk uploads
+- **Health Checks**: `/health/*` - System health monitoring
+- **AI Questions**: `/api/ai-questions/*` - AI-generated question management
+- **Topics**: `/api/topic/*` - Assessment configuration
+- **Results**: `/api/results/*` - Assessment results and analytics
 
 ## 🧪 Testing
 
@@ -237,12 +249,26 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **AI Integration**: Google Gemini AI
 - **UI/UX**: Modern React patterns with Tailwind CSS
 
+## 📚 Documentation
+
+Complete documentation is available in the `/docs` directory:
+
+- **[Complete API Reference](./COMPLETE_API_REFERENCE.md)** - All API endpoints with examples
+- **[Quick Start Guide](./QUICK_START.md)** - Get started in 5 minutes
+- **[Architecture Overview](./ARCHITECTURE.md)** - System architecture and design
+- **[Database Schema](./DATABASE_SCHEMA.md)** - MongoDB collections and models
+- **[Features Guide](./FEATURES.md)** - Complete feature documentation
+- **[Project Structure](./PROJECT_STRUCTURE.md)** - Codebase organization
+- **[API Documentation](./API_DOCUMENTATION.md)** - Additional API docs
+- **[MongoDB Setup](./setup_mongodb.md)** - Database setup guide
+
 ## 🆘 Support
 
 For support and questions:
 - Create an issue in the repository
 - Check the documentation in the `/docs` directory
-- Review the API documentation at `/docs` when running the backend
+- Review the [Complete API Reference](./COMPLETE_API_REFERENCE.md) for API details
+- Check the FastAPI interactive docs at `http://localhost:5001/docs` when running the backend
 
 ---
 
