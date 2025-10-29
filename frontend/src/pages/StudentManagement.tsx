@@ -85,8 +85,8 @@ const StudentManagement: React.FC = () => {
     return (
       <div className="min-h-screen pt-20 px-4 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-blue-200 mb-4">Loading...</h1>
-          <p className="text-blue-300">Please wait while we load your dashboard.</p>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Loading...</h1>
+          <p className="text-muted-foreground">Please wait while we load your dashboard.</p>
         </div>
       </div>
     )
@@ -286,8 +286,8 @@ const StudentManagement: React.FC = () => {
     return (
       <div className="min-h-screen pt-20 px-4 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-blue-200 mb-4">Loading...</h1>
-          <p className="text-blue-300">Please wait while we load your dashboard.</p>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Loading...</h1>
+          <p className="text-muted-foreground">Please wait while we load your dashboard.</p>
         </div>
       </div>
     )
@@ -305,10 +305,10 @@ const StudentManagement: React.FC = () => {
         >
           {/* Header */}
           <motion.div variants={ANIMATION_VARIANTS.slideUp} className="mb-8">
-            <h1 className="text-4xl font-bold text-blue-200 mb-2">
+            <h1 className="text-4xl font-bold text-foreground mb-2">
               Student Management
             </h1>
-            <p className="text-blue-300 text-lg">
+            <p className="text-muted-foreground text-lg">
               Manage students, batches, and track performance
             </p>
           </motion.div>
@@ -351,7 +351,7 @@ const StudentManagement: React.FC = () => {
           {showCreateBatch && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
               <Card className="p-6 max-w-md w-full">
-                <h2 className="text-2xl font-bold text-blue-200 mb-4">Create New Batch</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-4">Create New Batch</h2>
                 <div className="space-y-4">
                   <Input
                     type="text"
@@ -376,7 +376,7 @@ const StudentManagement: React.FC = () => {
           {showAddStudent && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
               <Card className="p-6 max-w-md w-full">
-                <h2 className="text-2xl font-bold text-blue-200 mb-4">Add Student</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-4">Add Student</h2>
                 <div className="space-y-4">
                   <Input
                     type="text"

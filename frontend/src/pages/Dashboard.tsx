@@ -231,7 +231,7 @@ const Dashboard: React.FC = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500/50 transition-all duration-300 cursor-pointer group"
+                        className="p-4 rounded-lg bg-muted/20 border border-muted/30 hover:bg-muted/30 hover:border-muted/50 transition-all duration-300 cursor-pointer group"
                       >
                         <div className="flex justify-between items-center">
                           <div>
@@ -241,11 +241,11 @@ const Dashboard: React.FC = () => {
                             <p className="text-muted-foreground text-sm">
                               {test.subject} • {test.difficulty} • {test.time_limit} minutes
                             </p>
-                            <p className="text-blue-400 text-sm mt-1">
+                            <p className="text-muted-foreground text-sm mt-1">
                               {test.question_count} questions
                             </p>
                             {test.teacher_name && (
-                              <p className="text-blue-300 text-xs mt-1">
+                              <p className="text-muted-foreground text-xs mt-1">
                                 By: {test.teacher_name}
                               </p>
                             )}

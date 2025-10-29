@@ -101,10 +101,10 @@ const TeacherAssessmentHistory: React.FC = () => {
         <Card className="p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-blue-200">Assessment History</h1>
-              <p className="text-blue-300">All assessments you have posted</p>
+              <h1 className="text-3xl font-bold text-foreground">Assessment History</h1>
+              <p className="text-muted-foreground">All assessments you have posted</p>
             </div>
-            <Button variant="secondary" onClick={() => navigate("/teacher/assessment-management")}>Back</Button>
+            <Button variant="primary" onClick={() => navigate("/teacher/assessment-management")}>Back</Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -113,12 +113,12 @@ const TeacherAssessmentHistory: React.FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by title or subject..."
-              className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-blue-500/30 rounded-lg text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary placeholder:text-muted-foreground"
             />
             <select
               value={difficulty}
               onChange={(e) => setDifficulty(e.target.value)}
-              className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-blue-500/30 rounded-lg text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary placeholder:text-muted-foreground"
             >
               <option value="all">All Difficulties</option>
               <option value="easy">Easy</option>
@@ -128,7 +128,7 @@ const TeacherAssessmentHistory: React.FC = () => {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-blue-500/30 rounded-lg text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary placeholder:text-muted-foreground"
             >
               <option value="all">All Status</option>
               <option value="active">active</option>
@@ -140,7 +140,7 @@ const TeacherAssessmentHistory: React.FC = () => {
 
         <Card className="p-6">
           {filtered.length === 0 ? (
-            <div className="text-center py-10 text-blue-300">No assessments found.</div>
+            <div className="text-center py-10 text-foreground">No assessments found.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filtered.map((a, idx) => (
@@ -150,23 +150,23 @@ const TeacherAssessmentHistory: React.FC = () => {
                   initial="initial"
                   animate="animate"
                   transition={{ delay: idx * 0.03 }}
-                  className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30 p-4"
+                  className="bg-gradient-to-br from-muted/30 to-muted/50 rounded-lg border border-border p-4"
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-blue-200">{a.title}</h3>
-                    <span className="text-xs px-2 py-1 rounded bg-blue-600/20 border border-blue-500/30 text-blue-200 capitalize">{a.difficulty}</span>
+                    <h3 className="text-lg font-semibold text-foreground">{a.title}</h3>
+                    <span className="text-xs px-2 py-1 rounded bg-primary/10 border border-primary/30 text-primary capitalize">{a.difficulty}</span>
                   </div>
-                  <p className="text-blue-300 text-sm mb-3">{a.topic || a.subject}</p>
-                  <div className="text-blue-400 text-xs mb-4">
+                  <p className="text-muted-foreground text-sm mb-3">{a.topic || a.subject}</p>
+                  <div className="text-muted-foreground text-xs mb-4">
                     <span>Questions: {a.question_count ?? "-"}</span>
                     <span className="mx-2">•</span>
                     <span>Time: {a.time_limit ?? "-"} min</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <Button variant="secondary" size="sm" onClick={() => navigate(`/teacher/assessment/${a.id}/results`)}>
+                    <Button variant="primary" size="sm" onClick={() => navigate(`/teacher/assessment/${a.id}/results`)}>
                       View Results
                     </Button>
-                    <span className="text-blue-400 text-xs">{a.created_at ? new Date(a.created_at).toLocaleString() : ""}</span>
+                    <span className="text-muted-foreground text-xs">{a.created_at ? new Date(a.created_at).toLocaleString() : ""}</span>
                   </div>
                 </motion.div>
               ))}

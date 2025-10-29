@@ -54,7 +54,6 @@ const StudentStats: React.FC<StudentStatsProps> = ({
     return lastActive > weekAgo
   }).length
 
-  const totalXP = students.reduce((sum, student) => sum + (student.xp || 0), 0)
   const totalAssessments = students.reduce((sum, student) => sum + (student.completedAssessments || 0), 0)
   const averageScore = totalAssessments > 0
     ? Math.round(students.reduce((sum, student) => sum + (student.averageScore || 0), 0) / totalStudents)
@@ -64,7 +63,7 @@ const StudentStats: React.FC<StudentStatsProps> = ({
     <motion.div variants={ANIMATION_VARIANTS.slideUp}>
       <Card className="p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-          <h2 className="text-2xl font-bold text-blue-200 mb-4 md:mb-0">Student Analytics</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 md:mb-0">Student Analytics</h2>
           
           <div className="flex space-x-3">
             <Button variant="secondary" onClick={onShowBatchPerformance}>
@@ -78,50 +77,50 @@ const StudentStats: React.FC<StudentStatsProps> = ({
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20 border border-blue-500/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-300 text-sm">Total Students</p>
-                <p className="text-2xl font-bold text-blue-200">{totalStudents}</p>
+                <p className="text-muted-foreground text-sm">Total Students</p>
+                <p className="text-2xl font-bold text-foreground">{totalStudents}</p>
               </div>
-              <div className="w-8 h-8 bg-blue-500/30 rounded-full flex items-center justify-center">
-                <span className="text-blue-200 text-sm">👥</span>
+              <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+                <span className="text-primary text-sm">👥</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/30 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-green-500/10 to-green-600/10 dark:from-green-500/20 dark:to-green-600/20 border border-green-500/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-300 text-sm">High Performers</p>
-                <p className="text-2xl font-bold text-green-200">{highPerformers}</p>
+                <p className="text-muted-foreground text-sm">High Performers</p>
+                <p className="text-2xl font-bold text-foreground">{highPerformers}</p>
               </div>
-              <div className="w-8 h-8 bg-green-500/30 rounded-full flex items-center justify-center">
-                <span className="text-green-200 text-sm">⭐</span>
+              <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
+                <span className="text-green-600 dark:text-green-400 text-sm">⭐</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 dark:from-purple-500/20 dark:to-purple-600/20 border border-purple-500/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-300 text-sm">Active (7 days)</p>
-                <p className="text-2xl font-bold text-purple-200">{activeStudents}</p>
+                <p className="text-muted-foreground text-sm">Active (7 days)</p>
+                <p className="text-2xl font-bold text-foreground">{activeStudents}</p>
               </div>
-              <div className="w-8 h-8 bg-purple-500/30 rounded-full flex items-center justify-center">
-                <span className="text-purple-200 text-sm">🔥</span>
+              <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center">
+                <span className="text-purple-600 dark:text-purple-400 text-sm">🔥</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 dark:from-orange-500/20 dark:to-orange-600/20 border border-orange-500/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-300 text-sm">Avg. Progress</p>
-                <p className="text-2xl font-bold text-orange-200">{averageProgress}%</p>
+                <p className="text-muted-foreground text-sm">Avg. Progress</p>
+                <p className="text-2xl font-bold text-foreground">{averageProgress}%</p>
               </div>
-              <div className="w-8 h-8 bg-orange-500/30 rounded-full flex items-center justify-center">
-                <span className="text-orange-200 text-sm">📊</span>
+              <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 dark:text-orange-400 text-sm">📊</span>
               </div>
             </div>
           </div>
@@ -130,24 +129,20 @@ const StudentStats: React.FC<StudentStatsProps> = ({
         {/* Detailed Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Performance Overview */}
-          <div className="bg-blue-800/20 rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-blue-200 mb-3">Performance Overview</h3>
+          <div className="bg-muted/30 rounded-lg p-4 border border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-3">Performance Overview</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-blue-300">Average Score</span>
-                <span className="text-blue-200 font-medium">{averageScore}%</span>
+                <span className="text-muted-foreground">Average Score</span>
+                <span className="text-foreground font-medium">{averageScore}%</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-blue-300">Total Assessments</span>
-                <span className="text-blue-200 font-medium">{totalAssessments}</span>
+                <span className="text-muted-foreground">Total Assessments</span>
+                <span className="text-foreground font-medium">{totalAssessments}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-blue-300">Total XP Earned</span>
-                <span className="text-blue-200 font-medium">{totalXP.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-blue-300">Avg. Assessments/Student</span>
-                <span className="text-blue-200 font-medium">
+                <span className="text-muted-foreground">Avg. Assessments/Student</span>
+                <span className="text-foreground font-medium">
                   {totalStudents > 0 ? Math.round(totalAssessments / totalStudents) : 0}
                 </span>
               </div>
@@ -155,28 +150,28 @@ const StudentStats: React.FC<StudentStatsProps> = ({
           </div>
 
           {/* Batch Distribution */}
-          <div className="bg-blue-800/20 rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-blue-200 mb-3">Batch Distribution</h3>
+          <div className="bg-muted/30 rounded-lg p-4 border border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-3">Batch Distribution</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-blue-300">Total Batches</span>
-                <span className="text-blue-200 font-medium">{totalBatches}</span>
+                <span className="text-muted-foreground">Total Batches</span>
+                <span className="text-foreground font-medium">{totalBatches}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-blue-300">Avg. Students/Batch</span>
-                <span className="text-blue-200 font-medium">
+                <span className="text-muted-foreground">Avg. Students/Batch</span>
+                <span className="text-foreground font-medium">
                   {totalBatches > 0 ? Math.round(totalStudents / totalBatches) : 0}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-blue-300">Largest Batch</span>
-                <span className="text-blue-200 font-medium">
+                <span className="text-muted-foreground">Largest Batch</span>
+                <span className="text-foreground font-medium">
                   {batches.length > 0 ? Math.max(...batches.map(b => b.studentCount)) : 0}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-blue-300">Unassigned Students</span>
-                <span className="text-blue-200 font-medium">
+                <span className="text-muted-foreground">Unassigned Students</span>
+                <span className="text-foreground font-medium">
                   {students.filter(s => !s.batchId).length}
                 </span>
               </div>
@@ -185,32 +180,32 @@ const StudentStats: React.FC<StudentStatsProps> = ({
         </div>
 
         {/* Progress Distribution */}
-        <div className="mt-6 bg-blue-800/20 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-blue-200 mb-3">Progress Distribution</h3>
+        <div className="mt-6 bg-muted/30 rounded-lg p-4 border border-border">
+          <h3 className="text-lg font-semibold text-foreground mb-3">Progress Distribution</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-200">
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {students.filter(s => s.progress < 25).length}
               </div>
-              <div className="text-red-300 text-sm">0-25%</div>
+              <div className="text-muted-foreground text-sm">0-25%</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-200">
+              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                 {students.filter(s => s.progress >= 25 && s.progress < 50).length}
               </div>
-              <div className="text-yellow-300 text-sm">25-50%</div>
+              <div className="text-muted-foreground text-sm">25-50%</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-200">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {students.filter(s => s.progress >= 50 && s.progress < 75).length}
               </div>
-              <div className="text-blue-300 text-sm">50-75%</div>
+              <div className="text-muted-foreground text-sm">50-75%</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-200">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {students.filter(s => s.progress >= 75).length}
               </div>
-              <div className="text-green-300 text-sm">75-100%</div>
+              <div className="text-muted-foreground text-sm">75-100%</div>
             </div>
           </div>
         </div>

@@ -32,15 +32,15 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
   return (
     <motion.div variants={ANIMATION_VARIANTS.slideUp}>
       <Card className="p-6">
-        <h2 className="text-2xl font-bold text-blue-200 mb-4">Create Assessment</h2>
+        <h2 className="text-2xl font-bold text-foreground mb-4">Create Assessment</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* AI Generated Assessment */}
-          <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
+          <div className="p-4 bg-gradient-to-br from-muted/30 to-muted/50 rounded-lg border border-border">
             <div className="text-center">
               <div className="text-3xl mb-2">🤖</div>
-              <h3 className="text-blue-200 font-semibold mb-2">AI Generated</h3>
-              <p className="text-blue-300 text-sm mb-3">Generate questions automatically using AI</p>
+              <h3 className="text-foreground font-semibold mb-2">AI Generated</h3>
+              <p className="text-muted-foreground text-sm mb-3">Generate questions automatically using AI</p>
               <Button 
                 variant="primary" 
                 size="sm" 
@@ -53,11 +53,11 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
           </div>
 
           {/* Manual MCQ */}
-          <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
+          <div className="p-4 bg-gradient-to-br from-muted/30 to-muted/50 rounded-lg border border-border">
             <div className="text-center">
               <div className="text-3xl mb-2">📝</div>
-              <h3 className="text-blue-200 font-semibold mb-2">Manual MCQ</h3>
-              <p className="text-blue-300 text-sm mb-3">Create multiple choice questions manually</p>
+              <h3 className="text-foreground font-semibold mb-2">Manual MCQ</h3>
+              <p className="text-muted-foreground text-sm mb-3">Create multiple choice questions manually</p>
               <Button 
                 variant="primary" 
                 size="sm" 
@@ -70,11 +70,11 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
           </div>
 
           {/* AI Coding Assessment */}
-          <div className="p-4 bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30">
+          <div className="p-4 bg-gradient-to-br from-muted/30 to-muted/50 rounded-lg border border-border">
             <div className="text-center">
               <div className="text-3xl mb-2">💻</div>
-              <h3 className="text-blue-200 font-semibold mb-2">AI Coding</h3>
-              <p className="text-blue-300 text-sm mb-3">Generate coding problems automatically using AI</p>
+              <h3 className="text-foreground font-semibold mb-2">AI Coding</h3>
+              <p className="text-muted-foreground text-sm mb-3">Generate coding problems automatically using AI</p>
               <Button 
                 variant="primary" 
                 size="sm" 
@@ -88,27 +88,27 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
         </div>
 
         {/* Quick Stats */}
-        <div className="mt-6 p-4 bg-blue-800/20 rounded-lg border border-blue-500/30">
-          <h3 className="text-blue-200 font-semibold mb-2">Available Batches</h3>
+        <div className="mt-6 p-4 bg-muted/30 rounded-lg border border-border">
+          <h3 className="text-foreground font-semibold mb-2">Available Batches</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-200">{batches.length}</div>
-              <div className="text-blue-300 text-sm">Total Batches</div>
+              <div className="text-2xl font-bold text-foreground">{batches.length}</div>
+              <div className="text-muted-foreground text-sm">Total Batches</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-200">
+              <div className="text-2xl font-bold text-foreground">
                 {batches.reduce((sum, batch) => sum + (batch.studentCount || 0), 0)}
               </div>
-              <div className="text-blue-300 text-sm">Total Students</div>
+              <div className="text-muted-foreground text-sm">Total Students</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-200">
+              <div className="text-2xl font-bold text-foreground">
                 {batches.length > 0 
                   ? Math.round(batches.reduce((sum, batch) => sum + (batch.studentCount || 0), 0) / batches.length)
                   : 0
                 }
               </div>
-              <div className="text-blue-300 text-sm">Avg. Students/Batch</div>
+              <div className="text-muted-foreground text-sm">Avg. Students/Batch</div>
             </div>
           </div>
         </div>

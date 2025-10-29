@@ -460,33 +460,7 @@ async def submit_solution(
         result = await db.coding_solutions.insert_one(solution_doc)
         solution_doc["_id"] = result.inserted_id
         
-        # Award XP for successful coding solutions
-        if status == "accepted":
-            try:
-                # Calculate XP based on problem difficulty and performance
-                difficulty_multiplier = {"easy": 1, "medium": 1.5, "hard": 2}.get(problem.get("difficulty", "medium"), 1.5)
-                base_xp = 20  # Higher base XP for coding problems
-                xp_earned = int(base_xp * difficulty_multiplier)
-                
-                # Update user stats
-                await db.users.update_one(
-                    {"_id": ObjectId(user_id)},
-                    {
-                        "$inc": {
-                            "xp": xp_earned,
-                            "total_questions_answered": 1,
-                            "correct_answers": 1
-                        },
-                        "$set": {
-                            "last_activity": datetime.utcnow()
-                        }
-                    }
-                )
-                
-                print(f"[GAMIFICATION] [CODING] User {user_id} earned {xp_earned} XP for solving coding problem")
-                
-            except Exception as gamification_error:
-                print(f"[WARNING] [CODING] Gamification update failed for user {user_id}: {str(gamification_error)}")
+        # Gamification XP removed per user request
         
         # Schedule background tasks for AI feedback and analytics update
         background_tasks.add_task(
@@ -629,45 +603,69 @@ async def start_coding_session(
 @router.put("/sessions/{session_id}")
 async def update_coding_session(
     session_id: str,
-    update_data: CodingSessionUpdate,
+    update_data: dict,  # Changed to dict for flexibility
     user_id: str = Depends(get_current_user_id)
 ):
-    """Update coding session data"""
+    """Update coding session data - flexible endpoint"""
     try:
         db = await get_db()
         
-        # Build update document
-        update_doc = {"$set": {}}
-        if update_data.keystrokes is not None:
-            update_doc["$set"]["keystrokes"] = update_data.keystrokes
-        if update_data.lines_of_code is not None:
-            update_doc["$set"]["lines_of_code"] = update_data.lines_of_code
-        if update_data.compilation_attempts is not None:
-            update_doc["$inc"] = {"compilation_attempts": update_data.compilation_attempts}
-        if update_data.test_runs is not None:
-            update_doc["$inc"] = update_doc.get("$inc", {})
-            update_doc["$inc"]["test_runs"] = update_data.test_runs
-        if update_data.hints_used is not None:
-            update_doc["$inc"] = update_doc.get("$inc", {})
-            update_doc["$inc"]["hints_used"] = update_data.hints_used
+        # Build update document dynamically
+        update_doc = {"$set": {}, "$inc": {}}
         
-        # Update session
+        # Fields to set directly
+        set_fields = ["code", "cursor_position", "language"]
+        for field in set_fields:
+            if field in update_data and update_data[field] is not None:
+                update_doc["$set"][field] = update_data[field]
+        
+        # Numeric fields to set
+        numeric_set_fields = ["keystrokes", "lines_of_code"]
+        for field in numeric_set_fields:
+            if field in update_data and update_data[field] is not None:
+                update_doc["$set"][field] = update_data[field]
+        
+        # Fields to increment
+        inc_fields = ["compilation_attempts", "test_runs", "hints_used", "submissions"]
+        for field in inc_fields:
+            if field in update_data and update_data[field] is not None:
+                update_doc["$inc"][field] = update_data[field]
+        
+        # Special fields
+        if "last_test_results" in update_data:
+            update_doc["$set"]["last_test_results"] = update_data["last_test_results"]
+        if "last_error" in update_data:
+            update_doc["$set"]["last_error"] = update_data["last_error"]
+        if "last_submission_status" in update_data:
+            update_doc["$set"]["last_submission_status"] = update_data["last_submission_status"]
+        
+        # Remove empty operators
+        if not update_doc["$set"]:
+            del update_doc["$set"]
+        if not update_doc["$inc"]:
+            del update_doc["$inc"]
+        
+        # If no updates, return success
+        if not update_doc:
+            return {"success": True, "message": "No updates provided"}
+        
+        # Update session (don't fail if not found, just log)
         result = await db.coding_sessions.update_one(
             {"_id": ObjectId(session_id), "user_id": ObjectId(user_id)},
             update_doc
         )
         
         if result.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Session not found")
+            print(f"[WARN] [CODING] Session not found for update: {session_id}")
+            # Don't raise error - session tracking is optional
+            return {"success": True, "message": "Session not found but continuing"}
         
         return {"success": True}
         
     except Exception as e:
         print(f"[ERROR] [CODING] Error updating session: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to update session: {str(e)}"
-        )
+        # Don't raise HTTP exception - make session updates non-critical
+        return {"success": False, "error": str(e)}
 
 @router.post("/sessions/{session_id}/end")
 async def end_coding_session(
@@ -755,8 +753,6 @@ async def get_coding_analytics(
                 "improvement_areas": [],
                 "learning_path": [],
                 "last_updated": datetime.utcnow(),
-                "coding_streak": 0,
-                "longest_streak": 0,
                 "problems_by_difficulty": {"easy": 0, "medium": 0, "hard": 0},
                 "problems_by_topic": {}
             }
@@ -782,8 +778,6 @@ async def get_coding_analytics(
             "weak_topics": analytics["weak_topics"],
             "improvement_areas": analytics["improvement_areas"],
             "learning_path": analytics["learning_path"],
-            "coding_streak": analytics["coding_streak"],
-            "longest_streak": analytics["longest_streak"],
             "problems_by_difficulty": analytics["problems_by_difficulty"],
             "problems_by_topic": analytics["problems_by_topic"],
             "recent_activity": [
@@ -944,8 +938,6 @@ async def update_user_analytics_task(user_id: str, solved: bool):
                 "improvement_areas": [],
                 "learning_path": [],
                 "last_updated": datetime.utcnow(),
-                "coding_streak": 1 if solved else 0,
-                "longest_streak": 1 if solved else 0,
                 "problems_by_difficulty": {"easy": 0, "medium": 0, "hard": 0},
                 "problems_by_topic": {}
             }
@@ -956,13 +948,7 @@ async def update_user_analytics_task(user_id: str, solved: bool):
             new_solved = analytics["total_problems_solved"] + (1 if solved else 0)
             new_success_rate = (new_solved / new_attempted) * 100
             
-            # Update streak
-            if solved:
-                new_streak = analytics["coding_streak"] + 1
-                new_longest = max(analytics["longest_streak"], new_streak)
-            else:
-                new_streak = 0
-                new_longest = analytics["longest_streak"]
+            # Streak tracking removed per user request
             
             await db.coding_analytics.update_one(
                 {"user_id": ObjectId(user_id)},
@@ -971,8 +957,6 @@ async def update_user_analytics_task(user_id: str, solved: bool):
                         "total_problems_solved": new_solved,
                         "total_problems_attempted": new_attempted,
                         "success_rate": new_success_rate,
-                        "coding_streak": new_streak,
-                        "longest_streak": new_longest,
                         "last_updated": datetime.utcnow()
                     }
                 }

@@ -67,8 +67,8 @@ const AssessmentManagement: React.FC = () => {
     return (
       <div className="min-h-screen pt-20 px-4 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-blue-200 mb-4">Loading...</h1>
-          <p className="text-blue-300">Please wait while we load your dashboard.</p>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Loading...</h1>
+          <p className="text-muted-foreground">Please wait while we load your dashboard.</p>
         </div>
       </div>
     )
@@ -207,8 +207,8 @@ const AssessmentManagement: React.FC = () => {
         <AnimatedBackground />
         <div className="min-h-screen pt-20 px-4 flex items-center justify-center relative z-10">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-blue-200 mb-4">Loading Assessment Management...</h1>
-            <p className="text-blue-300">Please wait while we load your data.</p>
+            <h1 className="text-2xl font-bold text-foreground mb-4">Loading Assessment Management...</h1>
+            <p className="text-muted-foreground">Please wait while we load your data.</p>
           </div>
         </div>
       </>
@@ -227,8 +227,8 @@ const AssessmentManagement: React.FC = () => {
         >
           <Card className="p-8 mb-8">
             <motion.div variants={ANIMATION_VARIANTS.slideDown} className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-blue-200 mb-2">Assessment Management</h1>
-              <p className="text-blue-300 text-lg mb-4">
+              <h1 className="text-4xl font-bold text-foreground mb-2">Assessment Management</h1>
+              <p className="text-muted-foreground text-lg mb-4">
                 Create, manage, and analyze assessments
               </p>
             </motion.div>
@@ -264,7 +264,7 @@ const AssessmentManagement: React.FC = () => {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-blue-200">
+                    <h2 className="text-2xl font-bold text-foreground">
                       {showMCQForm && "Create MCQ Assessment"}
                       {showChallengeForm && "Create Coding Challenge"}
                       {showAIGenerateForm && "AI-Generate Assessment"}
@@ -276,7 +276,7 @@ const AssessmentManagement: React.FC = () => {
                   
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-blue-200 font-medium mb-2">Assessment Title *</label>
+                      <label className="block text-foreground font-medium mb-2">Assessment Title *</label>
                       <Input
                         type="text"
                         value={assessmentTitle}

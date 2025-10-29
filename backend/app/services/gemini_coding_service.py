@@ -236,32 +236,68 @@ class GeminiCodingService:
         focus_areas: List[str] = None,
         avoid_topics: List[str] = None
     ) -> Dict[str, Any]:
-        """Generate an MCQ question about coding concepts using Gemini AI"""
+        """Generate a coding problem with test cases using Gemini AI"""
         try:
-            print(f"🧠 [GEMINI_CODING] Generating {difficulty} coding MCQ for topic: {topic}")
+            print(f"🧠 [GEMINI_CODING] Generating {difficulty} coding problem for topic: {topic}")
             
             if not self.available:
-                return self._get_fallback_coding_mcq(topic, difficulty)
+                return self._get_fallback_coding_problem(topic, difficulty)
             
-            focus_str = ", ".join(focus_areas) if focus_areas else "general coding concepts"
+            focus_str = ", ".join(focus_areas) if focus_areas else topic
             avoid_str = ", ".join(avoid_topics) if avoid_topics else "none"
             
             prompt = f"""
-            Generate a {difficulty} multiple choice question about {topic} for {user_skill_level} level.
+            Generate a {difficulty} level coding problem about {topic} for {user_skill_level} programmers.
+            Focus areas: {focus_str}
+            Avoid: {avoid_str}
             
-            The question should test understanding of coding concepts, algorithms, data structures, or programming principles related to {topic}.
-            
-            Return ONLY this JSON structure:
+            Return ONLY valid JSON with this EXACT structure:
             {{
-                "question": "What is the time complexity of...?",
-                "options": ["Option A", "Option B", "Option C", "Option D"],
-                "correct_answer": 0,
-                "explanation": "Detailed explanation of why this answer is correct",
+                "title": "Problem Title (e.g., Two Sum, Reverse String)",
+                "description": "Brief 1-sentence description",
+                "problem_statement": "Detailed problem description explaining what needs to be solved",
                 "topic": "{topic}",
-                "difficulty": "{difficulty}"
+                "difficulty": "{difficulty}",
+                "constraints": [
+                    "1 <= n <= 1000",
+                    "Input will contain only integers"
+                ],
+                "examples": [
+                    {{
+                        "input": "[1,2,3,4]",
+                        "output": "10",
+                        "explanation": "Sum of all elements is 1+2+3+4=10"
+                    }}
+                ],
+                "test_cases": [
+                    {{"input": "[1,2,3]", "output": "6"}},
+                    {{"input": "[5,5]", "output": "10"}}
+                ],
+                "hidden_test_cases": [
+                    {{"input": "[10,20,30]", "output": "60"}},
+                    {{"input": "[]", "output": "0"}}
+                ],
+                "hints": [
+                    "Hint 1: Consider using a loop",
+                    "Hint 2: Initialize a variable to store the result"
+                ],
+                "tags": ["array", "math"],
+                "expected_complexity": {{
+                    "time": "O(n)",
+                    "space": "O(1)"
+                }}
             }}
             
-            Make it educational and test conceptual understanding of {topic}.
+            Requirements:
+            - Make it solvable and educational
+            - Include 2-3 examples
+            - Include at least 2 visible test cases
+            - Include 2-3 hidden test cases  
+            - Provide 2-4 helpful hints
+            - Specify realistic constraints
+            - Be clear and specific
+            
+            Return ONLY the JSON, no markdown formatting.
             """
             
             # Add timeout handling for Gemini API calls
@@ -269,25 +305,23 @@ class GeminiCodingService:
             try:
                 response = await asyncio.wait_for(
                     self.model.generate_content_async(prompt),
-                    timeout=25.0  # 25 second timeout
+                    timeout=30.0  # 30 second timeout for coding problems
                 )
             except asyncio.TimeoutError:
-                print("[TIMEOUT] [GEMINI_CODING] Gemini API call timed out after 25 seconds")
-                return self._get_fallback_coding_mcq(topic, difficulty)
+                print("[TIMEOUT] [GEMINI_CODING] Gemini API call timed out after 30 seconds")
+                return self._get_fallback_coding_problem(topic, difficulty)
             
             if not response or not response.text:
                 print("[ERROR] [GEMINI_CODING] No response from Gemini API")
-                return self._get_fallback_coding_mcq(topic, difficulty)
+                return self._get_fallback_coding_problem(topic, difficulty)
             
             # Clean and parse JSON response
             response_text = response.text.strip()
-            print(f"[DEBUG] [GEMINI_CODING] Raw response: {response_text[:200]}...")
+            print(f"[DEBUG] [GEMINI_CODING] Raw response: {response_text[:300]}...")
             
             # Remove markdown formatting if present
             if response_text.startswith("```json"):
                 response_text = response_text[7:]
-            if response_text.endswith("```"):
-                response_text = response_text[:-3]
             if response_text.startswith("```"):
                 response_text = response_text[3:]
             if response_text.endswith("```"):
@@ -297,38 +331,41 @@ class GeminiCodingService:
             response_text = response_text.strip()
             
             try:
-                question_data = json.loads(response_text)
+                problem_data = json.loads(response_text)
                 
-                # Validate required fields for MCQ format
-                required_fields = ['question', 'options', 'correct_answer', 'explanation']
-                for field in required_fields:
-                    if field not in question_data:
-                        raise ValueError(f"Missing required field: {field}")
+                # Validate and ensure all required fields exist
+                problem_data.setdefault('title', f"{topic} Problem ({difficulty})")
+                problem_data.setdefault('description', f"Solve a {difficulty} level {topic} problem")
+                problem_data.setdefault('problem_statement', problem_data.get('description', ''))
+                problem_data.setdefault('topic', topic)
+                problem_data.setdefault('difficulty', difficulty)
+                problem_data.setdefault('constraints', ["No specific constraints"])
+                problem_data.setdefault('examples', [{"input": "example", "output": "result", "explanation": ""}])
+                problem_data.setdefault('test_cases', [])
+                problem_data.setdefault('hidden_test_cases', [])
+                problem_data.setdefault('hints', ["Try to solve it step by step"])
+                problem_data.setdefault('tags', [topic.lower()])
+                problem_data.setdefault('expected_complexity', {"time": "O(n)", "space": "O(1)"})
                 
-                # Ensure options is a list with 4 items
-                if not isinstance(question_data.get('options'), list) or len(question_data['options']) != 4:
-                    raise ValueError("Options must be a list with exactly 4 items")
+                # Ensure test_cases and hidden_test_cases are not empty
+                if not problem_data['test_cases']:
+                    problem_data['test_cases'] = [{"input": "test", "output": "result"}]
+                if not problem_data['hidden_test_cases']:
+                    problem_data['hidden_test_cases'] = [{"input": "hidden", "output": "result"}]
                 
-                # Ensure correct_answer is an integer between 0-3
-                correct_answer = question_data.get('correct_answer')
-                if not isinstance(correct_answer, int) or correct_answer < 0 or correct_answer > 3:
-                    raise ValueError("correct_answer must be an integer between 0-3")
-                
-                # Add topic and difficulty if not present
-                question_data['topic'] = topic
-                question_data['difficulty'] = difficulty
-                
-                print(f"[SUCCESS] [GEMINI_CODING] Successfully generated coding MCQ: {question_data['question'][:50]}...")
-                return question_data
+                print(f"[SUCCESS] [GEMINI_CODING] Successfully generated coding problem: {problem_data['title']}")
+                return problem_data
                 
             except json.JSONDecodeError as e:
                 print(f"[ERROR] [GEMINI_CODING] JSON parsing error: {str(e)}")
-                print(f"[DEBUG] [GEMINI_CODING] Raw response: {response_text}")
-                return self._get_fallback_coding_mcq(topic, difficulty)
+                print(f"[DEBUG] [GEMINI_CODING] Failed response: {response_text[:500]}")
+                return self._get_fallback_coding_problem(topic, difficulty)
             
         except Exception as e:
-            print(f"[ERROR] [GEMINI_CODING] Error generating coding MCQ: {str(e)}")
-            return self._get_fallback_coding_mcq(topic, difficulty)
+            print(f"[ERROR] [GEMINI_CODING] Error generating coding problem: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return self._get_fallback_coding_problem(topic, difficulty)
 
     async def analyze_code_solution(
         self, 
@@ -949,6 +986,76 @@ try {{
             "error": None,
             "memory_used": 80
         }
+
+    def _get_fallback_coding_problem(self, topic: str, difficulty: str) -> Dict[str, Any]:
+        """Get a fallback coding problem when AI is not available"""
+        import random
+        
+        print(f"[FALLBACK] Using fallback coding problem for {topic} - {difficulty}")
+        
+        # Get comprehensive problem database
+        all_problems = self._get_comprehensive_problems()
+        
+        # Try to find matching problems by topic
+        topic_problems = all_problems.get(topic, {})
+        difficulty_problems = topic_problems.get(difficulty, [])
+        
+        # If no exact match, try any topic
+        if not difficulty_problems:
+            for t in all_problems:
+                if difficulty in all_problems[t] and all_problems[t][difficulty]:
+                    difficulty_problems = all_problems[t][difficulty]
+                    break
+        
+        # If still no match, use any available problem
+        if not difficulty_problems:
+            for t in all_problems:
+                for d in all_problems[t]:
+                    if all_problems[t][d]:
+                        difficulty_problems = all_problems[t][d]
+                        break
+                if difficulty_problems:
+                    break
+        
+        # Select a random problem
+        if difficulty_problems:
+            problem = random.choice(difficulty_problems)
+        else:
+            # Ultimate fallback
+            problem = {
+                "title": "Sum of Array Elements",
+                "description": "Calculate the sum of all elements in an array",
+                "problem_statement": "Given an array of integers, write a function that returns the sum of all elements.",
+                "topic": topic,
+                "difficulty": difficulty,
+                "constraints": ["1 <= array length <= 1000", "-1000 <= elements <= 1000"],
+                "examples": [
+                    {"input": "[1, 2, 3, 4]", "output": "10", "explanation": "1 + 2 + 3 + 4 = 10"}
+                ],
+                "test_cases": [
+                    {"input": "[1, 2, 3]", "output": "6"},
+                    {"input": "[5, 5]", "output": "10"}
+                ],
+                "hidden_test_cases": [
+                    {"input": "[10, 20, 30]", "output": "60"},
+                    {"input": "[]", "output": "0"}
+                ],
+                "hints": [
+                    "Initialize a variable to store the sum",
+                    "Loop through each element and add it to the sum"
+                ],
+                "tags": ["array", "math"],
+                "expected_complexity": {"time": "O(n)", "space": "O(1)"}
+            }
+        
+        # Ensure all required fields are present
+        problem.setdefault('problem_statement', problem.get('description', ''))
+        problem.setdefault('topic', topic)
+        problem.setdefault('difficulty', difficulty)
+        problem.setdefault('hints', ["Try to break down the problem step by step"])
+        problem.setdefault('tags', [topic.lower()])
+        
+        return problem
 
     def _get_fallback_coding_mcq(self, topic: str, difficulty: str) -> Dict[str, Any]:
         """Get a fallback coding MCQ when AI is not available"""

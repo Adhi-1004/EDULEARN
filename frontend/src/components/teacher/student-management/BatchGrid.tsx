@@ -43,7 +43,7 @@ const BatchGrid: React.FC<BatchGridProps> = ({
     <motion.div variants={ANIMATION_VARIANTS.slideUp}>
       <Card className="p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-          <h2 className="text-2xl font-bold text-blue-200 mb-4 md:mb-0">Batches</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 md:mb-0">Batches</h2>
           
           <Button variant="primary" onClick={onCreateBatch}>
             Create New Batch
@@ -52,45 +52,45 @@ const BatchGrid: React.FC<BatchGridProps> = ({
 
         {/* Batch Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20 border border-blue-500/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-300 text-sm">Total Batches</p>
-                <p className="text-2xl font-bold text-blue-200">{batches.length}</p>
+                <p className="text-muted-foreground text-sm">Total Batches</p>
+                <p className="text-2xl font-bold text-foreground">{batches.length}</p>
               </div>
-              <div className="w-8 h-8 bg-blue-500/30 rounded-full flex items-center justify-center">
-                <span className="text-blue-200 text-sm">📚</span>
+              <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+                <span className="text-primary text-sm">📚</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20 border border-blue-500/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-300 text-sm">Total Students</p>
-                <p className="text-2xl font-bold text-blue-200">
+                <p className="text-muted-foreground text-sm">Total Students</p>
+                <p className="text-2xl font-bold text-foreground">
                   {batches.reduce((sum, batch) => sum + batch.studentCount, 0)}
                 </p>
               </div>
-              <div className="w-8 h-8 bg-blue-500/30 rounded-full flex items-center justify-center">
-                <span className="text-blue-200 text-sm">👥</span>
+              <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+                <span className="text-primary text-sm">👥</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 dark:from-orange-500/20 dark:to-orange-600/20 border border-orange-500/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-300 text-sm">Avg. Students/Batch</p>
-                <p className="text-2xl font-bold text-orange-200">
+                <p className="text-muted-foreground text-sm">Avg. Students/Batch</p>
+                <p className="text-2xl font-bold text-foreground">
                   {batches.length > 0 
                     ? Math.round(batches.reduce((sum, batch) => sum + batch.studentCount, 0) / batches.length)
                     : 0
                   }
                 </p>
               </div>
-              <div className="w-8 h-8 bg-orange-500/30 rounded-full flex items-center justify-center">
-                <span className="text-orange-200 text-sm">📊</span>
+              <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 dark:text-orange-400 text-sm">📊</span>
               </div>
             </div>
           </div>
@@ -103,20 +103,20 @@ const BatchGrid: React.FC<BatchGridProps> = ({
               key={batch.id}
               variants={ANIMATION_VARIANTS.fadeIn}
               whileHover={{ scale: 1.02 }}
-              className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 hover:border-blue-400/50 transition-colors"
+              className="bg-muted/30 border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-blue-200 mb-1">
+                  <h3 className="text-lg font-semibold text-foreground mb-1">
                     {batch.name}
                   </h3>
-                  <p className="text-blue-300 text-sm mb-2">
+                  <p className="text-muted-foreground text-sm mb-2">
                     Created: {new Date(batch.createdAt).toLocaleDateString()}
                   </p>
                 </div>
                 
                 <div className="text-right">
-                  <div className="text-sm text-blue-300 mb-1">
+                  <div className="text-sm text-muted-foreground mb-1">
                     {batch.studentCount} students
                   </div>
                 </div>
@@ -128,7 +128,7 @@ const BatchGrid: React.FC<BatchGridProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => onBatchClick(batch)}
-                  className="text-blue-300 hover:text-blue-200 flex-1"
+                  className="text-primary hover:text-primary/80 flex-1"
                 >
                   View Details
                 </Button>
@@ -137,7 +137,7 @@ const BatchGrid: React.FC<BatchGridProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => onAddStudentToBatch(batch.id)}
-                  className="text-blue-300 hover:text-blue-200"
+                  className="text-primary hover:text-primary/80"
                 >
                   Add Student
                 </Button>
@@ -146,7 +146,7 @@ const BatchGrid: React.FC<BatchGridProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => onBulkUploadToBatch(batch.id, batch.name)}
-                  className="text-blue-300 hover:text-blue-200"
+                  className="text-primary hover:text-primary/80"
                 >
                   Bulk Upload
                 </Button>
@@ -155,7 +155,7 @@ const BatchGrid: React.FC<BatchGridProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => onDeleteBatch(batch.id)}
-                  className="text-red-300 hover:text-red-200"
+                  className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                 >
                   Delete
                 </Button>
@@ -167,8 +167,8 @@ const BatchGrid: React.FC<BatchGridProps> = ({
         {/* Empty State */}
         {batches.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-blue-300 text-lg mb-2">No batches found</div>
-            <p className="text-blue-400 text-sm mb-4">
+            <div className="text-foreground text-lg mb-2">No batches found</div>
+            <p className="text-muted-foreground text-sm mb-4">
               Create your first batch to start organizing students
             </p>
             <Button variant="primary" onClick={onCreateBatch}>

@@ -34,23 +34,7 @@ class UserProfileResponse(BaseModel):
     stats: Optional[Dict[str, Any]] = None
     preferences: Optional[Dict[str, Any]] = None
 
-class GamificationResponse(BaseModel):
-    xp: int
-    level: int
-    streak: int
-    longest_streak: int
-    badges: List[str]
-    achievements: List[str]
-    next_level_xp: int
-    progress_to_next_level: float
-
-class BadgeResponse(BaseModel):
-    id: str
-    name: str
-    description: str
-    icon: str
-    earned: bool
-    earned_at: Optional[datetime] = None
+# Gamification response models removed per user request
 
 @router.get("/", response_model=UserListResponse)
 async def get_users(
@@ -297,119 +281,7 @@ async def get_user_stats(current_user: UserModel = Depends(require_admin)):
             detail=f"Failed to get user stats: {str(e)}"
         )
 
-# Gamification endpoints
-@router.get("/{user_id}/gamification", response_model=GamificationResponse)
-async def get_user_gamification(
-    user_id: str,
-    current_user: UserModel = Depends(get_current_user)
-):
-    """Get user gamification data (XP, level, streak, badges)"""
-    try:
-        # Verify user can access this data
-        if str(current_user.id) != user_id and current_user.role not in ["admin", "teacher"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to access this user's gamification data"
-            )
-        
-        db = await get_db()
-        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
-        if not user_doc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        
-        # Get gamification data
-        xp = user_doc.get("xp", 0)
-        level = user_doc.get("level", 1)
-        streak = user_doc.get("streak", 0)
-        longest_streak = user_doc.get("longest_streak", streak)
-        badges = user_doc.get("badges", [])
-        achievements = user_doc.get("achievements", [])
-        
-        # Calculate next level XP (every 100 XP = 1 level)
-        next_level_xp = level * 100
-        
-        # Calculate progress to next level (0.0 to 1.0)
-        current_level_xp = (level - 1) * 100
-        progress_to_next_level = (xp - current_level_xp) / 100.0 if next_level_xp > current_level_xp else 1.0
-        
-        # Return gamification data
-        return GamificationResponse(
-            xp=xp,
-            level=level,
-            streak=streak,
-            longest_streak=longest_streak,
-            badges=badges,
-            achievements=achievements,
-            next_level_xp=next_level_xp,
-            progress_to_next_level=min(progress_to_next_level, 1.0)
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get gamification data: {str(e)}"
-        )
-
-@router.get("/{user_id}/badges", response_model=List[BadgeResponse])
-async def get_user_badges(
-    user_id: str,
-    current_user: UserModel = Depends(get_current_user)
-):
-    """Get user badges"""
-    try:
-        # Verify user can access this data
-        if str(current_user.id) != user_id and current_user.role not in ["admin", "teacher"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to access this user's badges"
-            )
-        
-        db = await get_db()
-        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
-        if not user_doc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        
-        # Get user's earned badges
-        earned_badges = user_doc.get("badges", [])
-        
-        # Define available badges
-        available_badges = [
-            {"id": "first_login", "name": "Welcome", "description": "First login", "icon": "🎉"},
-            {"id": "first_test", "name": "Test Taker", "description": "Completed first test", "icon": "📝"},
-            {"id": "perfect_score", "name": "Perfectionist", "description": "Got 100% on a test", "icon": "💯"},
-            {"id": "streak_7", "name": "Week Warrior", "description": "7-day streak", "icon": "🔥"},
-            {"id": "streak_30", "name": "Month Master", "description": "30-day streak", "icon": "👑"},
-            {"id": "coding_expert", "name": "Code Master", "description": "Solved 10 coding problems", "icon": "💻"},
-        ]
-        
-        badges = []
-        for badge in available_badges:
-            badges.append(BadgeResponse(
-                id=badge["id"],
-                name=badge["name"],
-                description=badge["description"],
-                icon=badge["icon"],
-                earned=badge["id"] in earned_badges,
-                earned_at=user_doc.get("badge_earned_at", {}).get(badge["id"])
-            ))
-        
-        return badges
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get user badges: {str(e)}"
-        )
+# Gamification endpoints removed per user request
 
 @router.post("/{user_id}/update-activity")
 async def update_user_activity(

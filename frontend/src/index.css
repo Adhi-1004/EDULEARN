@@ -25,41 +25,41 @@
   --professional-card-light: #ffffff;
   --professional-text-dark: #111827;
 
-  /* Light Theme Colors */
+  /* Light Theme Colors - Enhanced for Better Readability */
   --light-background: #ffffff;
   --light-card: #f8fafc;
   --light-text: #1e293b;
   --light-border: #e2e8f0;
 
-  /* Base neutrals */
+  /* Base neutrals - Optimized for light mode */
   --background: 0 0% 100%;
-  --foreground: 222.2 47.4% 11.2%;
+  --foreground: 222.2 84% 4.9%; /* Darker for better contrast */
 
   --muted: 210 40% 96.1%;
-  --muted-foreground: 215 16.3% 46.9%;
+  --muted-foreground: 215.4 16.3% 35%; /* Darker for better readability */
 
   --card: 0 0% 100%;
-  --card-foreground: 222.2 47.4% 11.2%;
+  --card-foreground: 222.2 84% 4.9%; /* Darker for better contrast */
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 47.4% 11.2%;
+  --popover-foreground: 222.2 84% 4.9%;
 
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
+  --border: 214.3 31.8% 85%; /* More visible borders */
+  --input: 214.3 31.8% 85%;
   --ring: 200 89% 45%;
 
   /* Brand: cyan-blue primary + teal accent (unique yet professional) */
-  --primary: 200 89% 45%;
-  --primary-foreground: 210 40% 98%;
+  --primary: 200 89% 42%; /* Slightly darker for better contrast */
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 14% 96%;
+  --secondary: 220 14% 93%; /* Darker for better visibility */
   --secondary-foreground: 222.2 47.4% 11.2%;
 
-  --accent: 160 84% 40%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 160 84% 38%; /* Slightly darker for better contrast */
+  --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 84% 55%; /* Darker for better visibility */
+  --destructive-foreground: 0 0% 100%;
 
   --radius: 0.75rem;
 }
@@ -170,14 +170,14 @@ select {
 }
 
 .professional.light {
-  --primary-color: #374151;
-  --secondary-color: #4b5563;
-  --accent-color: #6b7280;
-  --background-primary: #f8fafc;
+  --primary-color: #1f2937; /* Darker for better contrast */
+  --secondary-color: #374151;
+  --accent-color: #4b5563;
+  --background-primary: #f9fafb; /* Slightly darker background */
   --background-secondary: #ffffff;
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --border-color: #e5e7eb;
+  --text-primary: #111827; /* Very dark for maximum readability */
+  --text-secondary: #374151; /* Darker secondary text */
+  --border-color: #d1d5db; /* More visible borders */
 }
 
 /* Casual Mode Color Schemes */
@@ -193,14 +193,14 @@ select {
 }
 
 .casual.light {
-  --primary-color: #8b5cf6;
-  --secondary-color: #06b6d4;
-  --accent-color: #ec4899;
+  --primary-color: #7c3aed; /* Slightly darker purple for better contrast */
+  --secondary-color: #0891b2; /* Darker cyan for better visibility */
+  --accent-color: #db2777; /* Darker pink for better contrast */
   --background-primary: #ffffff;
   --background-secondary: #f8fafc;
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --border-color: #e2e8f0;
+  --text-primary: #0f172a; /* Much darker for better readability */
+  --text-secondary: #334155; /* Darker secondary text */
+  --border-color: #cbd5e1; /* More visible borders */
 }
 
 /* Enhanced Animations */
@@ -267,8 +267,9 @@ select {
 }
 
 .light .glass-effect {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.9); /* More opaque for better visibility */
+  border: 1px solid rgba(0, 0, 0, 0.15); /* More visible border */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Subtle shadow for depth */
 }
 
 /* Enhanced Scrollbar */
@@ -313,7 +314,7 @@ textarea:focus-visible {
 }
 
 .light .card-hover:hover {
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); /* More visible shadow */
 }
 
 /* Loading Animations */
@@ -565,11 +566,62 @@ input:checked + .toggle-slider:before {
   background: var(--app-bg);
 }
 
-/* Light mode: soft paper with faint vignette */
+/* Light mode: soft paper with subtle gradient for depth */
 .light .app-bg {
-  --app-bg: radial-gradient(800px 600px at 10% 15%, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.0) 60%),
-    radial-gradient(900px 700px at 85% 20%, rgba(0, 0, 0, 0.035) 0%, rgba(0, 0, 0, 0.0) 60%),
-    linear-gradient(180deg, hsl(var(--background)) 0%, white 100%);
+  --app-bg: radial-gradient(800px 600px at 10% 15%, rgba(0, 0, 0, 0.035) 0%, rgba(0, 0, 0, 0.0) 60%),
+    radial-gradient(900px 700px at 85% 20%, rgba(0, 0, 0, 0.03) 0%, rgba(0, 0, 0, 0.0) 60%),
+    linear-gradient(180deg, #fafafa 0%, white 100%);
+}
+
+/* Enhanced light mode card styles for better visibility */
+.light .card,
+.light [class*="card"] {
+  background-color: #ffffff;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* Light mode text enhancements */
+.light {
+  --text-high-contrast: #0f172a;
+  --text-medium-contrast: #334155;
+  --text-low-contrast: #64748b;
+}
+
+/* Light mode button enhancements */
+.light button:not(.btn-ghost) {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.light button:hover:not(:disabled) {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Light mode input enhancements */
+.light input,
+.light textarea,
+.light select {
+  background-color: #ffffff;
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.light input:focus,
+.light textarea:focus,
+.light select:focus {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsla(var(--primary), 0.1);
+}
+
+/* Light mode link enhancement */
+.light a {
+  color: hsl(var(--primary));
+  text-decoration-color: hsla(var(--primary), 0.3);
+}
+
+.light a:hover {
+  color: hsl(var(--primary));
+  text-decoration-color: hsl(var(--primary));
 }
 
 /* Dark mode: refined slate with soft color accents */

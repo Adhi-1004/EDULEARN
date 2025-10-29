@@ -56,15 +56,30 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
   const fetchAssessment = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/api/assessments/teacher/${assessmentId}`);
+      console.log("📊 [TEST] Fetching assessment:", assessmentId);
+      
+      // Try teacher endpoint first, then student endpoint
+      let response;
+      try {
+        response = await api.get(`/api/assessments/teacher/${assessmentId}`);
+        console.log("✅ [TEST] Fetched from teacher endpoint");
+      } catch (teacherError) {
+        console.log("⚠️ [TEST] Teacher endpoint failed, trying student endpoint");
+        response = await api.get(`/api/assessments/${assessmentId}/details`);
+        console.log("✅ [TEST] Fetched from student endpoint");
+      }
+      
       const data = response.data;
+      console.log("📊 [TEST] Assessment data:", data);
+      console.log("📊 [TEST] Questions count:", data.questions?.length);
       
       setAssessment(data);
       setTimeLeft(data.time_limit * 60); // Convert minutes to seconds
       setAnswers(new Array(data.questions.length).fill(-1));
-    } catch (error) {
-      console.error('Failed to fetch assessment:', error);
-      showError('Error', 'Failed to load assessment. Please try again.');
+    } catch (error: any) {
+      console.error('❌ [TEST] Failed to fetch assessment:', error);
+      console.error('❌ [TEST] Error details:', error.response?.data);
+      showError('Error', error.response?.data?.detail || 'Failed to load assessment. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -193,38 +208,35 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
   const progress = ((currentQuestionIndex + 1) / assessment.questions.length) * 100;
 
   return (
-    <div className="min-h-screen pt-20 px-4 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900">
+    <div className="min-h-screen pt-20 px-4" style={{ backgroundColor: 'rgb(26, 32, 44)' }}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-purple-900/50 backdrop-blur-sm rounded-lg p-6 mb-6 border border-purple-500/30"
+          className="mb-6"
         >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-purple-200">{assessment.title}</h1>
-              <p className="text-purple-300">Topic: {assessment.topic} • Difficulty: {assessment.difficulty}</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-orange-400">
-                <Clock className="w-5 h-5" />
-                <span className="font-mono text-lg">{formatTime(timeLeft)}</span>
-              </div>
-              <div className="text-purple-300">
-                Question {currentQuestionIndex + 1} of {assessment.questions.length}
-              </div>
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-2xl font-bold text-white">{assessment.title}</h1>
+            <div className="text-right">
+              <div className="text-orange-500 font-bold text-xl">{formatTime(timeLeft)}</div>
+              <div className="text-gray-400 text-sm">Time Remaining</div>
             </div>
           </div>
           
           {/* Progress Bar */}
-          <div className="w-full bg-purple-800/30 rounded-full h-2">
+          <div className="w-full bg-gray-800 rounded-full h-2 mb-3">
             <motion.div
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full"
+              className="bg-blue-600 h-2 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.3 }}
             />
+          </div>
+          
+          <div className="flex items-center justify-between text-gray-400">
+            <div>Question {currentQuestionIndex + 1} of {assessment.questions.length}</div>
+            <div>{Math.round(progress)}% Complete</div>
           </div>
         </motion.div>
 
@@ -234,10 +246,11 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          className="bg-purple-900/50 backdrop-blur-sm rounded-lg p-6 mb-6 border border-purple-500/30"
+          style={{ backgroundColor: 'rgb(31, 41, 55)' }}
+          className="rounded-lg p-8 mb-6 border border-gray-700"
         >
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-purple-200 mb-4">
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-white mb-6">
               {currentQuestion.question}
             </h2>
             
@@ -245,10 +258,10 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
               {(currentQuestion.options || []).map((option, index) => (
                 <label
                   key={index}
-                  className={`flex items-center p-4 rounded-lg border cursor-pointer transition-all hover:bg-purple-800/30 ${
+                  className={`flex items-center p-4 rounded-lg bg-gray-800 border cursor-pointer transition-all hover:bg-gray-700 ${
                     answers[currentQuestionIndex] === index
-                      ? 'border-purple-400 bg-purple-800/50'
-                      : 'border-purple-500/30'
+                      ? 'border-blue-500 bg-gray-700'
+                      : 'border-gray-700'
                   }`}
                 >
                   <input
@@ -256,9 +269,9 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
                     name={`question-${currentQuestionIndex}`}
                     checked={answers[currentQuestionIndex] === index}
                     onChange={() => handleAnswerChange(currentQuestionIndex, index)}
-                    className="mr-4 w-4 h-4 text-purple-500"
+                    className="mr-4 w-5 h-5 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-purple-200">{option}</span>
+                  <span className="text-gray-200">{String.fromCharCode(65 + index)}. {option}</span>
                 </label>
               ))}
             </div>
@@ -266,11 +279,11 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
         </motion.div>
 
         {/* Navigation */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mt-6">
           <button
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
-            className="flex items-center space-x-2 px-4 py-2 bg-purple-800 hover:bg-purple-700 disabled:bg-purple-800/50 disabled:cursor-not-allowed text-purple-200 rounded-lg transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed disabled:text-gray-500 text-gray-300 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Previous</span>
@@ -281,12 +294,12 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
               <button
                 key={index}
                 onClick={() => setCurrentQuestionIndex(index)}
-                className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
+                className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
                   index === currentQuestionIndex
-                    ? 'bg-purple-500 text-white'
+                    ? 'bg-blue-600 text-white'
                     : answers[index] !== -1
-                    ? 'bg-green-500 text-white'
-                    : 'bg-purple-800 text-purple-300 hover:bg-purple-700'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                 }`}
               >
                 {index + 1}
@@ -298,7 +311,7 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="flex items-center space-x-2 px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-600/50 text-white rounded-lg transition-colors"
+              className="flex items-center space-x-2 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-600/50 text-white rounded-lg transition-colors font-medium"
             >
               <CheckCircle className="w-4 h-4" />
               <span>{submitting ? 'Submitting...' : 'Submit Test'}</span>
@@ -306,7 +319,7 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
           ) : (
             <button
               onClick={handleNext}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-purple-200 rounded-lg transition-colors"
+              className="flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
             >
               <span>Next</span>
               <ArrowRight className="w-4 h-4" />

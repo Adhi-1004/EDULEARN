@@ -57,7 +57,7 @@ const StudentList: React.FC<StudentListProps> = ({
     <motion.div variants={ANIMATION_VARIANTS.slideUp}>
       <Card className="p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-          <h2 className="text-2xl font-bold text-blue-200 mb-4 md:mb-0">Students</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 md:mb-0">Students</h2>
           
           <div className="flex space-x-3">
             <Button 
@@ -85,7 +85,7 @@ const StudentList: React.FC<StudentListProps> = ({
         </div>
 
         {/* Search and Filter Controls */}
-        <div className="mb-6 p-4 bg-blue-900/20 rounded-lg border border-blue-500/30">
+        <div className="mb-6 p-4 bg-muted/30 rounded-lg border border-border">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <Input
@@ -101,7 +101,7 @@ const StudentList: React.FC<StudentListProps> = ({
               <select
                 value={selectedBatch}
                 onChange={(e) => onBatchChange(e.target.value)}
-                className="px-3 py-2 bg-blue-900/50 border border-blue-500/30 rounded-lg text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="all">All Students</option>
                 {batches.map((batch) => (
@@ -121,36 +121,36 @@ const StudentList: React.FC<StudentListProps> = ({
               key={student.id}
               variants={ANIMATION_VARIANTS.fadeIn}
               whileHover={{ scale: 1.02 }}
-              className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 cursor-pointer hover:border-blue-400/50 transition-colors"
+              className="bg-muted/30 border border-border rounded-lg p-4 cursor-pointer hover:border-primary/50 transition-colors"
               onClick={() => onStudentClick(student)}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-blue-200 mb-1">
+                  <h3 className="text-lg font-semibold text-foreground mb-1">
                     {student.name}
                   </h3>
-                  <p className="text-blue-300 text-sm mb-2">{student.email}</p>
+                  <p className="text-muted-foreground text-sm mb-2">{student.email}</p>
                   {student.batch && (
-                    <span className="inline-block px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">
+                    <span className="inline-block px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
                       {student.batch}
                     </span>
                   )}
                 </div>
                 
                 <div className="text-right">
-                  <div className="text-sm text-blue-300 mb-1">
+                  <div className="text-sm text-muted-foreground mb-1">
                     Progress: {student.progress}%
                   </div>
-                  <div className="text-xs text-blue-400">
+                  <div className="text-xs text-muted-foreground">
                     Last active: {new Date(student.lastActive).toLocaleDateString()}
                   </div>
                 </div>
               </div>
               
               {/* Progress Bar */}
-              <div className="w-full bg-blue-900/50 rounded-full h-2 mb-3">
+              <div className="w-full bg-muted rounded-full h-2 mb-3">
                 <div
-                  className="bg-gradient-to-r from-blue-500 to-blue-400 h-2 rounded-full transition-all duration-300"
+                  className="bg-gradient-to-r from-primary to-accent h-2 rounded-full transition-all duration-300"
                   style={{ width: `${student.progress}%` }}
                 />
               </div>
@@ -163,7 +163,7 @@ const StudentList: React.FC<StudentListProps> = ({
                     e.stopPropagation()
                     onStudentClick(student)
                   }}
-                  className="text-blue-300 hover:text-blue-200"
+                  className="text-primary hover:text-primary/80"
                 >
                   View Details
                 </Button>
@@ -176,7 +176,7 @@ const StudentList: React.FC<StudentListProps> = ({
                       e.stopPropagation()
                       // Handle edit action
                     }}
-                    className="text-blue-300 hover:text-blue-200"
+                    className="text-primary hover:text-primary/80"
                   >
                     Edit
                   </Button>
@@ -189,13 +189,13 @@ const StudentList: React.FC<StudentListProps> = ({
         {/* Empty State */}
         {filteredStudents.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-blue-300 text-lg mb-2">
+            <div className="text-foreground text-lg mb-2">
               {searchTerm || selectedBatch !== "all" 
                 ? "No students found matching your criteria" 
                 : "No students found"
               }
             </div>
-            <p className="text-blue-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               {searchTerm || selectedBatch !== "all"
                 ? "Try adjusting your search or filter criteria"
                 : "Add students to get started"

@@ -513,9 +513,6 @@ async def submit_assessment(
 
         result = await submission_collection.insert_one(submission_doc)
 
-        # Update user progress (gamification) - ensure user.id is string
-        await update_user_progress(db, str(user.id), score, percentage, total_questions)
-
         # Create completion notification - ensure IDs are strings
         teacher_id = assessment.get("created_by") or assessment.get("teacher_id")
         teacher_id_str = str(teacher_id) if teacher_id else None
@@ -615,9 +612,6 @@ async def submit_coding_solution(
         # Save to coding_submissions collection
         result = await db.coding_submissions.insert_one(submission_doc)
         logger.info(f"Saved coding submission {result.inserted_id}")
-
-        # Update gamification/analytics if needed for coding problems
-        # await update_user_progress(...) # Might need adjusted logic
 
         return CodingSubmissionResponse(
             id=str(result.inserted_id),
@@ -724,65 +718,7 @@ async def get_assessment_leaderboard(assessment_id: str, user: UserModel = Depen
 
 
 # --- Helper Functions ---
-
-async def update_user_progress(db, user_id: str, score: int, percentage: float, total_questions: int):
-    """Update user's gamification progress after completing an assessment"""
-    try:
-        user_oid = ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id
-        user_doc = await db.users.find_one({"_id": user_oid})
-        if not user_doc:
-            logger.error(f"[GAMIFICATION] User not found: {user_id}")
-            return
-
-        base_xp = 10; score_xp = int(percentage * 0.5); question_xp = total_questions * 2
-        total_xp = base_xp + score_xp + question_xp
-        current_xp = user_doc.get("xp", 0); new_xp = current_xp + total_xp
-        new_level = (new_xp // 100) + 1
-        current_streak = user_doc.get("streak", 0); new_streak = current_streak + 1
-        current_longest_streak = user_doc.get("longest_streak", 0); new_longest_streak = max(current_longest_streak, new_streak)
-
-        badges = user_doc.get("badges", []); new_badges = []
-        if "first_assessment" not in badges: new_badges.append("first_assessment")
-        if percentage >= 90 and "high_scorer" not in badges: new_badges.append("high_scorer")
-        if new_streak >= 5 and "consistent_learner" not in badges: new_badges.append("consistent_learner")
-        old_level = user_doc.get("level", 1) # Use existing level
-        if new_level > old_level and "level_up" not in badges: new_badges.append("level_up")
-
-        update_data = {
-            "xp": new_xp, "level": new_level, "streak": new_streak,
-            "longest_streak": new_longest_streak, "last_activity": datetime.utcnow(),
-            "completed_assessments": user_doc.get("completed_assessments", 0) + 1,
-            "total_questions_answered": user_doc.get("total_questions_answered", 0) + total_questions,
-            "average_score": calculate_average_score(user_doc, percentage)
-        }
-        if new_badges: update_data["$addToSet"] = {"badges": {"$each": new_badges}} # Use addToSet
-
-        await db.users.update_one({"_id": user_oid}, {"$set": update_data})
-
-        logger.info(f"[GAMIFICATION] Updated user {user_id}: +{total_xp} XP, Level {new_level}, Streak {new_streak}")
-        if new_badges: logger.info(f"[GAMIFICATION] New badges earned: {new_badges}")
-
-    except Exception as e:
-        logger.error(f"[GAMIFICATION] Failed update for user {user_id}: {str(e)}", exc_info=True)
-
-
-def calculate_average_score(user_doc: dict, new_percentage: float) -> float:
-    """Calculate new average score"""
-    current_avg = user_doc.get("average_score", 0.0) # Default to float
-    completed_count = user_doc.get("completed_assessments", 0)
-
-    # Ensure types are correct
-    current_avg = float(current_avg) if current_avg is not None else 0.0
-    new_percentage = float(new_percentage) if new_percentage is not None else 0.0
-
-    if completed_count <= 0: # Handle count 0 or negative
-        return round(new_percentage, 2)
-
-    total_score = current_avg * completed_count
-    new_total_score = total_score + new_percentage
-    new_avg = new_total_score / (completed_count + 1)
-
-    return round(new_avg, 2)
+# Gamification removed per user request
 
 
 async def execute_code(code: str, language: str, test_cases: List[Dict]) -> Dict:

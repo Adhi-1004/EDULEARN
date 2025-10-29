@@ -211,8 +211,8 @@ const TeacherAssessmentResults: React.FC = () => {
         <Card className="p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-blue-200">Assessment Results</h1>
-              <p className="text-blue-300">
+              <h1 className="text-3xl font-bold text-foreground">Assessment Results</h1>
+              <p className="text-muted-foreground">
                 {assessment ? (
                   <>
                     {assessment.title} • {assessment.subject} • {assessment.difficulty}
@@ -222,7 +222,7 @@ const TeacherAssessmentResults: React.FC = () => {
                 )}
               </p>
             </div>
-            <Button variant="secondary" onClick={() => navigate("/teacher/assessment-management")}>Back</Button>
+            <Button variant="primary" onClick={() => navigate("/teacher/assessment-management")}>Back</Button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -231,15 +231,15 @@ const TeacherAssessmentResults: React.FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search students by name or email..."
-              className="w-full px-3 py-2 bg-black/20 backdrop-blur-md border border-blue-500/30 rounded-lg text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary placeholder:text-muted-foreground"
             />
           </div>
         </Card>
 
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-blue-200 mb-4">Assigned Students</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Assigned Students</h2>
           {mergedAssigned.length === 0 ? (
-            <div className="text-blue-300">No assigned students found.</div>
+            <div className="text-foreground">No assigned students found.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {mergedAssigned.map((s: any, idx: number) => (
@@ -249,34 +249,34 @@ const TeacherAssessmentResults: React.FC = () => {
                   initial="initial"
                   animate="animate"
                   transition={{ delay: idx * 0.03 }}
-                  className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-lg border border-blue-500/30 p-4"
+                  className="bg-gradient-to-br from-muted/30 to-muted/50 rounded-lg border border-border p-4"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <div className="text-blue-200 font-semibold">{s.student_name || "Unknown"}</div>
-                      <div className="text-blue-300 text-sm">{s.student_email || ""}</div>
+                      <div className="text-foreground font-semibold">{s.student_name || "Unknown"}</div>
+                      <div className="text-muted-foreground text-sm">{s.student_email || ""}</div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded border ${s.present ? "bg-green-600/20 border-green-500/30 text-green-300" : "bg-red-600/20 border-red-500/30 text-red-300"}`}>
+                    <span className={`text-xs px-2 py-1 rounded border ${s.present ? "bg-green-600/20 border-green-500/30 text-green-600 dark:text-green-400" : "bg-red-600/20 border-red-500/30 text-red-600 dark:text-red-400"}`}>
                       {s.present ? "Present" : "Absent"}
                     </span>
                   </div>
                   {s.present && (
-                    <div className="text-blue-400 text-xs mb-3">
+                    <div className="text-muted-foreground text-xs mb-3">
                       <span>Score: {s.score}/{s.total_questions} ({(s.percentage||0).toFixed(1)}%)</span>
                       <span className="mx-2">•</span>
                       <span>Time: {formatTime(s.time_taken||0)}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between">
-                    <div className="text-blue-400 text-xs">
+                    <div className="text-muted-foreground text-xs">
                       {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : ""}
                     </div>
                     {s.present ? (
-                      <Button variant="secondary" size="sm" onClick={() => s.result_id ? navigate(`/teacher/test-result/${s.result_id}`) : viewStudentDetailedResult(s.student_id)}>
+                      <Button variant="primary" size="sm" onClick={() => s.result_id ? navigate(`/teacher/test-result/${s.result_id}`) : viewStudentDetailedResult(s.student_id)}>
                         View Details
                       </Button>
                     ) : (
-                      <div className="text-blue-500 text-xs">Not submitted</div>
+                      <div className="text-muted-foreground text-xs">Not submitted</div>
                     )}
                   </div>
                 </motion.div>
@@ -284,20 +284,20 @@ const TeacherAssessmentResults: React.FC = () => {
             </div>
           )}
 
-          <h2 className="text-xl font-semibold text-blue-200 mt-8 mb-4">Submissions</h2>
+          <h2 className="text-xl font-semibold text-foreground mt-8 mb-4">Submissions</h2>
           {filteredResults.length === 0 ? (
-            <div className="text-blue-300">No submissions yet.</div>
+            <div className="text-foreground">No submissions yet.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-blue-500/30">
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Student</th>
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Email</th>
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Score</th>
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Time Taken</th>
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Submitted</th>
-                    <th className="text-left py-3 px-4 text-blue-300 font-medium">Actions</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-muted-foreground font-medium">Student</th>
+                    <th className="text-left py-3 px-4 text-muted-foreground font-medium">Email</th>
+                    <th className="text-left py-3 px-4 text-muted-foreground font-medium">Score</th>
+                    <th className="text-left py-3 px-4 text-muted-foreground font-medium">Time Taken</th>
+                    <th className="text-left py-3 px-4 text-muted-foreground font-medium">Submitted</th>
+                    <th className="text-left py-3 px-4 text-muted-foreground font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -308,19 +308,19 @@ const TeacherAssessmentResults: React.FC = () => {
                       initial="initial"
                       animate="animate"
                       transition={{ delay: idx * 0.03 }}
-                      className="border-b border-blue-500/20"
+                      className="border-b border-border"
                     >
-                      <td className="py-3 px-4 text-blue-200">{r.student_name || "Unknown"}</td>
-                      <td className="py-3 px-4 text-blue-300">{r.student_email || ""}</td>
+                      <td className="py-3 px-4 text-foreground">{r.student_name || "Unknown"}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{r.student_email || ""}</td>
                       <td className="py-3 px-4">
-                        <span className={`${(r.percentage||0) >= 80 ? "text-green-400" : (r.percentage||0) >= 60 ? "text-yellow-400" : "text-red-400"} font-semibold`}>
+                        <span className={`${(r.percentage||0) >= 80 ? "text-green-600 dark:text-green-400" : (r.percentage||0) >= 60 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"} font-semibold`}>
                           {r.score}/{r.total_questions} ({(r.percentage || 0).toFixed(1)}%)
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-blue-300">{formatTime(r.time_taken)}</td>
-                      <td className="py-3 px-4 text-blue-300">{new Date(r.submitted_at).toLocaleString()}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{formatTime(r.time_taken)}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{new Date(r.submitted_at).toLocaleString()}</td>
                       <td className="py-3 px-4">
-                        <Button variant="secondary" size="sm" onClick={() => viewStudentDetailedResult(r.student_id)}>
+                        <Button variant="primary" size="sm" onClick={() => viewStudentDetailedResult(r.student_id)}>
                           View Details
                         </Button>
                       </td>

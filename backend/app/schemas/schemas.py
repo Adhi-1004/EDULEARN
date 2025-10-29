@@ -75,10 +75,6 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
-class FaceLoginRequest(BaseModel):
-    face_image: str  # Base64 encoded image
-    user_id: Optional[str] = None
-
 class UserSettings(BaseModel):
     notifications: bool = True
     email_updates: bool = True
@@ -302,9 +298,18 @@ class CodingSessionStart(BaseModel):
     language: str
 
 class CodingSessionUpdate(BaseModel):
-    session_id: str
-    code: str
-    cursor_position: int
+    session_id: Optional[str] = None
+    code: Optional[str] = None
+    cursor_position: Optional[int] = None
+    keystrokes: Optional[int] = None
+    lines_of_code: Optional[int] = None
+    compilation_attempts: Optional[int] = None
+    test_runs: Optional[int] = None
+    hints_used: Optional[int] = None
+    last_test_results: Optional[Dict] = None
+    last_error: Optional[str] = None
+    submissions: Optional[int] = None
+    last_submission_status: Optional[str] = None
 
 class CodingAnalyticsResponse(BaseModel):
     total_problems: int

@@ -13,12 +13,17 @@ JUDGE0_API_KEY = os.getenv('JUDGE0_API_KEY')
 JUDGE0_API_HOST = os.getenv('JUDGE0_API_HOST', 'judge0-ce.p.rapidapi.com')
 
 # Mapping our language names to Judge0's language IDs
-# You can find more here: https://api.judge0.com/languages
+# Complete language support with proper IDs
+# Reference: https://api.judge0.com/languages
 LANGUAGE_ID_MAP = {
-    "python": 71,
-    "javascript": 63,
-    "java": 62,
-    "cpp": 54,
+    "python": 71,      # Python 3.8.1
+    "java": 62,        # Java (OpenJDK 13.0.1)
+    "cpp": 54,         # C++ (GCC 9.2.0)
+    "c": 50,           # C (GCC 9.2.0)
+    "javascript": 63,  # JavaScript (Node.js 12.14.0)
+    "go": 60,          # Go (1.13.5)
+    "rust": 73,        # Rust (1.40.0)
+    "ruby": 72,        # Ruby (2.7.0)
 }
 
 class Judge0ExecutionService:
@@ -39,42 +44,90 @@ class Judge0ExecutionService:
         if language not in LANGUAGE_ID_MAP:
             raise ValueError(f"Unsupported language: {language}")
 
-        # For Python, append a lightweight runner that tries to call the first user-defined
-        # function with the provided stdin (JSON), and prints the result. This allows
-        # "return"-only solutions to be evaluated without requiring explicit prints.
+        # Language-specific code preparation for automatic execution
         if language == "python":
+            # Python: Auto-execute first function with stdin as JSON
             runner = (
                 "\n\nif __name__ == \"__main__\":\n"
                 "    import sys, json, inspect\n"
-                "    raw = sys.stdin.read()\n"
+                "    raw = sys.stdin.read().strip()\n"
                 "    try:\n"
-                "        data = json.loads(raw)\n"
+                "        data = json.loads(raw) if raw else None\n"
                 "    except Exception:\n"
-                "        data = raw.strip()\n"
+                "        data = raw\n"
                 "    funcs = [obj for name, obj in globals().items() if inspect.isfunction(obj) and getattr(obj, '__module__', '') == '__main__']\n"
                 "    result = None\n"
                 "    if funcs:\n"
                 "        f = funcs[0]\n"
                 "        try:\n"
-                "            if isinstance(data, dict):\n"
+                "            if data is None:\n"
+                "                result = f()\n"
+                "            elif isinstance(data, dict):\n"
                 "                result = f(**data)\n"
                 "            elif isinstance(data, list):\n"
                 "                result = f(*data)\n"
                 "            else:\n"
                 "                result = f(data)\n"
                 "        except Exception as e:\n"
-                "            sys.stderr.write(str(e))\n"
+                "            sys.stderr.write(f'Runtime Error: {str(e)}\\n')\n"
                 "            raise SystemExit(1)\n"
                 "    if result is not None:\n"
                 "        try:\n"
-                "            print(json.dumps(result))\n"
+                "            print(json.dumps(result) if not isinstance(result, str) else result)\n"
                 "        except Exception:\n"
                 "            print(str(result))\n"
                 "    elif not funcs:\n"
-                "        sys.stderr.write('No callable function found to execute')\n"
+                "        sys.stderr.write('No callable function found to execute\\n')\n"
+                "        raise SystemExit(1)\n"
             )
             source_to_send = f"{code}{runner}"
+        
+        elif language == "c":
+            # C: Ensure proper includes and main function
+            if "int main" not in code and "void main" not in code:
+                # Wrap code in main if not present
+                c_wrapper = (
+                    "#include <stdio.h>\n"
+                    "#include <stdlib.h>\n"
+                    "#include <string.h>\n"
+                    f"{code}\n"
+                    "int main() {\n"
+                    "    // Auto-wrapped main function\n"
+                    "    return 0;\n"
+                    "}\n"
+                )
+                source_to_send = c_wrapper
+            else:
+                source_to_send = code
+        
+        elif language == "cpp":
+            # C++: Ensure proper includes
+            if "#include" not in code:
+                cpp_includes = (
+                    "#include <iostream>\n"
+                    "#include <vector>\n"
+                    "#include <string>\n"
+                    "#include <algorithm>\n"
+                    "using namespace std;\n\n"
+                )
+                source_to_send = cpp_includes + code
+            else:
+                source_to_send = code
+        
+        elif language == "java":
+            # Java: Ensure proper class structure
+            if "public class" not in code and "class Solution" not in code:
+                java_wrapper = (
+                    f"public class Main {{\n"
+                    f"{code}\n"
+                    f"}}\n"
+                )
+                source_to_send = java_wrapper
+            else:
+                source_to_send = code
+        
         else:
+            # Other languages: use as-is
             source_to_send = code
 
         # Base64 encode the source code and test case inputs/outputs
@@ -206,8 +259,22 @@ class Judge0ExecutionService:
             compile_output = base64.b64decode(result.get('compile_output', '') or b'').decode('utf-8').strip()
             expected = test_case.get("output", test_case.get("expected_output"))
             
-            # Determine pass/fail status
-            passed = (status_id == 3) # Status 3 is "Accepted"
+            # Compare outputs using our own logic
+            comparison = self._compare_outputs(stdout, expected)
+            
+            # Determine pass/fail status based on our comparison, not just Judge0's status
+            # Use Judge0 status for compilation/runtime errors (status != 3 and not 4)
+            # But use our comparison for actual output matching
+            if status_id == 3:
+                # Judge0 says Accepted - definitely passed
+                passed = True
+            elif status_id == 4:
+                # Judge0 says Wrong Answer - use our comparison logic
+                # Our comparison is more flexible (handles whitespace, etc.)
+                passed = comparison.get("match", False)
+            else:
+                # Compilation error, runtime error, timeout, etc. - definitely failed
+                passed = False
             
             # Create detailed debug information
             debug_info = {
@@ -216,7 +283,7 @@ class Judge0ExecutionService:
                 "raw_output": stdout,
                 "raw_error": stderr,
                 "compile_output": compile_output,
-                "comparison": self._compare_outputs(stdout, expected),
+                "comparison": comparison,
                 "execution_details": {
                     "time": result.get('time', '0.0'),
                     "memory": result.get('memory', 0),
@@ -226,11 +293,10 @@ class Judge0ExecutionService:
                 }
             }
             
-            # Build a more helpful error message for wrong answers
+            # Get error message (if any)
+            # For wrong answers without compilation/runtime errors, error_message will be None
+            # allowing the frontend to display the expected vs actual comparison
             error_message = self._get_error_message(result)
-            if not passed and not error_message:
-                # Provide expected vs actual when it's a wrong answer without compile/runtime errors
-                error_message = f"Expected: {str(expected).strip()} | Got: {stdout.strip()}"
 
             formatted_result = {
                 "passed": passed,
@@ -239,7 +305,7 @@ class Judge0ExecutionService:
                 "output": stdout,
                 "execution_time": float(result.get('time', '0.0') or '0.0') * 1000, # Convert to ms
                 "memory": result.get('memory', 0),
-                "error": error_message,
+                "error": error_message if error_message else None,
                 "debug_info": debug_info
             }
             formatted.append(formatted_result)
@@ -248,6 +314,8 @@ class Judge0ExecutionService:
 
     def _compare_outputs(self, actual: str, expected: str) -> Dict[str, Any]:
         """Compare actual output with expected output and provide detailed analysis"""
+        import json as _json
+        
         # Coerce non-string values (e.g., booleans, numbers) to strings before trimming
         actual_clean = str(actual).strip()
         expected_clean = str(expected).strip()
@@ -260,32 +328,46 @@ class Judge0ExecutionService:
                 "message": "Output matches exactly"
             }
         
-        # Check for whitespace differences
+        # Try to parse both as JSON and compare
+        try:
+            actual_json = _json.loads(actual_clean)
+            expected_json = _json.loads(expected_clean)
+            if actual_json == expected_json:
+                return {
+                    "match": True,
+                    "type": "json_match",
+                    "message": "Output matches (JSON comparison)"
+                }
+        except Exception:
+            # Not valid JSON, continue with string comparison
+            pass
+        
+        # Check for whitespace differences - still consider as match
         if actual_clean.replace('\n', ' ').replace('\t', ' ').replace(' ', '') == expected_clean.replace('\n', ' ').replace('\t', ' ').replace(' ', ''):
             return {
-                "match": False,
+                "match": True,
                 "type": "whitespace",
-                "message": "Output matches but has different whitespace",
+                "message": "Output matches (ignoring whitespace)",
                 "actual": actual_clean,
                 "expected": expected_clean
             }
         
-        # Check for case differences
+        # Check for case differences - still consider as match for most cases
         if actual_clean.lower() == expected_clean.lower():
             return {
-                "match": False,
+                "match": True,
                 "type": "case",
-                "message": "Output matches but has different case",
+                "message": "Output matches (case insensitive)",
                 "actual": actual_clean,
                 "expected": expected_clean
             }
         
-        # Check for trailing newline differences
+        # Check for trailing newline differences - still consider as match
         if actual_clean == expected_clean + '\n' or actual_clean + '\n' == expected_clean:
             return {
-                "match": False,
+                "match": True,
                 "type": "newline",
-                "message": "Output matches but has different trailing newlines",
+                "message": "Output matches (ignoring trailing newlines)",
                 "actual": actual_clean,
                 "expected": expected_clean
             }
@@ -351,6 +433,12 @@ class Judge0ExecutionService:
         if runtime_error:
             return f"Runtime Error: {runtime_error}"
         
+        # For wrong answer status (4), don't return an error message
+        # This allows the frontend to display expected vs actual output comparison
+        if status_id == 4:
+            return None
+        
+        # For other errors (timeout, memory limit, etc.), return the status description
         return result.get('status', {}).get('description', 'An unknown error occurred')
 
 
