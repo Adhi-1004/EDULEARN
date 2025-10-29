@@ -17,6 +17,7 @@ A comprehensive full-stack educational platform that combines modern web technol
 - [Quick Start](#-quick-start)
 - [Configuration](#-configuration)
 - [API Documentation](#-api-documentation)
+- [Documentation](#-documentation)
 - [Deployment](#-deployment)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -773,6 +774,17 @@ VITE_ANALYTICS_ID=your-analytics-id
 
 ## 📚 API Documentation
 
+### Comprehensive API Reference
+
+📘 **[Complete API Reference](./docs/COMPLETE_API_REFERENCE.md)** - Complete documentation of all 100+ API endpoints with:
+- Detailed request/response examples
+- Frontend-backend endpoint mapping
+- Authentication flows
+- Error handling guides
+- Best practices
+
+📋 **[API Endpoints Summary](./docs/API_ENDPOINTS_SUMMARY.md)** - Quick reference table of all endpoints
+
 ### Interactive API Documentation
 
 When the backend is running, access:
@@ -786,7 +798,7 @@ When the backend is running, access:
   - Clean, readable documentation
   - Better for reading and understanding
 
-### Main API Endpoints
+### Main API Endpoints Overview
 
 #### Authentication (`/api/auth/*`)
 ```
@@ -879,9 +891,13 @@ DELETE /api/notifications/{id}         - Delete notification
 
 #### Health Check
 ```
-GET    /api/health                     - Health check
-GET    /api/health/db                  - Database health
+GET    /health/                        - Basic health check
+GET    /health/db                      - Database health
+GET    /health/system                  - System resources
+GET    /health/comprehensive           - Full health check
 ```
+
+**For complete API documentation with 100+ endpoints, see [Complete API Reference](./docs/COMPLETE_API_REFERENCE.md)**
 
 ---
 
@@ -1226,10 +1242,25 @@ SOFTWARE.
 ## 🆘 Support & Help
 
 ### Documentation
+
+#### 📖 Feature Documentation (NEW!)
+Complete guides explaining how each feature works with detailed flows and diagrams:
+- **[Features Overview](./docs/FEATURES_OVERVIEW.md)** - Complete feature catalog
+- **[Authentication Features](./docs/AUTHENTICATION_FEATURES.md)** - Login, OAuth, face recognition
+- **[Assessment Features](./docs/ASSESSMENT_FEATURES.md)** - Assessment creation and grading
+- **[Student Features](./docs/STUDENT_FEATURES.md)** - Dashboard, gamification
+- **[Teacher Features](./docs/TEACHER_FEATURES.md)** - Batch management, analytics
+- **[Admin Features](./docs/ADMIN_FEATURES.md)** - Platform administration
+- **[Coding Platform](./docs/CODING_PLATFORM_FEATURES.md)** - Problem generation, code execution
+
+#### 🔌 API Documentation
+- **[Complete API Reference](./docs/COMPLETE_API_REFERENCE.md)** - All 100+ endpoints
+- **[API Endpoints Summary](./docs/API_ENDPOINTS_SUMMARY.md)** - Quick reference
+
+#### 📋 Setup & Deployment
 - **Quick Start Guide**: `docs/QUICK_START.md`
 - **Project Structure**: `docs/PROJECT_STRUCTURE.md`
 - **MongoDB Setup**: `docs/setup_mongodb.md`
-- **API Documentation**: `backend/docs/API_DOCUMENTATION.md`
 - **Migration Guide**: `backend/docs/MIGRATION_GUIDE.md`
 - **Deployment Guide**: `backend/docs/PRODUCTION_DEPLOYMENT_GUIDE.md`
 
