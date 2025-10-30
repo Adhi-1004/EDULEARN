@@ -1,284 +1,539 @@
-# modLRN Frontend
+# EDULEARN Frontend
 
-React frontend for the modLRN AI-powered Adaptive Learning Platform.
+React + TypeScript frontend for the EDULEARN AI-powered Adaptive Learning Platform.
 
-## 🏗️ Architecture
+## 📋 Table of Contents
 
-The frontend follows a modern React architecture with TypeScript:
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Running the Development Server](#running-the-development-server)
+- [Project Structure](#project-structure)
+- [Build for Production](#build-for-production)
+- [Technology Stack](#technology-stack)
+- [Development Guide](#development-guide)
+- [Troubleshooting](#troubleshooting)
+
+## ✅ Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js 18+** (Node.js 20+ recommended)
+- **npm 9+** or **yarn 1.22+**
+- **Git** (for version control)
+
+### System Requirements
+
+- **RAM**: Minimum 4GB, Recommended 8GB+
+- **Storage**: 1GB free space
+- **Network**: Internet connection (for dependencies)
+
+### Verify Installation
+
+```bash
+# Check Node.js version
+node --version  # Should be 18.0.0 or higher
+
+# Check npm version
+npm --version  # Should be 9.0.0 or higher
+
+# Check yarn version (if using yarn)
+yarn --version  # Should be 1.22.0 or higher
+```
+
+## 🚀 Installation
+
+### Step 1: Navigate to Frontend Directory
+
+```bash
+cd frontend
+```
+
+### Step 2: Install Dependencies
+
+Using npm:
+```bash
+npm install
+```
+
+Or using yarn:
+```bash
+yarn install
+```
+
+**Note**: If you encounter dependency conflicts, try:
+```bash
+# Clear cache and reinstall
+npm cache clean --force
+rm -rf node_modules package-lock.json
+npm install
+
+# Or with yarn
+yarn cache clean
+rm -rf node_modules yarn.lock
+yarn install
+```
+
+### Step 3: Configure Environment Variables
+
+1. Create a `.env` file in the `frontend` directory:
+   ```bash
+   cp .env.example .env  # If .env.example exists
+   # Or create manually
+   touch .env
+   ```
+
+2. Add required environment variables (see [Configuration](#configuration) section)
+
+## ⚙️ Configuration
+
+Create a `.env` file in the `frontend` directory:
+
+```env
+# API Configuration - Backend URL
+VITE_API_BASE_URL=http://localhost:5001
+
+# Google OAuth (Optional - for social login)
+VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+
+# Analytics (Optional)
+VITE_ANALYTICS_ID=your-analytics-id
+```
+
+### Getting Configuration Values
+
+1. **Backend URL**:
+   - Development: `http://localhost:5001`
+   - Production: Your deployed backend URL (e.g., `https://api.edulearn.com`)
+
+2. **Google OAuth Client ID** (optional):
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create/select project
+   - Go to Credentials → Create OAuth 2.0 Client ID
+   - Set authorized JavaScript origins
+   - Copy Client ID to `.env`
+
+## 🏃 Running the Development Server
+
+### Start Development Server
+
+```bash
+npm run dev
+
+# Or with yarn
+yarn dev
+```
+
+The frontend will be available at: **http://localhost:5173**
+
+### Development Server Features
+
+- **Hot Module Replacement (HMR)**: Changes reflect instantly
+- **Fast Refresh**: React components update without losing state
+- **Source Maps**: Easy debugging with original source code
+- **TypeScript**: Full type checking and IntelliSense
+
+### Access the Application
+
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:5001 (make sure backend is running)
+- **API Documentation**: http://localhost:5001/docs
+
+### Verify Frontend is Running
+
+1. Open http://localhost:5173 in your browser
+2. You should see the EDULEARN landing page or login page
+3. Check browser console for any errors (F12)
+
+## 📁 Project Structure
 
 ```
 frontend/
-├── public/                 # Static assets
+├── public/                  # Static assets
+│   └── ...
 ├── src/
-│   ├── api/              # Centralized API services
-│   │   ├── authService.ts      # Authentication operations
-│   │   ├── assessmentService.ts # Assessment management
-│   │   ├── codingService.ts    # Coding platform functionality
-│   │   └── index.ts            # Service exports
-│   ├── components/        # Reusable UI components
-│   │   ├── ui/           # Basic UI components
-│   │   └── ...           # Feature-specific components
-│   ├── contexts/         # React contexts
-│   │   ├── ThemeContext.tsx    # Theme management
-│   │   └── ToastContext.tsx    # Notification system
-│   ├── hooks/            # Custom React hooks
-│   │   └── useAuth.ts          # Authentication hook
-│   ├── pages/           # Page components
-│   │   ├── Dashboard.tsx       # Student dashboard
-│   │   ├── CodingPlatform.tsx # Coding challenges
-│   │   ├── TeacherDashboard.tsx # Teacher interface
+│   ├── api/                # API service layer
+│   │   ├── authService.ts
+│   │   ├── assessmentService.ts
+│   │   ├── codingService.ts
 │   │   └── ...
-│   ├── types/           # TypeScript type definitions
-│   │   └── index.ts            # Type exports
-│   └── utils/           # Utility functions
-│       ├── api.ts              # API configuration
-│       ├── constants.ts        # Application constants
-│       └── roleUtils.ts        # Role-based utilities
-├── package.json         # Dependencies and scripts
-├── tsconfig.json        # TypeScript configuration
-├── vite.config.js       # Vite configuration
-└── tailwind.config.js    # Tailwind CSS configuration
+│   ├── components/         # React components
+│   │   ├── ui/            # Basic UI components
+│   │   │   ├── Button.tsx
+│   │   │   ├── Card.tsx
+│   │   │   └── ...
+│   │   ├── teacher/       # Teacher-specific components
+│   │   ├── admin/         # Admin components
+│   │   └── ...
+│   ├── contexts/          # React contexts
+│   │   ├── ThemeContext.tsx
+│   │   └── ToastContext.tsx
+│   ├── hooks/             # Custom React hooks
+│   │   ├── useAuth.ts
+│   │   └── ...
+│   ├── pages/             # Page components
+│   │   ├── Dashboard.tsx
+│   │   ├── Login.tsx
+│   │   ├── TeacherDashboard.tsx
+│   │   └── ...
+│   ├── types/             # TypeScript types
+│   │   └── index.ts
+│   ├── utils/             # Utility functions
+│   │   ├── api.ts
+│   │   ├── constants.ts
+│   │   └── ...
+│   ├── App.tsx            # Main App component
+│   ├── main.tsx           # Application entry point
+│   └── index.css          # Global styles
+├── package.json           # Dependencies and scripts
+├── tsconfig.json          # TypeScript configuration
+├── vite.config.js         # Vite configuration
+├── tailwind.config.js     # Tailwind CSS configuration
+├── postcss.config.cjs     # PostCSS configuration
+├── eslint.config.js       # ESLint configuration
+└── README.md              # This file
 ```
 
-## 🚀 Quick Start
+## 🛠️ Technology Stack
 
-### Prerequisites
+### Core Framework
+- **React 18.2.0** - Modern UI library with hooks
+- **TypeScript 5.9.2** - Type-safe JavaScript
+- **Vite 6.2.4** - Next-generation build tool
 
-- Node.js 18+
-- npm or yarn
+### UI & Styling
+- **Tailwind CSS 3.4.1** - Utility-first CSS framework
+- **Framer Motion 11.0.8** - Animation library
+- **Lucide React 0.544.0** - Icon library
 
-### Installation
+### Code Editing
+- **Monaco Editor 0.53.0** - VS Code's editor (for coding challenges)
+- **@monaco-editor/react 4.7.0** - React wrapper
+
+### Routing & State
+- **React Router DOM 7.9.1** - Client-side routing
+- **React Context API** - Global state management
+
+### HTTP & API
+- **Axios 1.9.0** - HTTP client for API requests
+
+### Development Tools
+- **ESLint 9.36.0** - Code linting
+- **PostCSS 8.4.35** - CSS processing
+- **Autoprefixer 10.4.21** - CSS vendor prefixes
+
+## 🔧 Development Guide
+
+### Available Scripts
 
 ```bash
-# Install dependencies
-npm install
-
 # Start development server
 npm run dev
 
 # Build for production
 npm run build
 
-# Preview production build
+# Preview production build locally
 npm run preview
+
+# Lint code
+npm run lint
+
+# Format code (if Prettier is configured)
+npm run format
 ```
 
-## 🛠️ Technology Stack
+### Adding New Components
 
-- **React 18**: Modern React with hooks and concurrent features
-- **TypeScript**: Type-safe JavaScript
-- **Vite**: Fast build tool and development server
-- **Tailwind CSS**: Utility-first CSS framework
-- **Framer Motion**: Animation library
-- **Monaco Editor**: Code editor component
-- **Axios**: HTTP client for API requests
-- **React Router**: Client-side routing
+1. Create component file in appropriate directory:
+   ```typescript
+   // src/components/MyComponent.tsx
+   import React from 'react';
 
-## 🎨 UI Components
+   interface MyComponentProps {
+     title: string;
+   }
 
-### Core Components
+   const MyComponent: React.FC<MyComponentProps> = ({ title }) => {
+     return <div>{title}</div>;
+   };
 
-- **Button**: Customizable button component
-- **Card**: Container component with consistent styling
-- **Input**: Form input component
-- **LoadingSpinner**: Loading state indicator
-- **Toast**: Notification system
+   export default MyComponent;
+   ```
 
-### Feature Components
+2. Import and use in pages or other components
 
-- **CodeEditor**: Monaco-based code editor
-- **FaceLogin**: Face recognition authentication
-- **Leaderboard**: Student rankings
-- **ProgressCharts**: Analytics visualization
-- **TestInterface**: Assessment interface
+### Adding New Pages
 
-## 🔧 Development
+1. Create page component in `src/pages/`:
+   ```typescript
+   // src/pages/MyPage.tsx
+   import React from 'react';
+   import { useNavigate } from 'react-router-dom';
 
-### Project Structure
+   const MyPage: React.FC = () => {
+     return <div>My New Page</div>;
+   };
 
-- **Pages**: Route components in `src/pages/`
-- **Components**: Reusable UI components in `src/components/`
-- **API Services**: Centralized API logic in `src/api/`
-- **Hooks**: Custom React hooks in `src/hooks/`
-- **Contexts**: Global state management in `src/contexts/`
-- **Types**: TypeScript definitions in `src/types/`
+   export default MyPage;
+   ```
 
-### Adding New Features
+2. Add route in `src/App.tsx`:
+   ```typescript
+   import MyPage from './pages/MyPage';
 
-1. Create components in `src/components/`
-2. Add pages in `src/pages/`
-3. Update routing in `src/App.tsx`
-4. Add API services in `src/api/`
-5. Define types in `src/types/`
+   <Route path="/my-page" element={<MyPage />} />
+   ```
 
-### Styling
+### Styling Components
 
-The project uses Tailwind CSS for styling:
+The project uses Tailwind CSS. Use utility classes:
 
 ```tsx
-// Example component with Tailwind classes
-<div className="bg-purple-900 text-white p-4 rounded-lg">
-  <h1 className="text-2xl font-bold">Welcome to modLRN</h1>
+<div className="bg-blue-500 text-white p-4 rounded-lg">
+  <h1 className="text-2xl font-bold">Title</h1>
 </div>
+```
+
+For theme-aware styling:
+```tsx
+<div className="bg-background text-foreground">
+  Theme-aware content
+</div>
+```
+
+### API Integration
+
+Use the API service layer in `src/api/`:
+
+```typescript
+import api from '../api/authService';
+
+// Example: Login
+const handleLogin = async (email: string, password: string) => {
+  try {
+    const response = await api.login({ email, password });
+    // Handle success
+  } catch (error) {
+    // Handle error
+  }
+};
 ```
 
 ### State Management
 
-The app uses React Context for global state:
+Use React Context for global state:
 
-```tsx
-// Using authentication context
-const { user, login, logout } = useAuth();
+```typescript
+// Using theme context
+import { useTheme } from '../contexts/ThemeContext';
 
-// Using toast notifications
-const { success, error } = useToast();
+const MyComponent = () => {
+const { theme, toggleTheme } = useTheme();
+  return <div className={theme === 'dark' ? 'dark' : ''}>Content</div>;
+};
+
+// Using auth context
+import { useAuth } from '../hooks/useAuth';
+
+const MyComponent = () => {
+  const { user, login, logout } = useAuth();
+  return <div>Hello, {user?.name}</div>;
+};
 ```
 
-## 🧪 Testing
+## 📦 Build for Production
+
+### Create Production Build
 
 ```bash
-# Run tests
-npm test
-
-# Run tests with coverage
-npm test -- --coverage
-
-# Run tests in watch mode
-npm test -- --watch
+npm run build
 ```
 
-## 📱 Responsive Design
+This creates an optimized production build in the `dist/` directory.
 
-The application is fully responsive and works on:
-- Desktop (1024px+)
-- Tablet (768px - 1023px)
-- Mobile (320px - 767px)
+### Preview Production Build
 
-## 🎨 Theming
-
-The app supports light and dark themes:
-
-```tsx
-// Using theme context
-const { theme, toggleTheme } = useTheme();
-
-// Theme-aware styling
-<div className={`${theme === 'dark' ? 'bg-gray-900' : 'bg-white'}`}>
-  Content
-</div>
+```bash
+npm run preview
 ```
 
-## 🔐 Authentication
+This serves the production build locally for testing.
 
-The app supports multiple authentication methods:
+### Production Build Features
 
-- **Email/Password**: Traditional login
-- **Google OAuth**: Social login
-- **Face Recognition**: Biometric authentication
-
-### Authentication Flow
-
-```tsx
-// Login with email/password
-const response = await authService.login({
-  email: 'user@example.com',
-  password: 'password'
-});
-
-// Google OAuth login
-const response = await authService.googleLogin({
-  token: googleToken,
-  user: googleUser
-});
-```
-
-## 📊 Analytics
-
-The app includes comprehensive analytics:
-
-- **Student Progress**: Track learning progress
-- **Coding Analytics**: Monitor coding performance
-- **Assessment Results**: View test scores and feedback
-- **Learning Paths**: AI-generated recommendations
+- **Minified JavaScript**: Reduced file sizes
+- **Optimized Assets**: Compressed images and fonts
+- **Tree Shaking**: Removed unused code
+- **Code Splitting**: Automatic route-based code splitting
+- **Source Maps**: For debugging (optional)
 
 ## 🚀 Deployment
 
-### Build for Production
+### Option 1: Vercel (Recommended)
 
+1. Install Vercel CLI:
+   ```bash
+   npm i -g vercel
+   ```
+
+2. Deploy:
+   ```bash
+   vercel
+   ```
+
+3. Or connect GitHub repository at [vercel.com](https://vercel.com)
+
+4. Configure:
+   - **Framework Preset**: Vite
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+   - **Install Command**: `npm install`
+   - **Environment Variables**: Add all `.env` variables
+
+### Option 2: Netlify
+
+1. Install Netlify CLI:
 ```bash
-# Create production build
-npm run build
+   npm i -g netlify-cli
+   ```
 
-# The build output will be in the `dist/` directory
-```
+2. Deploy:
+   ```bash
+   netlify deploy --prod
+   ```
 
-### Environment Variables
+3. Or connect GitHub repository at [netlify.com](https://netlify.com)
 
-Create a `.env` file for environment-specific configuration:
+4. Configure:
+   - **Build command**: `npm run build`
+   - **Publish directory**: `dist`
+   - **Environment variables**: Add in Netlify dashboard
+
+### Option 3: Manual Deployment
+
+1. Build the application:
+   ```bash
+   npm run build
+   ```
+
+2. The `dist/` folder contains all static files
+
+3. Upload `dist/` contents to any static hosting service:
+   - AWS S3 + CloudFront
+   - GitHub Pages
+   - Firebase Hosting
+   - Any web server (Nginx, Apache, etc.)
+
+### Environment Variables for Production
+
+Ensure all production environment variables are set in your hosting platform:
 
 ```env
-VITE_API_BASE_URL=http://localhost:5001
-VITE_GOOGLE_CLIENT_ID=your-google-client-id
+VITE_API_BASE_URL=https://api.yourdomain.com
+VITE_GOOGLE_CLIENT_ID=your-production-client-id
 ```
 
-### Deployment Platforms
-
-- **Vercel**: Optimized for React applications
-- **Netlify**: Simple static site deployment
-- **GitHub Pages**: Free hosting for public repositories
-
-## 🎯 Key Features
-
-### Student Features
-- **Dashboard**: Personalized learning overview
-- **Coding Platform**: Interactive coding challenges
-- **Assessments**: AI-generated tests and quizzes
-- **Progress Tracking**: Detailed analytics and insights
-- **Learning Paths**: Personalized recommendations
-
-### Teacher Features
-- **Assessment Creation**: AI-assisted question generation
-- **Student Management**: Monitor student progress
-- **Analytics Dashboard**: Track class performance
-- **Content Management**: Oversee AI-generated content
-
-### Admin Features
-- **User Management**: Comprehensive user administration
-- **System Analytics**: Platform-wide statistics
-- **Content Oversight**: Monitor and moderate content
-- **Role Management**: Granular permission system
+**Important**: Environment variables prefixed with `VITE_` are exposed to the browser. Never include sensitive information!
 
 ## 🆘 Troubleshooting
 
 ### Common Issues
 
-1. **Build Errors**: Check TypeScript types and imports
-2. **API Connection**: Verify backend is running and accessible
-3. **Authentication**: Check token storage and expiration
-4. **Styling**: Ensure Tailwind CSS is properly configured
+1. **Module Not Found Errors**
+   ```bash
+   # Clear cache and reinstall
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
 
-### Development Tips
+2. **Port Already in Use**
+   ```bash
+   # Change port in vite.config.js or use:
+   npm run dev -- --port 3000
+   ```
 
-- Use React DevTools for debugging
+3. **Build Errors**
+   - Check TypeScript errors: `npm run build`
+   - Fix linting errors: `npm run lint`
+   - Clear build cache: `rm -rf dist .vite`
+
+4. **API Connection Errors**
+   - Verify backend is running: http://localhost:5001/health/
+   - Check `VITE_API_BASE_URL` in `.env`
+   - Verify CORS settings on backend
 - Check browser console for errors
-- Verify API responses in Network tab
-- Use TypeScript for type safety
+
+5. **TypeScript Errors**
+   ```bash
+   # Check types
+   npx tsc --noEmit
+   ```
+
+6. **Dependency Conflicts**
+   ```bash
+   # Update dependencies
+   npm update
+   
+   # Or reinstall
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+7. **Slow Development Server**
+   - Close unnecessary browser tabs
+   - Disable browser extensions
+   - Check system resources (RAM, CPU)
+
+### Browser Compatibility
+
+- **Chrome**: Latest 2 versions
+- **Firefox**: Latest 2 versions
+- **Safari**: Latest 2 versions
+- **Edge**: Latest 2 versions
+
+### Performance Optimization
+
+1. **Code Splitting**: Already configured via React Router
+2. **Lazy Loading**: Use `React.lazy()` for route components
+3. **Image Optimization**: Use optimized image formats (WebP)
+4. **Bundle Analysis**: Use `npm run build -- --analyze` (if configured)
+
+## 🧪 Testing (Optional)
+
+If tests are set up:
+
+```bash
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm test -- --watch
+
+# Run tests with coverage
+npm test -- --coverage
+```
+
+## 📝 Additional Resources
+
+- [React Documentation](https://react.dev/)
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
+- [Vite Guide](https://vitejs.dev/guide/)
+- [Tailwind CSS Docs](https://tailwindcss.com/docs)
+- [React Router Docs](https://reactrouter.com/)
 
 ## 🤝 Contributing
 
 1. Follow React best practices
 2. Use TypeScript for type safety
-3. Write clean, maintainable code
-4. Add appropriate error handling
-5. Test components thoroughly
+3. Write clean, reusable components
+4. Follow existing code structure
+5. Update documentation as needed
 
-## 📚 Resources
+## 📄 License
 
-- [React Documentation](https://react.dev/)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [Tailwind CSS Docs](https://tailwindcss.com/docs)
-- [Vite Guide](https://vitejs.dev/guide/)
+MIT License - see LICENSE file for details
 
 ---
 
-**modLRN Frontend** - Building the future of education.
+**EDULEARN Frontend** - Building the future of education.

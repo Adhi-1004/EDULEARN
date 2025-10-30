@@ -19,6 +19,7 @@ requests==2.31.0
 # Data validation and serialization
 pydantic==2.5.0
 pydantic[email]==2.5.0
+pydantic-settings==2.1.0
 
 # Environment and configuration
 python-dotenv==1.0.0
