@@ -5,6 +5,19 @@ This script ensures proper module resolution and starts the server.
 """
 import sys
 import os
+
+# Load environment variables FIRST before any other imports
+from dotenv import load_dotenv
+
+# Load .env file - must be called before importing any modules that use environment variables
+load_dotenv()
+
+# Debug: Print HackerEarth secret to verify it's loaded (remove in production)
+client_secret = os.getenv("HACKEREARTH_CLIENT_SECRET")
+print(f"[DEBUG] SECRET: {'[OK] Set' if client_secret else '[ERROR] Not set'}")
+if client_secret:
+    print(f"[DEBUG] SECRET (first 10 chars): {client_secret[:10]}...")
+
 import subprocess
 
 def main():

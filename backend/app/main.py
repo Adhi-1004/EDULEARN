@@ -2,6 +2,19 @@
 FastAPI application entry point
 Main application configuration and startup
 """
+# Load environment variables FIRST before any other imports
+from dotenv import load_dotenv
+import os
+
+# Load .env file - must be called before importing any modules that use environment variables
+load_dotenv()
+
+# Debug: Print HackerEarth secret to verify it's loaded (remove in production)
+client_secret = os.getenv("HACKEREARTH_CLIENT_SECRET")
+print(f"DEBUG SECRET: {'Set' if client_secret else 'Not set'}")
+if client_secret:
+    print(f"DEBUG SECRET (first 10 chars): {client_secret[:10]}...")
+
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
@@ -119,8 +132,11 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code = 500
         content = {"detail": "Internal server error"}
         print(f"❌ [GLOBAL HANDLER] Unhandled exception: {type(exc).__name__}: {str(exc)}")
-        import traceback
-        traceback.print_exc()
+        # Only print full traceback in debug mode
+        import os
+        if os.getenv("DEBUG", "").lower() == "true" or os.getenv("LOG_LEVEL", "").upper() == "DEBUG":
+            import traceback
+            traceback.print_exc()
     
     response = JSONResponse(
         status_code=status_code,

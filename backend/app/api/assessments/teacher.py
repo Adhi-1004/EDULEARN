@@ -1003,6 +1003,61 @@ async def get_assigned_students_with_results(
         
         # Get students from batches
         assigned_students = []
+        
+        # Build comprehensive ID filters for submission lookup
+        id_filters = [{"assessment_id": assessment_id}]
+        if ObjectId.is_valid(assessment_id):
+            oid = ObjectId(assessment_id)
+            id_filters.append({"assessment_id": oid})
+            id_filters.append({"assessment_id": str(oid)})
+        
+        # Fetch all submissions at once for better performance
+        teacher_submissions = []
+        regular_submissions = []
+        try:
+            teacher_submissions = await db.teacher_assessment_results.find({"$or": id_filters}).to_list(length=None)
+        except Exception:
+            teacher_submissions = []
+        try:
+            regular_submissions = await db.assessment_submissions.find({"$or": id_filters}).to_list(length=None)
+        except Exception:
+            regular_submissions = []
+        
+        # Map submissions by student_id (handle both ObjectId and string formats)
+        submissions_by_student: dict[str, dict] = {}
+        for sub in teacher_submissions:
+            sid = sub.get("student_id")
+            if sid is None:
+                continue
+            sid_str = str(sid)
+            submission_data = {
+                "result_id": str(sub.get("_id")),
+                "score": sub.get("score", 0),
+                "percentage": sub.get("percentage", 0.0),
+                "time_taken": sub.get("time_taken", 0),
+                "submitted_at": sub.get("submitted_at")
+            }
+            submissions_by_student[sid_str] = submission_data
+            if ObjectId.is_valid(sid_str):
+                submissions_by_student[str(ObjectId(sid_str))] = submission_data
+        
+        for sub in regular_submissions:
+            sid = sub.get("student_id")
+            if sid is None:
+                continue
+            sid_str = str(sid)
+            if sid_str not in submissions_by_student:
+                submission_data = {
+                    "result_id": str(sub.get("_id")),
+                    "score": sub.get("score", 0),
+                    "percentage": sub.get("percentage", 0.0),
+                    "time_taken": sub.get("time_taken", 0),
+                    "submitted_at": sub.get("submitted_at")
+                }
+                submissions_by_student[sid_str] = submission_data
+                if ObjectId.is_valid(sid_str):
+                    submissions_by_student[str(ObjectId(sid_str))] = submission_data
+        
         for batch_id_str in batch_ids:
             try:
                 batch = await db.batches.find_one({"_id": ObjectId(batch_id_str)})
@@ -1010,30 +1065,29 @@ async def get_assigned_students_with_results(
                     student_ids = batch.get("student_ids", [])
                     for student_id in student_ids:
                         try:
-                            student = await db.users.find_one({"_id": ObjectId(student_id)})
+                            student = await db.users.find_one({"_id": ObjectId(student_id) if ObjectId.is_valid(student_id) else student_id})
                             if student:
-                                # Check if student has submitted
-                                submission = await db.assessment_submissions.find_one({
-                                    "assessment_id": assessment_id,
-                                    "student_id": student_id
-                                })
-                                if not submission:
-                                    submission = await db.teacher_assessment_results.find_one({
-                                        "assessment_id": assessment_id,
-                                        "student_id": student_id
-                                    })
+                                student_id_str = str(student_id)
+                                
+                                # Look up submission (try multiple ID formats)
+                                submission = submissions_by_student.get(student_id_str)
+                                if not submission and ObjectId.is_valid(student_id_str):
+                                    submission = submissions_by_student.get(str(ObjectId(student_id_str)))
+                                
+                                print(f"  - Student {student_id_str}: {'✅ Submitted' if submission else '❌ Not submitted'}")
                                 
                                 assigned_students.append({
                                     "student_id": str(student["_id"]),
-                                    "student_name": student.get("full_name", "Unknown"),
+                                    "student_name": student.get("full_name", student.get("username", "Unknown")),
                                     "student_email": student.get("email", ""),
                                     "submitted": submission is not None,
+                                    "present": submission is not None,  # Also include 'present' field for frontend
+                                    "result_id": submission.get("result_id") if submission else None,
                                     "score": submission.get("score", 0) if submission else 0,
-                                    "total_questions": submission.get("total_questions", 0) if submission else 0,
+                                    "total_questions": assessment.get("question_count", len(assessment.get("questions", []))),
                                     "percentage": submission.get("percentage", 0) if submission else 0,
                                     "time_taken": submission.get("time_taken", 0) if submission else 0,
-                                    "submitted_at": submission.get("submitted_at", None).isoformat() if submission and submission.get("submitted_at") else None,
-                                    "result_id": str(submission["_id"]) if submission else None
+                                    "submitted_at": (submission.get("submitted_at").isoformat() if hasattr(submission.get("submitted_at"), "isoformat") else submission.get("submitted_at")) if submission and submission.get("submitted_at") else None,
                                 })
                         except Exception as e:
                             print(f"Error processing student {student_id}: {e}")

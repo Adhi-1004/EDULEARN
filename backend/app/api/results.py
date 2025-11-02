@@ -346,8 +346,7 @@ async def submit_assessment_result(
         # Save to database
         result_id = await db.results.insert_one(result_data)
         
-        # Update user gamification data
-        await update_user_progress(db, str(current_user.id), correct_count, score, submission.total_questions)
+        # Gamification XP removed per user request
         
         print(f"[SUCCESS] [RESULTS] Assessment submitted for user {current_user.id}: {score:.1f}% ({correct_count}/{submission.total_questions})")
         
@@ -416,6 +415,13 @@ async def get_detailed_result(
                 assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
             if assessment:
                 questions = assessment.get("questions", questions)
+                print(f"[DEBUG] [RESULTS] Fetched assessment {assessment_id}, found {len(questions)} questions")
+                if questions and len(questions) > 0:
+                    # Check if first question has explanation
+                    first_q = questions[0]
+                    print(f"[DEBUG] [RESULTS] Sample question fields: {list(first_q.keys())}")
+                    print(f"[DEBUG] [RESULTS] Has explanation: {bool(first_q.get('explanation', ''))}")
+                    print(f"[DEBUG] [RESULTS] Has correct_answer: {first_q.get('correct_answer') is not None}")
                 topic = assessment.get("topic", assessment.get("subject", topic))
                 difficulty = assessment.get("difficulty", difficulty)
                 # default time limit in minutes -> convert to seconds if needed
@@ -428,9 +434,17 @@ async def get_detailed_result(
         if result_source == "assessment_submissions":
             assessment_id = result.get("assessment_id")
             assessment = await db.assessments.find_one({"_id": ObjectId(assessment_id)})
+            if not assessment:
+                # Also try teacher_assessments
+                assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
             if assessment:
                 questions = assessment.get("questions", questions)
-                topic = assessment.get("subject", topic)
+                print(f"[DEBUG] [RESULTS] Fetched assessment {assessment_id} from submissions, found {len(questions)} questions")
+                if questions and len(questions) > 0:
+                    first_q = questions[0]
+                    print(f"[DEBUG] [RESULTS] Sample question fields: {list(first_q.keys())}")
+                    print(f"[DEBUG] [RESULTS] Has explanation: {bool(first_q.get('explanation', ''))}")
+                topic = assessment.get("subject", assessment.get("topic", topic))
                 difficulty = assessment.get("difficulty", difficulty)
                 total_questions = assessment.get("question_count", len(questions))
             # ensure user_answers array exists
@@ -472,17 +486,37 @@ async def get_detailed_result(
             
             options = question.get("options", [])
             
-            # Normalize correct answer text
+            # Normalize correct answer text - try multiple field names and formats
             correct_answer = ""
-            correct_answer_index = question.get("correct_answer", -1)
+            correct_answer_index = question.get("correct_answer", question.get("answer_index", question.get("correct", -1)))
             
             # Handle different ways correct answer might be stored
+            # First, try integer index (most common format)
             if isinstance(correct_answer_index, int) and 0 <= correct_answer_index < len(options):
                 correct_answer = options[correct_answer_index]
-            elif "answer" in question:
-                correct_answer = question["answer"]
-            elif "correct" in question:
-                correct_answer = question["correct"]
+                print(f"[DEBUG] [RESULTS] Using index {correct_answer_index} -> '{correct_answer}'")
+            # Try direct answer text
+            elif "answer" in question and question["answer"]:
+                answer_val = question["answer"]
+                if isinstance(answer_val, int) and 0 <= answer_val < len(options):
+                    correct_answer = options[answer_val]
+                    correct_answer_index = answer_val
+                else:
+                    correct_answer = str(answer_val)
+                print(f"[DEBUG] [RESULTS] Using answer field -> '{correct_answer}'")
+            # Try "correct" field
+            elif "correct" in question and question["correct"]:
+                correct_val = question["correct"]
+                if isinstance(correct_val, int) and 0 <= correct_val < len(options):
+                    correct_answer = options[correct_val]
+                    correct_answer_index = correct_val
+                else:
+                    correct_answer = str(correct_val)
+                print(f"[DEBUG] [RESULTS] Using correct field -> '{correct_answer}'")
+            # Try "correct_option" field
+            elif "correct_option" in question and question["correct_option"]:
+                correct_answer = str(question["correct_option"])
+                print(f"[DEBUG] [RESULTS] Using correct_option field -> '{correct_answer}'")
             
             # If correct answer is just a letter (A, B, C, D), find the matching option
             if len(correct_answer) == 1 and correct_answer.isalpha():
@@ -508,18 +542,61 @@ async def get_detailed_result(
             print(f"  Correct answer text: '{correct_answer}'")
             print(f"  User answer raw: '{user_answer_raw}'")
             print(f"  User answer text: '{user_answer}'")
-            print(f"  Is correct: {user_answer == correct_answer}")
             
-            is_correct = user_answer == correct_answer
+            # Compare answers (normalize whitespace and case for comparison)
+            is_correct = False
+            if correct_answer and user_answer:
+                # Exact match
+                if user_answer.strip() == correct_answer.strip():
+                    is_correct = True
+                # Match by index if both are integers
+                elif isinstance(user_answer_raw, int) and isinstance(correct_answer_index, int):
+                    if user_answer_raw == correct_answer_index:
+                        is_correct = True
+                # Match option text even if formatted differently
+                elif len(options) > 0:
+                    user_idx = user_answer_raw if isinstance(user_answer_raw, int) else -1
+                    correct_idx = correct_answer_index if isinstance(correct_answer_index, int) else -1
+                    if user_idx >= 0 and correct_idx >= 0 and user_idx == correct_idx:
+                        is_correct = True
+                    elif user_idx >= 0 and correct_idx < 0:
+                        # User selected by index, correct answer is text - compare option text
+                        if user_idx < len(options) and options[user_idx].strip() == correct_answer.strip():
+                            is_correct = True
+            
+            print(f"  Is correct: {is_correct}")
+            
+            # Get explanation - try multiple field names
+            explanation = question.get("explanation", "")
+            if not explanation or explanation == "":
+                explanation = question.get("explain", "")
+            if not explanation or explanation == "":
+                explanation = question.get("solution", "")
+            if not explanation or explanation == "":
+                explanation = question.get("description", "")  # Sometimes stored as description
+            if not explanation or explanation == "":
+                explanation = "No explanation available for this question."
+            
+            print(f"[DEBUG] [RESULTS] Question {i+1} explanation: {'Found' if explanation and explanation != 'No explanation available for this question.' else 'Missing'}")
+            
+            # Ensure correct_answer_index is properly set if we found the answer
+            if correct_answer and correct_answer_index == -1:
+                # Try to find the index by matching the answer text
+                for idx, opt in enumerate(options):
+                    if opt.strip() == correct_answer.strip() or opt == correct_answer:
+                        correct_answer_index = idx
+                        break
             
             question_reviews.append({
                 "question_index": i,
-                "question": question["question"],
+                "question": question.get("question", ""),
                 "options": options,
                 "correct_answer": correct_answer,
+                "correct_answer_index": correct_answer_index if isinstance(correct_answer_index, int) and correct_answer_index >= 0 else -1,
                 "user_answer": user_answer,
+                "user_answer_index": user_answer_raw if isinstance(user_answer_raw, int) else -1,
                 "is_correct": is_correct,
-                "explanation": question.get("explanation", "")
+                "explanation": explanation
             })
         
         return {

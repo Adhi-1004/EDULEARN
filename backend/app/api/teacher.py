@@ -126,12 +126,11 @@ async def get_batch_overview(current_user: UserModel = Depends(require_teacher_o
         
         batch_list = []
         for batch in batches:
-            # Count students in this batch (handle both ObjectId and string batch_id)
+            # Count students in this batch (using batch_ids array)
+            batch_id_str = str(batch["_id"])
             student_count = await db.users.count_documents({
-                "$or": [
-                    {"batch_id": batch["_id"], "role": "student"},
-                    {"batch_id": str(batch["_id"]), "role": "student"}
-                ]
+                "batch_ids": batch_id_str,
+                "role": "student"
             })
             
             # Format created_at
@@ -171,7 +170,7 @@ async def get_students(
         # Build query filter
         filter_dict = {"role": "student"}
         if batch_id and batch_id != "all":
-            filter_dict["batch_id"] = batch_id
+            filter_dict["batch_ids"] = batch_id
         
         # Get students from database
         students_cursor = db.users.find(filter_dict)
@@ -197,12 +196,22 @@ async def get_students(
             else:
                 last_activity = str(last_activity)
             
-            # Get batch info
-            batch_name = "No Batch"
-            batch_id_str = None
-            if student.get("batch_id"):
-                batch_id_str = str(student["batch_id"]) if isinstance(student["batch_id"], ObjectId) else student["batch_id"]
-                batch_name = student.get("batch_name", "Unknown Batch")
+            # Get batch info (multi-batch support)
+            batch_ids = student.get("batch_ids", [])
+            batch_names_list = []
+            
+            for bid in batch_ids:
+                # Try to get batch name from database
+                try:
+                    if ObjectId.is_valid(bid):
+                        batch_doc = await db.batches.find_one({"_id": ObjectId(bid)})
+                    else:
+                        batch_doc = await db.batches.find_one({"_id": bid})
+                    if batch_doc:
+                        batch_names_list.append(batch_doc.get("name", "Unknown"))
+                except:
+                    pass
+            batch_name = ", ".join(batch_names_list) if batch_names_list else "No Batch"
             
             student_list.append({
                 "id": str(student["_id"]),
@@ -211,7 +220,8 @@ async def get_students(
                 "progress": round(progress, 2) if progress else 0,
                 "lastActive": last_activity,
                 "batch": batch_name,
-                "batchId": batch_id_str
+                "batchId": batch_ids[0] if batch_ids else None,  # First batch for backward compatibility
+                "batchIds": batch_ids  # All batches (multi-batch support)
             })
         
         return {"success": True, "students": student_list}
@@ -565,6 +575,7 @@ async def add_student_to_batch(
         
         if not student:
             # Create new student if they don't exist
+            print(f"[INFO] [TEACHER] Creating new student: {student_data.email}")
             from passlib.context import CryptContext
             pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
             
@@ -573,7 +584,7 @@ async def add_student_to_batch(
                 "username": student_data.name or student_data.email.split("@")[0],
                 "full_name": student_data.name or student_data.email.split("@")[0],
                 "role": "student",
-                "batch_id": ObjectId(student_data.batch_id),
+                "batch_ids": [student_data.batch_id],  # Multi-batch support: use array
                 "batch_name": batch["name"],
                 "created_at": datetime.utcnow(),
                 "last_login": None,
@@ -619,12 +630,26 @@ async def add_student_to_batch(
                 student_id=student_id
             )
         else:
-            # Update existing student's batch
+            # Student exists - add to batch (multi-batch support)
+            print(f"[INFO] [TEACHER] Student exists: {student_data.email}, adding to batch {batch['name']}")
+            
+            # Check if student is already in this batch
+            student_batch_ids = student.get("batch_ids", [])
+            if student_data.batch_id in student_batch_ids:
+                return StudentAddResponse(
+                    success=True,
+                    message=f"Student already exists in batch '{batch['name']}'",
+                    student_id=str(student["_id"])
+                )
+            
+            # Add student to new batch (multi-batch support)
             await db.users.update_one(
                 {"_id": student["_id"]},
                 {
+                    "$addToSet": {
+                        "batch_ids": student_data.batch_id  # Add to array, prevents duplicates
+                    },
                     "$set": {
-                        "batch_id": ObjectId(student_data.batch_id),
                         "batch_name": batch["name"],
                         "updated_at": datetime.utcnow()
                     }
@@ -656,7 +681,7 @@ async def add_student_to_batch(
             
             return StudentAddResponse(
                 success=True,
-                message=f"Student added to batch '{batch['name']}'",
+                message=f"Existing student added to batch '{batch['name']}'",
                 student_id=str(student["_id"])
             )
         
@@ -717,27 +742,22 @@ async def remove_student_from_batch(
                 detail="Student not found"
             )
         
-        # Check if student is actually in this batch
-        student_batch_id = student.get("batch_id")
-        if student_batch_id:
-            # Convert to string for comparison if it's an ObjectId
-            if hasattr(student_batch_id, '__str__'):
-                student_batch_id = str(student_batch_id)
+        # Check if student is actually in this batch (multi-batch support)
+        student_batch_ids = student.get("batch_ids", [])
         
-        if student_batch_id != student_data.batch_id:
-            print(f"[ERROR] [TEACHER] Student {student_data.student_id} is not in batch {student_data.batch_id}. Student is in batch: {student_batch_id}")
+        if student_data.batch_id not in student_batch_ids:
+            print(f"[ERROR] [TEACHER] Student {student_data.student_id} is not in batch {student_data.batch_id}. Student is in batches: {student_batch_ids}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Student is not in this batch"
             )
         
-        # Remove student from batch
+        # Remove student from this batch (multi-batch support)
         await db.users.update_one(
             {"_id": ObjectId(student_data.student_id)},
             {
-                "$unset": {
-                    "batch_id": "",
-                    "batch_name": ""
+                "$pull": {
+                    "batch_ids": student_data.batch_id  # Remove from array
                 },
                 "$set": {
                     "updated_at": datetime.utcnow()

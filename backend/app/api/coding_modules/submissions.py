@@ -69,8 +69,8 @@ async def submit_solution(
         print(f"📝 [CODING] Submitting solution for problem '{problem['title']}' by user {current_user.id}")
         
         # Test code against problem test cases
-        from app.services.judge0_execution_service import Judge0ExecutionService
-        execution_service = Judge0ExecutionService()
+        from app.services.hackerearth_execution_service import HackerEarthExecutionService
+        execution_service = HackerEarthExecutionService()
         
         test_results = []
         total_score = 0

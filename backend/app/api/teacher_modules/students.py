@@ -88,18 +88,19 @@ async def get_students(
             if not batch:
                 raise HTTPException(status_code=404, detail="Batch not found")
             
-            query["batch_id"] = ObjectId(batch_id)
+            # Query students in this batch
+            query["batch_ids"] = batch_id
         else:
             # Get all batches for this teacher
             teacher_batches = await db.batches.find({
                 "teacher_id": str(current_user.id)
             }).to_list(length=None)
             
-            batch_ids = [batch["_id"] for batch in teacher_batches]
-            if batch_ids:
-                query["batch_id"] = {"$in": batch_ids}
-            else:
+            if not teacher_batches:
                 return []  # No batches, no students
+            
+            batch_ids = [str(batch["_id"]) for batch in teacher_batches]
+            query["batch_ids"] = {"$in": batch_ids}
         
         # Get students
         students = await db.users.find(query).to_list(length=None)
@@ -109,19 +110,28 @@ async def get_students(
         # Format response
         student_list = []
         for student in students:
-            # Get batch name
-            batch_name = "Unassigned"
-            if student.get("batch_id"):
-                batch = await db.batches.find_one({"_id": student["batch_id"]})
-                if batch:
-                    batch_name = batch["name"]
+            # Get batch names (multi-batch support)
+            batch_ids = student.get("batch_ids", [])
+            batch_names = []
+            
+            for batch_id in batch_ids:
+                try:
+                    if ObjectId.is_valid(batch_id):
+                        batch = await db.batches.find_one({"_id": ObjectId(batch_id)})
+                    else:
+                        batch = await db.batches.find_one({"_id": batch_id})
+                    if batch:
+                        batch_names.append(batch["name"])
+                except:
+                    pass
             
             student_list.append({
                 "id": str(student["_id"]),
                 "name": student.get("username", student.get("email", "Unknown")),
                 "email": student["email"],
-                "batch_id": str(student.get("batch_id", "")),
-                "batch_name": batch_name,
+                "batch_ids": batch_ids,
+                "batch_names": batch_names,
+                "batch_name": ", ".join(batch_names) if batch_names else "Unassigned",  # Backward compatibility
                 "level": student.get("level", 1),
                 "xp": student.get("xp", 0),
                 "badges": student.get("badges", []),
@@ -389,23 +399,30 @@ async def remove_student_from_batch(
                 detail="Batch not found or you don't have permission to remove students from this batch"
             )
         
-        # Check if student exists and is in this batch
+        # Check if student exists
         student = await db.users.find_one({
             "_id": student_object_id,
-            "batch_id": batch_object_id,
             "role": "student"
         })
         
         if not student:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Student not found in this batch"
+                detail="Student not found"
+            )
+        
+        # Check if student is in this batch
+        student_batch_ids = student.get("batch_ids", [])
+        if student_data.batch_id not in student_batch_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Student is not in this batch"
             )
         
         # Remove student from batch
         await db.users.update_one(
             {"_id": student_object_id},
-            {"$unset": {"batch_id": "", "batch_name": ""}}
+            {"$pull": {"batch_ids": student_data.batch_id}}
         )
         
         # Remove student from batch's student_ids array
@@ -488,13 +505,15 @@ async def assign_students_to_batch(
                     failed_students.append(f"{student_id} (not found)")
                     continue
                 
-                # Update student's batch
+                # Add student to batch (multi-batch support)
                 await db.users.update_one(
                     {"_id": student_object_id},
                     {
+                        "$addToSet": {
+                            "batch_ids": assignment_data.batch_id  # Add to array, prevents duplicates
+                        },
                         "$set": {
-                            "batch_id": batch_object_id,
-                            "batch_name": batch["name"],
+                            "batch_name": batch["name"],  # Keep for backward compatibility
                             "updated_at": datetime.utcnow()
                         }
                     }

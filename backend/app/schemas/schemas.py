@@ -265,6 +265,7 @@ class CodingSolutionSubmit(BaseModel):
     problem_id: str
     code: str
     language: str
+    session_id: Optional[str] = None
 
 class CodingSolutionResponse(BaseModel):
     id: str

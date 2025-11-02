@@ -207,7 +207,7 @@ class CodingService {
    * Submit a coding solution
    */
   async submitSolution(solution: CodingSolutionSubmit): Promise<{ success: boolean; submission: CodingSolutionResponse }> {
-    const response = await api.post('/api/coding/submit', solution);
+    const response = await api.post('/api/coding/test-code', solution);
     return response.data;
   }
 

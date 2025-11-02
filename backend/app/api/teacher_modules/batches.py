@@ -293,7 +293,7 @@ async def get_batch_students(batch_id: str, current_user: UserModel = Depends(re
         
         # Get students in this batch
         students = await db.users.find({
-            "batch_id": ObjectId(batch_id),
+            "batch_ids": batch_id,
             "role": "student"
         }).to_list(length=None)
         

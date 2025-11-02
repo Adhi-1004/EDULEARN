@@ -27,10 +27,13 @@ interface TestResult {
 }
 
 interface QuestionResult {
+  question_index?: number
   question: string
   options: string[]
-  correct_answer: string
-  user_answer: string
+  correct_answer: string | number
+  correct_answer_index?: number
+  user_answer: string | number
+  user_answer_index?: number
   is_correct: boolean
   explanation?: string
 }
@@ -62,6 +65,18 @@ const TestResultDetail: React.FC = () => {
       if (response.data.success) {
         const resultData = response.data.result
         const reviews = response.data.question_reviews || []
+        
+        console.log("📊 [RESULT DETAIL] Full response:", response.data)
+        console.log("📊 [RESULT DETAIL] Question reviews:", reviews)
+        if (reviews.length > 0) {
+          console.log("📊 [RESULT DETAIL] Sample review:", reviews[0])
+          console.log("📊 [RESULT DETAIL] Sample review keys:", Object.keys(reviews[0]))
+          console.log("📊 [RESULT DETAIL] Correct answer:", reviews[0].correct_answer)
+          console.log("📊 [RESULT DETAIL] Correct answer index:", reviews[0].correct_answer_index)
+          console.log("📊 [RESULT DETAIL] User answer:", reviews[0].user_answer)
+          console.log("📊 [RESULT DETAIL] User answer index:", reviews[0].user_answer_index)
+          console.log("📊 [RESULT DETAIL] Explanation:", reviews[0].explanation)
+        }
         
         setResult({
           submission_id: resultData.id,
@@ -277,8 +292,40 @@ const TestResultDetail: React.FC = () => {
                       {/* Options */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {question.options.map((option, optIndex) => {
-                          const isCorrectAnswer = option === question.correct_answer
-                          const isUserAnswer = option === question.user_answer
+                          // Handle correct answer matching - check both text and index
+                          let isCorrectAnswer = false
+                          if (question.correct_answer !== undefined && question.correct_answer !== null) {
+                            // If correct_answer is text, compare directly
+                            if (typeof question.correct_answer === 'string') {
+                              isCorrectAnswer = option.trim() === question.correct_answer.trim()
+                            }
+                            // If correct_answer_index is provided and matches
+                            else if (question.correct_answer_index !== undefined && question.correct_answer_index === optIndex) {
+                              isCorrectAnswer = true
+                            }
+                            // If correct_answer is the same as option index
+                            else if (typeof question.correct_answer === 'number' && question.correct_answer === optIndex) {
+                              isCorrectAnswer = true
+                            }
+                          }
+                          
+                          // Handle user answer matching - check both text and index
+                          let isUserAnswer = false
+                          if (question.user_answer !== undefined && question.user_answer !== null) {
+                            // If user_answer is text, compare directly
+                            if (typeof question.user_answer === 'string') {
+                              isUserAnswer = option.trim() === question.user_answer.trim()
+                            }
+                            // If user_answer_index is provided and matches
+                            else if (question.user_answer_index !== undefined && question.user_answer_index === optIndex) {
+                              isUserAnswer = true
+                            }
+                            // If user_answer is the same as option index
+                            else if (typeof question.user_answer === 'number' && question.user_answer === optIndex) {
+                              isUserAnswer = true
+                            }
+                          }
+                          
                           const isWrongUserAnswer = isUserAnswer && !question.is_correct
                           
                           return (
@@ -330,7 +377,7 @@ const TestResultDetail: React.FC = () => {
                       </div>
 
                       {/* Explanation */}
-                      {question.explanation && (
+                      {(question.explanation && question.explanation.trim() !== '' && question.explanation !== 'No explanation available for this question.') ? (
                         <div className="mt-6 p-4 bg-blue-800/20 rounded-xl border border-blue-500/30">
                           <div className="flex items-start space-x-3">
                             <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -340,6 +387,20 @@ const TestResultDetail: React.FC = () => {
                               <h5 className="text-blue-200 font-semibold mb-2">Explanation</h5>
                               <p className="text-blue-300 text-sm leading-relaxed">
                                 {question.explanation}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-6 p-4 bg-gray-800/20 rounded-xl border border-gray-600/30">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-6 h-6 rounded-full bg-gray-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <span className="text-gray-400 text-sm">ℹ️</span>
+                            </div>
+                            <div>
+                              <h5 className="text-gray-300 font-semibold mb-2">Explanation</h5>
+                              <p className="text-gray-400 text-sm leading-relaxed italic">
+                                No explanation available for this question.
                               </p>
                             </div>
                           </div>

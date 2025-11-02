@@ -60,6 +60,7 @@ async def create_indexes():
         await db.users.create_index([("username", 1)])
         await db.users.create_index([("role", 1)])
         await db.users.create_index([("created_at", 1)])
+        await db.users.create_index([("batch_ids", 1)])  # Multi-batch support
         
         # Assessments collection indexes
         await db.assessments.create_index([("created_by", 1)])

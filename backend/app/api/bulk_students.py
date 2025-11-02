@@ -43,9 +43,11 @@ class BulkUploadResponse(BaseModel):
     success: bool
     total_rows: int
     successful_imports: int
+    updated_count: int = 0
     failed_imports: int
     errors: List[Dict[str, Any]]
     created_students: List[Dict[str, str]]
+    updated_students: List[Dict[str, str]] = []
     batch_id: Optional[str] = None
 
 class BulkUploadRequest(BaseModel):
@@ -187,17 +189,46 @@ async def create_student_accounts(
 ) -> List[Dict[str, Any]]:
     """Create student accounts and return results"""
     created_students = []
+    updated_students = []
     errors = []
     
     for student in students_data:
         try:
-            # Check for duplicates
+            # Check if student already exists
             if student['email'] in existing_data['existing_emails']:
-                errors.append({
-                    "row": str(student['row']),
-                    "email": student['email'],
-                    "error": "Email already exists"
-                })
+                # Student exists - add them to the new batch instead of error
+                existing_student = await db.users.find_one({"email": student['email']})
+                if existing_student:
+                    student_id = str(existing_student["_id"])
+                    
+                    # Add batch to student's batch_ids (multi-batch support)
+                    result = await db.users.update_one(
+                        {"_id": existing_student["_id"]},
+                        {"$addToSet": {"batch_ids": batch_id}}
+                    )
+                    
+                    # Add student to batch's student_ids
+                    await db.batches.update_one(
+                        {"_id": ObjectId(batch_id)},
+                        {"$addToSet": {"student_ids": student_id}}
+                    )
+                    
+                    if result.modified_count > 0:
+                        updated_students.append({
+                            "id": student_id,
+                            "name": student['name'],
+                            "email": student['email'],
+                            "row": str(student['row']),
+                            "status": "Added to new batch"
+                        })
+                    else:
+                        updated_students.append({
+                            "id": student_id,
+                            "name": student['name'],
+                            "email": student['email'],
+                            "row": str(student['row']),
+                            "status": "Already in this batch"
+                        })
                 continue
             
             if student['roll_number'] in existing_data['existing_rolls']:
@@ -211,13 +242,13 @@ async def create_student_accounts(
             # Create password hash from roll number
             password_hash = get_password_hash(student['roll_number'])
             
-            # Create student document
+            # Create student document (using batch_ids array for multi-batch support)
             student_doc = {
                 "username": student['email'],  # Use email as username
                 "email": student['email'],
                 "password_hash": password_hash,
                 "role": "student",
-                "batch_id": batch_id,
+                "batch_ids": [batch_id],  # Multi-batch support: use array
                 "roll_number": student['roll_number'],
                 "full_name": student['name'],
                 "is_active": True,
@@ -230,6 +261,13 @@ async def create_student_accounts(
             
             # Insert student
             result = await db.users.insert_one(student_doc)
+            student_id = str(result.inserted_id)
+            
+            # Add student to batch's student_ids array
+            await db.batches.update_one(
+                {"_id": ObjectId(batch_id)},
+                {"$addToSet": {"student_ids": student_id}}
+            )
             
             created_students.append({
                 "id": str(result.inserted_id),
@@ -246,7 +284,7 @@ async def create_student_accounts(
                 "error": f"Account creation failed: {str(e)}"
             })
     
-    return created_students, errors
+    return created_students, updated_students, errors
 
 @router.post("/upload", response_model=BulkUploadResponse)
 async def bulk_upload_students(
@@ -289,7 +327,7 @@ async def bulk_upload_students(
         print(f"📊 [BULK_UPLOAD] Found {len(existing_data['existing_emails'])} existing emails, {len(existing_data['existing_rolls'])} existing roll numbers")
         
         # Create student accounts
-        created_students, creation_errors = await create_student_accounts(
+        created_students, updated_students, creation_errors = await create_student_accounts(
             db, students_data, batch_id, existing_data
         )
         
@@ -297,7 +335,7 @@ async def bulk_upload_students(
         all_errors = validation_errors + creation_errors
         
         # Update batch student count
-        if created_students:
+        if created_students or updated_students:
             await db.batches.update_one(
                 {"_id": ObjectId(batch_id)},
                 {"$inc": {"student_count": len(created_students)}}
@@ -310,22 +348,26 @@ async def bulk_upload_students(
             "uploaded_at": datetime.utcnow(),
             "total_rows": len(df),
             "successful_imports": len(created_students),
+            "updated_imports": len(updated_students),
             "failed_imports": len(all_errors),
             "file_name": file.filename,
             "created_students": created_students,
+            "updated_students": updated_students,
             "errors": all_errors
         }
         await db.bulk_uploads.insert_one(bulk_record)
         
-        print(f"✅ [BULK_UPLOAD] Completed: {len(created_students)} students created, {len(all_errors)} errors")
+        print(f"✅ [BULK_UPLOAD] Completed: {len(created_students)} created, {len(updated_students)} updated, {len(all_errors)} errors")
         
         return BulkUploadResponse(
-            success=len(created_students) > 0,
+            success=(len(created_students) + len(updated_students)) > 0,
             total_rows=len(df),
             successful_imports=len(created_students),
+            updated_count=len(updated_students),
             failed_imports=len(all_errors),
             errors=all_errors,
             created_students=created_students,
+            updated_students=updated_students,
             batch_id=batch_id
         )
         

@@ -56,8 +56,7 @@ class Settings(BaseSettings):
     code_execution_timeout: int = 5
     code_memory_limit: int = 256
 
-    judge0_api_key: str = os.getenv("JUDGE0_API_KEY", "")
-    judge0_api_host: str = os.getenv("JUDGE0_API_HOST", "judge0-ce.p.rapidapi.com")
+    hackerearth_client_secret: str = os.getenv("HACKEREARTH_CLIENT_SECRET", "")
 
     session_secret: str = os.getenv(
         "SESSION_SECRET", "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"

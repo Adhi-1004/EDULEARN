@@ -26,10 +26,6 @@ interface AssessmentHistoryProps {
 const AssessmentHistory: React.FC<AssessmentHistoryProps> = ({
   recentAssessments
 }) => {
-  const handleViewAssessment = (assessmentId: string) => {
-    window.location.assign(`/teacher/assessment/${assessmentId}/results`)
-  }
-
   const handleViewHistory = () => {
     window.location.assign('/teacher/assessment-history')
   }
@@ -76,13 +72,6 @@ const AssessmentHistory: React.FC<AssessmentHistoryProps> = ({
                       </div>
                     )}
                   </div>
-                  <Button 
-                    variant="primary" 
-                    size="sm" 
-                    onClick={() => handleViewAssessment(assessment.id)}
-                  >
-                    View Results
-                  </Button>
                 </div>
               ))}
             </div>

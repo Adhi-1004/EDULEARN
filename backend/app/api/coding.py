@@ -21,7 +21,7 @@ from ..models.models import (
 from ..dependencies import get_current_user_id, get_current_user
 from ..dependencies import require_student, require_teacher, require_admin
 from ..services.gemini_coding_service import gemini_coding_service
-from ..services.judge0_execution_service import judge0_execution_service
+from ..services.hackerearth_execution_service import hackerearth_execution_service, get_hackerearth_service
 
 router = APIRouter()
 
@@ -253,9 +253,22 @@ async def execute_code(
 ):
     """Execute code with test cases"""
     try:
-        print(f"⚡ [CODING] User {user_id} executing {request.language} code via Judge0")
-        # Use Judge0 for deterministic execution against provided test cases
-        judge_results = judge0_execution_service.run_tests(
+        print(f"⚡ [CODING] User {user_id} executing {request.language} code via HackerEarth")
+        
+        # Check if HackerEarth service is available
+        if not hackerearth_execution_service:
+            try:
+                service = get_hackerearth_service()
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Code execution service is not configured. Please contact the administrator."
+                )
+        else:
+            service = hackerearth_execution_service
+            
+        # Use HackerEarth for deterministic execution against provided test cases
+        judge_results = service.run_tests(
             language=request.language,
             code=request.code,
             test_cases=request.test_cases or []
@@ -275,15 +288,39 @@ async def execute_code(
             "error": None if passed == total else next((r.get("error") for r in judge_results if r.get("error")), None),
         }
 
-        print(f"[OK] [CODING] Judge0 execution completed - Passed {passed}/{total}")
+        print(f"[OK] [CODING] HackerEarth execution completed - Passed {passed}/{total}")
 
         return {"success": True, "execution_result": execution_result}
         
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except ValueError as e:
+        # Configuration errors should return 503 Service Unavailable
+        error_msg = str(e)
+        if "HACKEREARTH_CLIENT_SECRET" in error_msg:
+            print(f"[ERROR] [CODING] Configuration error: {error_msg}")
+            raise HTTPException(
+                status_code=503,
+                detail="Code execution service is not properly configured. Please contact the administrator."
+            )
+        else:
+            print(f"[ERROR] [CODING] Validation error: {error_msg}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid request: {error_msg}"
+            )
     except Exception as e:
-        print(f"[ERROR] [CODING] Code execution failed: {str(e)}")
+        error_msg = str(e)
+        print(f"[ERROR] [CODING] Code execution failed: {error_msg}")
+        # Only print full traceback in debug mode or for unexpected errors
+        import os
+        if os.getenv("DEBUG", "").lower() == "true" or os.getenv("LOG_LEVEL", "").upper() == "DEBUG":
+            import traceback
+            traceback.print_exc()
         raise HTTPException(
             status_code=500,
-            detail=f"Code execution failed: {str(e)}"
+            detail=f"Code execution failed: {error_msg}"
         )
 
 @router.post("/test-code")
@@ -318,8 +355,19 @@ async def test_code_against_problem(
         if not all_test_cases:
             raise HTTPException(status_code=400, detail="No test cases available for this problem")
         
-        # Execute code with all test cases via Judge0
-        judge_results = judge0_execution_service.run_tests(
+        # Execute code with all test cases via HackerEarth
+        if not hackerearth_execution_service:
+            try:
+                service = get_hackerearth_service()
+            except ValueError:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Code execution service is not configured. Please contact the administrator."
+                )
+        else:
+            service = hackerearth_execution_service
+            
+        judge_results = service.run_tests(
             language=language,
             code=code,
             test_cases=all_test_cases
@@ -368,9 +416,27 @@ async def test_code_against_problem(
         return {"success": True, "execution_result": execution_result}
         
     except HTTPException:
+        # Re-raise HTTP exceptions as-is
         raise
+    except ValueError as e:
+        # Configuration errors should return 503 Service Unavailable
+        error_msg = str(e)
+        if "HACKEREARTH_CLIENT_SECRET" in error_msg:
+            print(f"[ERROR] [CODING] Configuration error: {error_msg}")
+            raise HTTPException(
+                status_code=503,
+                detail="Code execution service is not properly configured. Please contact the administrator."
+            )
+        else:
+            print(f"[ERROR] [CODING] Validation error: {error_msg}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid request: {error_msg}"
+            )
     except Exception as e:
         print(f"[ERROR] [CODING] Code testing failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Code testing failed: {str(e)}"
@@ -385,6 +451,7 @@ async def submit_solution(
     """Submit a coding solution for evaluation"""
     try:
         print(f"[SEND] [CODING] User {user_id} submitting solution for problem: {solution.problem_id}")
+        print(f"[DEBUG] [CODING] Submission data - Language: {solution.language}, Code length: {len(solution.code)}, Session ID: {solution.session_id}")
         
         db = await get_db()
         
@@ -398,8 +465,19 @@ async def submit_solution(
         hidden_cases = problem.get("hidden_test_cases") or []
         all_test_cases = visible_cases + hidden_cases
         
-        # Execute code with all test cases via Judge0
-        judge_results = judge0_execution_service.run_tests(
+        # Execute code with all test cases via HackerEarth
+        if not hackerearth_execution_service:
+            try:
+                service = get_hackerearth_service()
+            except ValueError:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Code execution service is not configured. Please contact the administrator."
+                )
+        else:
+            service = hackerearth_execution_service
+            
+        judge_results = service.run_tests(
             language=solution.language,
             code=solution.code,
             test_cases=all_test_cases
@@ -460,6 +538,23 @@ async def submit_solution(
         result = await db.coding_solutions.insert_one(solution_doc)
         solution_doc["_id"] = result.inserted_id
         
+        # Update coding session if session_id provided
+        if solution.session_id:
+            try:
+                await db.coding_sessions.update_one(
+                    {"_id": ObjectId(solution.session_id), "user_id": ObjectId(user_id)},
+                    {
+                        "$inc": {"submissions": 1},
+                        "$set": {
+                            "last_submission_status": status,
+                            "updated_at": datetime.utcnow()
+                        }
+                    }
+                )
+                print(f"[OK] [CODING] Updated session {solution.session_id} with submission status: {status}")
+            except Exception as session_err:
+                print(f"[WARN] [CODING] Failed to update session {solution.session_id}: {str(session_err)}")
+        
         # Gamification XP removed per user request
         
         # Schedule background tasks for AI feedback and analytics update
@@ -488,8 +583,28 @@ async def submit_solution(
             }
         }
         
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except ValueError as e:
+        # Configuration errors should return 503 Service Unavailable
+        error_msg = str(e)
+        if "HACKEREARTH_CLIENT_SECRET" in error_msg:
+            print(f"[ERROR] [CODING] Configuration error: {error_msg}")
+            raise HTTPException(
+                status_code=503,
+                detail="Code execution service is not properly configured. Please contact the administrator."
+            )
+        else:
+            print(f"[ERROR] [CODING] Validation error: {error_msg}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid request: {error_msg}"
+            )
     except Exception as e:
         print(f"[ERROR] [CODING] Solution submission failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Solution submission failed: {str(e)}"

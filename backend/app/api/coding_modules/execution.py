@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from bson import ObjectId
+from pydantic import BaseModel
 from ...db import get_db
 from ...dependencies import get_current_user
 from ...models.models import UserModel
@@ -13,7 +14,7 @@ from ...models.models import UserModel
 router = APIRouter(prefix="/coding", tags=["coding-execution"])
 
 # Response Models
-class ExecutionResponse:
+class ExecutionResponse(BaseModel):
     status: str
     output: str
     error: Optional[str]
@@ -21,7 +22,7 @@ class ExecutionResponse:
     memory_used: int
     test_results: List[Dict]
 
-class TestResponse:
+class TestResponse(BaseModel):
     status: str
     test_results: List[Dict]
     score: int
@@ -46,15 +47,31 @@ async def execute_code(
         
         print(f"🔧 [CODING] Executing {language} code for user {current_user.id}")
         
-        # Execute code using Judge0 service
-        from app.services.judge0_execution_service import Judge0ExecutionService
-        execution_service = Judge0ExecutionService()
+        # Execute code using HackerEarth service
+        from app.services.hackerearth_execution_service import HackerEarthExecutionService
+        execution_service = HackerEarthExecutionService()
         
-        result = await execution_service.execute_code(
+        # 'input_data' from the frontend is just a single string.
+        # The run_tests service expects a list of test cases.
+        # We must wrap the single input into a test case structure.
+        test_case = {"input": input_data, "output": ""}
+        
+        results = execution_service.run_tests(
             code=code,
             language=language,
-            input_data=input_data
+            test_cases=[test_case]
         )
+        
+        # Get the result for our single test case
+        result = results[0] if results else {}
+        
+        # Determine status from the result
+        status = "success" if result.get("passed", False) else "failed"
+        if result.get("error"):
+            if "Compilation" in result.get("error", ""):
+                status = "compile_error"
+            elif "Runtime" in result.get("error", ""):
+                status = "runtime_error"
         
         # Store execution log
         execution_log = {
@@ -65,20 +82,20 @@ async def execute_code(
             "output": result.get("output", ""),
             "error": result.get("error", ""),
             "execution_time": result.get("execution_time", 0),
-            "memory_used": result.get("memory_used", 0),
-            "status": result.get("status", "unknown"),
+            "memory_used": result.get("memory", 0),  # Note: service returns "memory", not "memory_used"
+            "status": status,
             "executed_at": datetime.utcnow()
         }
         
         await db.code_executions.insert_one(execution_log)
         
         return ExecutionResponse(
-            status=result.get("status", "unknown"),
+            status=status,
             output=result.get("output", ""),
             error=result.get("error"),
             execution_time=result.get("execution_time", 0),
-            memory_used=result.get("memory_used", 0),
-            test_results=result.get("test_results", [])
+            memory_used=result.get("memory", 0),  # Note: service returns "memory"
+            test_results=[]  # Single execution doesn't have test_results
         )
         
     except Exception as e:
@@ -126,35 +143,37 @@ async def test_code_against_problem(
         total_score = 0
         max_score = len(problem["test_cases"]) * 10  # Assuming 10 points per test case
         
-        for i, test_case in enumerate(problem["test_cases"]):
-            try:
-                result = await execution_service.execute_code(
-                    code=code,
-                    language=language,
-                    input_data=test_case["input"]
-                )
-                
-                # Check if output matches expected output
-                expected_output = test_case["expected_output"].strip()
+        # Execute all test cases in batch using run_tests
+        try:
+            all_results = execution_service.run_tests(
+                code=code,
+                language=language,
+                test_cases=problem["test_cases"]
+            )
+            
+            # Process results from the batch execution
+            for i, result in enumerate(all_results):
+                expected_output = result.get("expected", "").strip()
                 actual_output = result.get("output", "").strip()
                 
-                test_passed = expected_output == actual_output
+                test_passed = result.get("passed", False)
                 test_score = 10 if test_passed else 0
                 total_score += test_score
                 
                 test_results.append({
                     "test_case": i + 1,
-                    "input": test_case["input"],
+                    "input": result.get("input", ""),
                     "expected_output": expected_output,
                     "actual_output": actual_output,
                     "passed": test_passed,
                     "score": test_score,
                     "execution_time": result.get("execution_time", 0),
-                    "memory_used": result.get("memory_used", 0),
+                    "memory_used": result.get("memory", 0),
                     "error": result.get("error", "")
                 })
-                
-            except Exception as e:
+        except Exception as e:
+            # If batch execution fails, create failed results for all test cases
+            for i, test_case in enumerate(problem["test_cases"]):
                 test_results.append({
                     "test_case": i + 1,
                     "input": test_case["input"],
@@ -229,24 +248,30 @@ async def validate_syntax(
         if not code.strip():
             raise HTTPException(status_code=400, detail="Code cannot be empty")
         
-        # Use Judge0 for syntax validation
-        from app.services.judge0_execution_service import Judge0ExecutionService
-        execution_service = Judge0ExecutionService()
+        # Use HackerEarth for syntax validation
+        from app.services.hackerearth_execution_service import HackerEarthExecutionService
+        execution_service = HackerEarthExecutionService()
         
         # Execute with empty input to check syntax
-        result = await execution_service.execute_code(
+        test_case = {"input": "", "output": ""}
+        results = execution_service.run_tests(
             code=code,
             language=language,
-            input_data=""
+            test_cases=[test_case]
         )
+        result = results[0] if results else {}
         
         # Check if there are syntax errors
-        has_syntax_error = result.get("status") == "compile_error" or bool(result.get("error"))
+        has_syntax_error = bool(result.get("error"))
+        
+        # Determine status from debug_info
+        debug_info = result.get("debug_info", {})
+        status_description = debug_info.get("status", "unknown")
         
         return {
             "valid": not has_syntax_error,
             "error": result.get("error", "") if has_syntax_error else None,
-            "status": result.get("status", "unknown")
+            "status": status_description
         }
         
     except Exception as e:

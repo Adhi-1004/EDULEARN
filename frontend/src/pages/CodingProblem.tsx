@@ -13,6 +13,7 @@ import { ANIMATION_VARIANTS } from "../utils/constants"
 import PageShell from "../components/ui/PageShell"
 import Button from "../components/ui/Button"
 import LoadingSpinner from "../components/ui/LoadingSpinner"
+import Card from "../components/ui/Card"
 
 interface CodingProblemPageProps {
   user: User
@@ -36,7 +37,6 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
   const [keystrokes, setKeystrokes] = useState(0)
   const [startTime] = useState(Date.now())
   const [autocompleteEnabled, setAutocompleteEnabled] = useState(true)
-  const [useJudge0, setUseJudge0] = useState(false)
   const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set())
 
   const languages = [
@@ -183,7 +183,6 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
         language,
         test_cases: testCases,
         timeout: 10,
-        use_judge0: useJudge0,
       })
 
       console.log("🔍 [EXECUTION] Response:", response.data)
@@ -278,7 +277,6 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
         language,
         test_cases: testCasesToUse,
         timeout: 10,
-        use_judge0: useJudge0,
       })
 
       const exec = testResponse.data.execution_result || testResponse.data
@@ -350,8 +348,27 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
       }
     } catch (error: any) {
       console.error("Submission error:", error)
-      const errorMessage =
-        error.response?.data?.detail || error.response?.data?.error || "Failed to submit solution. Please try again."
+      
+      // Handle validation errors from FastAPI (422 status)
+      let errorMessage = "Failed to submit solution. Please try again."
+      
+      if (error.response?.data?.detail) {
+        const detail = error.response.data.detail
+        // Check if detail is an array of validation errors
+        if (Array.isArray(detail)) {
+          errorMessage = detail.map((err: any) => {
+            const field = err.loc?.join('.') || 'field'
+            return `${field}: ${err.msg || 'Invalid value'}`
+          }).join(', ')
+        } else if (typeof detail === 'string') {
+          errorMessage = detail
+        } else if (typeof detail === 'object') {
+          errorMessage = detail.msg || detail.message || JSON.stringify(detail)
+        }
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error
+      }
+      
       showError(errorMessage)
 
       // Update session with error
@@ -488,8 +505,8 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
           }
         >
           <div className="text-6xl mb-4">❌</div>
-          <h2 className="text-2xl font-bold text-purple-200 mb-2">Problem Not Found</h2>
-          <p className="text-purple-300 mb-6">The requested problem could not be loaded.</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Problem Not Found</h2>
+          <p className="text-foreground mb-6">The requested problem could not be loaded.</p>
         </PageShell>
       </div>
     )
@@ -519,37 +536,37 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
               className="overflow-visible"
               style={{ minHeight: "600px" }}
             >
-              <div className="p-6 h-full">
+              <Card className="p-6 h-full" hover={false}>
                 {/* Description */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-purple-200 mb-3">Description</h3>
-                  <p className="text-purple-300 leading-relaxed whitespace-pre-line">{problem.description}</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-3">Description</h3>
+                  <p className="text-foreground leading-relaxed whitespace-pre-line">{problem.description}</p>
                 </div>
 
                 {/* Examples */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-purple-200 mb-3">Examples</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-3">Examples</h3>
                   <div className="space-y-4">
                     {problem.examples.map((example, index) => (
-                      <div key={index} className="bg-purple-900/20 rounded-lg p-4">
-                        <div className="font-semibold text-purple-200 mb-2">Example {index + 1}:</div>
-                        <div className="space-y-2 text-sm">
+                      <div key={index} className="space-y-2 text-sm">
+                        <div className="font-semibold text-foreground mb-2">Example {index + 1}:</div>
+                        <div className="space-y-2">
                           <div>
-                            <span className="text-purple-300">Input: </span>
-                            <code className="text-purple-100 bg-purple-800/30 px-2 py-1 rounded">
+                            <span className="text-foreground">Input: </span>
+                            <span className="text-foreground font-mono">
                               {typeof example.input === "string" ? example.input : JSON.stringify(example.input)}
-                            </code>
+                            </span>
                           </div>
                           <div>
-                            <span className="text-purple-300">Output: </span>
-                            <code className="text-purple-100 bg-purple-800/30 px-2 py-1 rounded">
+                            <span className="text-foreground">Output: </span>
+                            <span className="text-foreground font-mono">
                               {typeof example.output === "string" ? example.output : JSON.stringify(example.output)}
-                            </code>
+                            </span>
                           </div>
                           {example.explanation && (
                             <div>
-                              <span className="text-purple-300">Explanation: </span>
-                              <span className="text-purple-200">{example.explanation}</span>
+                              <span className="text-foreground">Explanation: </span>
+                              <span className="text-foreground">{example.explanation}</span>
                             </div>
                           )}
                         </div>
@@ -561,23 +578,23 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                 {/* Test Cases */}
                 {problem.test_cases && problem.test_cases.length > 0 && (
                   <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-purple-200 mb-3">Test Cases</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-3">Test Cases</h3>
                     <div className="space-y-4">
                       {problem.test_cases.map((testCase, index) => (
-                        <div key={index} className="bg-blue-900/20 rounded-lg p-4 border border-blue-500/30">
-                          <div className="font-semibold text-blue-200 mb-2">Test Case {index + 1}:</div>
-                          <div className="space-y-2 text-sm">
+                        <div key={index} className="space-y-2 text-sm">
+                          <div className="font-semibold text-foreground mb-2">Test Case {index + 1}:</div>
+                          <div className="space-y-2">
                             <div>
-                              <span className="text-blue-300">Input: </span>
-                              <code className="text-blue-100 bg-blue-800/30 px-2 py-1 rounded font-mono">
+                              <span className="text-foreground">Input: </span>
+                              <span className="text-foreground font-mono">
                                 {typeof testCase.input === "string" ? testCase.input : JSON.stringify(testCase.input)}
-                              </code>
+                              </span>
                             </div>
                             <div>
-                              <span className="text-blue-300">Expected Output: </span>
-                              <code className="text-blue-100 bg-blue-800/30 px-2 py-1 rounded font-mono">
+                              <span className="text-foreground">Expected Output: </span>
+                              <span className="text-foreground font-mono">
                                 {typeof testCase.output === "string" ? testCase.output : JSON.stringify(testCase.output)}
-                              </code>
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -588,10 +605,10 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
 
                 {/* Constraints */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-purple-200 mb-3">Constraints</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-3">Constraints</h3>
                   <ul className="space-y-1">
                     {problem.constraints.map((constraint, index) => (
-                      <li key={index} className="text-purple-300 text-sm">
+                      <li key={index} className="text-foreground text-sm">
                         • {constraint}
                       </li>
                     ))}
@@ -601,7 +618,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                 {/* Hints */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-purple-200">
+                    <h3 className="text-lg font-semibold text-foreground">
                       Hints ({hintsUsed}/{problem.hints.length})
                     </h3>
                     {hintsUsed < problem.hints.length && (
@@ -632,23 +649,23 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
 
                 {/* Expected Complexity */}
                 <div>
-                  <h3 className="text-lg font-semibold text-purple-200 mb-3">Expected Complexity</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-3">Expected Complexity</h3>
                   <div className="flex space-x-4 text-sm">
                     <div>
-                      <span className="text-purple-300">Time: </span>
-                      <code className="text-purple-100 bg-purple-800/30 px-2 py-1 rounded">
+                      <span className="text-foreground">Time: </span>
+                      <code className="text-foreground bg-muted px-2 py-1 rounded border border-border">
                         {problem.expected_complexity.time}
                       </code>
                     </div>
                     <div>
-                      <span className="text-purple-300">Space: </span>
-                      <code className="text-purple-100 bg-purple-800/30 px-2 py-1 rounded">
+                      <span className="text-foreground">Space: </span>
+                      <code className="text-foreground bg-muted px-2 py-1 rounded border border-border">
                         {problem.expected_complexity.space}
                       </code>
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             </motion.div>
 
             {/* Code Editor */}
@@ -666,7 +683,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                       <select
                         value={language}
                         onChange={(e) => setLanguage(e.target.value)}
-                        className="px-3 py-1 bg-purple-800/30 border border-purple-500/30 rounded text-purple-100 text-sm focus:outline-none focus:border-purple-400"
+                        className="px-3 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-foreground text-sm focus:outline-none focus:border-gray-500 dark:focus:border-gray-400"
                       >
                         {languages.map((lang) => (
                           <option key={lang.value} value={lang.value}>
@@ -676,28 +693,20 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                       </select>
 
                       <div className="flex items-center space-x-4">
-                        <label className="flex items-center space-x-2 text-sm text-purple-300">
+                        <label className="flex items-center space-x-2 text-sm text-foreground">
                           <input
                             type="checkbox"
+                            id="autocomplete-toggle"
+                            name="autocomplete"
                             checked={autocompleteEnabled}
                             onChange={(e) => setAutocompleteEnabled(e.target.checked)}
-                            className="w-4 h-4 text-purple-600 bg-purple-800/30 border-purple-500/30 rounded focus:ring-purple-400 focus:ring-2"
+                            className="w-4 h-4 text-gray-600 bg-white border-gray-300 rounded focus:ring-gray-400 focus:ring-2"
                           />
                           <span>Autocomplete</span>
                         </label>
-
-                        <label className="flex items-center space-x-2 text-sm text-purple-300">
-                          <input
-                            type="checkbox"
-                            checked={useJudge0}
-                            onChange={(e) => setUseJudge0(e.target.checked)}
-                            className="w-4 h-4 text-purple-600 bg-purple-800/30 border-purple-500/30 rounded focus:ring-purple-400 focus:ring-2"
-                          />
-                          <span>Judge0 API</span>
-                        </label>
                       </div>
 
-                      <div className="text-sm text-purple-400">
+                      <div className="text-sm text-foreground">
                         Time: {Math.floor((Date.now() - startTime) / 1000)}s
                       </div>
                     </div>
@@ -913,7 +922,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                       style={{ maxHeight: "600px", display: "flex", flexDirection: "column" }}
                     >
                       <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                        <h4 className="text-lg font-semibold text-purple-200 flex items-center">
+                        <h4 className="text-lg font-semibold text-foreground flex items-center">
                           <span className="mr-2">🧪</span>
                           Test Results
                         </h4>
@@ -929,7 +938,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                           </div>
                           <button
                             onClick={() => setExpandedTests(new Set(testResults.map((_, i) => i)))}
-                            className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                            className="text-xs text-foreground hover:text-muted-foreground transition-colors"
                           >
                             {expandedTests.size === testResults.length ? "Collapse All" : "Expand All"}
                           </button>
@@ -953,7 +962,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                                   className="font-medium flex items-center space-x-3 hover:opacity-80 transition-opacity group"
                                 >
                                   <div className="flex items-center space-x-2">
-                                    <span className="text-sm font-medium text-purple-300">Test {index + 1}:</span>
+                                    <span className="text-sm font-medium text-foreground">Test {index + 1}:</span>
                                     <span
                                       className={`font-semibold ${result.passed ? "text-green-400" : "text-red-400"}`}
                                     >
@@ -961,7 +970,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                                     </span>
                                   </div>
                                   <div className="flex items-center space-x-2">
-                                    <span className="text-xs text-purple-400">{result.execution_time || 0}ms</span>
+                                    <span className="text-xs text-foreground">{result.execution_time || 0}ms</span>
                                     <span className="text-lg group-hover:scale-110 transition-transform">
                                       {isExpanded ? "▼" : "▶"}
                                     </span>
@@ -980,7 +989,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                                   {/* Test Case Input */}
                                   <div>
                                     <div className="flex items-center space-x-2 mb-2">
-                                      <span className="text-sm font-medium text-purple-300">Input:</span>
+                                      <span className="text-sm font-medium text-foreground">Input:</span>
                                     </div>
                                     <div className="p-3 bg-black/30 rounded-lg border border-purple-500/20 font-mono text-sm">
                                       {result.input ? (
@@ -990,7 +999,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                                           JSON.stringify(result.input, null, 2)
                                         )
                                       ) : (
-                                        <span className="text-purple-400 opacity-75">No input data</span>
+                                        <span className="text-foreground opacity-75">No input data</span>
                                       )}
                                     </div>
                                   </div>

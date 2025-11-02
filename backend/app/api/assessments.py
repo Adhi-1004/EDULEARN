@@ -786,7 +786,7 @@ async def get_class_performance_overview(user: UserModel = Depends(require_teach
                     "student_name": student.get("name") or student.get("username", ""),
                     "student_email": student.get("email", ""),
                     "batch": student.get("batch_name", ""),
-                    "batch_id": student.get("batch_id", ""),
+                    "batch_ids": student.get("batch_ids", []),
                     "total_assessments": total_assessments,
                     "average_score": round(average_score, 2),
                     "recent_average": round(recent_average, 2),
@@ -972,7 +972,7 @@ async def get_student_detailed_results(
                 "name": student.get("name") or student.get("username", ""),
                 "email": student.get("email", ""),
                 "batch": student.get("batch_name", ""),
-                "batch_id": student.get("batch_id", "")
+                "batch_ids": student.get("batch_ids", [])
             },
             "results": all_results,
             "performance_insights": {
@@ -2028,16 +2028,18 @@ async def get_upcoming_assessments(user: UserModel = Depends(get_current_user)):
     try:
         db = await get_db()
         
-        # Get student's batch_id
+        # Get student's batch_ids
         student = await db.users.find_one({"_id": ObjectId(user.id)})
-        if not student or not student.get("batch_id"):
+        if not student:
             return []
         
-        batch_id = student["batch_id"]
+        student_batch_ids = student.get("batch_ids", [])
+        if not student_batch_ids:
+            return []  # Student not in any batch
         
-        # Find assessments assigned to this batch that are active
+        # Find assessments assigned to ANY of the student's batches
         assessments = await db.assessments.find({
-            "assigned_batches": batch_id,
+            "assigned_batches": {"$in": student_batch_ids},
             "is_active": True,
             "status": "active"
         }).to_list(length=None)
@@ -2315,17 +2317,41 @@ async def get_teacher_assessment_details(assessment_id: str, user: UserModel = D
 
         # Format questions for student (hide answers/explanations)
         questions_data = assessment.get("questions", [])
+        assessment_type = assessment.get("type", "teacher")
         questions_response = []
+        
         for i, q in enumerate(questions_data):
-             questions_response.append({
-                 "id": str(q.get("_id", i + 1)),
-                 "question": q.get("question", ""),
-                 "options": q.get("options", []),
-                 # Ensure sensitive info is NOT sent to student
-                 "correct_answer": None,
-                 "explanation": None,
-                 "points": q.get("points", 1)
-             })
+            # Handle different question types: coding problems vs MCQ questions
+            if assessment_type == "ai_coding" or assessment_type == "coding":
+                # Coding problem structure
+                questions_response.append({
+                    "id": str(q.get("_id", i + 1)),
+                    "title": q.get("title", f"Problem {i + 1}"),
+                    "description": q.get("description", q.get("problem_statement", "")),
+                    "problem_statement": q.get("problem_statement", q.get("description", "")),
+                    "constraints": q.get("constraints", []),
+                    "examples": q.get("examples", []),
+                    "test_cases": q.get("test_cases", []),  # Show test cases for students
+                    "hints": q.get("hints", []),
+                    "topic": q.get("topic", ""),
+                    "difficulty": q.get("difficulty", "medium"),
+                    "tags": q.get("tags", []),
+                    "expected_complexity": q.get("expected_complexity", {}),
+                    "points": q.get("points", 1),
+                    "type": "coding"  # Mark as coding problem
+                })
+            else:
+                # MCQ question structure
+                questions_response.append({
+                    "id": str(q.get("_id", i + 1)),
+                    "question": q.get("question", ""),
+                    "options": q.get("options", []),
+                    # Ensure sensitive info is NOT sent to student
+                    "correct_answer": None,
+                    "explanation": None,
+                    "points": q.get("points", 1),
+                    "type": "mcq"  # Mark as MCQ
+                })
 
 
         # Return assessment details including formatted questions
@@ -2754,36 +2780,60 @@ async def get_assigned_students(assessment_id: str, user: UserModel = Depends(re
         except Exception:
             regular_submissions = []
 
-        # Map submissions by student_id
+        # Map submissions by student_id (handle both ObjectId and string formats)
         submissions_by_student: dict[str, dict] = {}
         for sub in teacher_submissions:
             sid = sub.get("student_id")
-            sid_str = str(sid) if sid is not None else ""
-            submissions_by_student[sid_str] = {
+            if sid is None:
+                continue
+            # Convert to string and also store with ObjectId version
+            sid_str = str(sid)
+            submission_data = {
                 "result_id": str(sub.get("_id")),
                 "score": sub.get("score", 0),
                 "percentage": sub.get("percentage", 0.0),
                 "time_taken": sub.get("time_taken", 0),
                 "submitted_at": sub.get("submitted_at")
             }
+            submissions_by_student[sid_str] = submission_data
+            # Also add ObjectId version if it's different
+            if ObjectId.is_valid(sid_str):
+                submissions_by_student[str(ObjectId(sid_str))] = submission_data
+        
         for sub in regular_submissions:
             sid = sub.get("student_id")
-            sid_str = str(sid) if sid is not None else ""
+            if sid is None:
+                continue
+            sid_str = str(sid)
             # do not override teacher submission if already present
             if sid_str not in submissions_by_student:
-                submissions_by_student[sid_str] = {
+                submission_data = {
                     "result_id": str(sub.get("_id")),
                     "score": sub.get("score", 0),
                     "percentage": sub.get("percentage", 0.0),
                     "time_taken": sub.get("time_taken", 0),
                     "submitted_at": sub.get("submitted_at")
                 }
+                submissions_by_student[sid_str] = submission_data
+                # Also add ObjectId version if it's different
+                if ObjectId.is_valid(sid_str):
+                    submissions_by_student[str(ObjectId(sid_str))] = submission_data
 
         # Construct response
+        print(f"📊 [ASSIGNED_STUDENTS] Building response for {len(student_ids)} students")
+        print(f"📊 [ASSIGNED_STUDENTS] Found {len(submissions_by_student)} submissions")
+        
         response = []
         for sid in sorted(student_ids):
             student = students.get(sid)
+            # Try multiple ID formats for submission lookup
             sub = submissions_by_student.get(sid)
+            if not sub and ObjectId.is_valid(sid):
+                # Try with ObjectId format
+                sub = submissions_by_student.get(str(ObjectId(sid)))
+            
+            print(f"  - Student {sid}: {'✅ Submitted' if sub else '❌ Not submitted'}")
+            
             item = {
                 "student_id": sid,
                 "student_name": (student.get("name") or student.get("username") or "Unknown") if student else "Unknown",
@@ -2799,6 +2849,7 @@ async def get_assigned_students(assessment_id: str, user: UserModel = Depends(re
             }
             response.append(item)
 
+        print(f"✅ [ASSIGNED_STUDENTS] Response built with {len(response)} items")
         return response
     except Exception as e:
         print(f"❌ [ASSESSMENT] Error fetching assigned students: {str(e)}")
@@ -3093,12 +3144,18 @@ async def submit_assessment_answers(
         
         # Check if student has access
         student = await db.users.find_one({"_id": ObjectId(user.id)})
-        if not student or not student.get("batch_id"):
+        if not student:
             raise HTTPException(status_code=403, detail="Access denied")
         
-        batch_id = student["batch_id"]
-        if batch_id not in assessment.get("assigned_batches", []):
-            raise HTTPException(status_code=403, detail="Assessment not assigned to your batch")
+        student_batch_ids = student.get("batch_ids", [])
+        if not student_batch_ids:
+            raise HTTPException(status_code=403, detail="You are not assigned to any batch")
+        
+        assigned_batches = assessment.get("assigned_batches", [])
+        
+        # Check if ANY of student's batches is in the assigned batches
+        if not any(batch_id in assigned_batches for batch_id in student_batch_ids):
+            raise HTTPException(status_code=403, detail="Assessment not assigned to any of your batches")
         
         # Check if already submitted (in both teacher and regular result collections)
         existing_submission = await db.assessment_submissions.find_one({
