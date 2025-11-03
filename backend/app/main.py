@@ -10,7 +10,7 @@ import os
 load_dotenv()
 
 # Debug: Print HackerEarth secret to verify it's loaded (remove in production)
-client_secret = os.getenv("HACKEREARTH_CLIENT_SECRET") or os.getenv("HACKEREARTH_CLIENT_SECRET_KEY")
+client_secret = os.getenv("HACKEREARTH_CLIENT_SECRET")
 print(f"DEBUG SECRET: {'Set' if client_secret else 'Not set'}")
 if client_secret:
     print(f"DEBUG SECRET (first 10 chars): {client_secret[:10]}...")

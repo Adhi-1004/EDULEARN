@@ -2317,17 +2317,41 @@ async def get_teacher_assessment_details(assessment_id: str, user: UserModel = D
 
         # Format questions for student (hide answers/explanations)
         questions_data = assessment.get("questions", [])
+        assessment_type = assessment.get("type", "teacher")
         questions_response = []
+        
         for i, q in enumerate(questions_data):
-             questions_response.append({
-                 "id": str(q.get("_id", i + 1)),
-                 "question": q.get("question", ""),
-                 "options": q.get("options", []),
-                 # Ensure sensitive info is NOT sent to student
-                 "correct_answer": None,
-                 "explanation": None,
-                 "points": q.get("points", 1)
-             })
+            # Handle different question types: coding problems vs MCQ questions
+            if assessment_type == "ai_coding" or assessment_type == "coding":
+                # Coding problem structure
+                questions_response.append({
+                    "id": str(q.get("_id", i + 1)),
+                    "title": q.get("title", f"Problem {i + 1}"),
+                    "description": q.get("description", q.get("problem_statement", "")),
+                    "problem_statement": q.get("problem_statement", q.get("description", "")),
+                    "constraints": q.get("constraints", []),
+                    "examples": q.get("examples", []),
+                    "test_cases": q.get("test_cases", []),  # Show test cases for students
+                    "hints": q.get("hints", []),
+                    "topic": q.get("topic", ""),
+                    "difficulty": q.get("difficulty", "medium"),
+                    "tags": q.get("tags", []),
+                    "expected_complexity": q.get("expected_complexity", {}),
+                    "points": q.get("points", 1),
+                    "type": "coding"  # Mark as coding problem
+                })
+            else:
+                # MCQ question structure
+                questions_response.append({
+                    "id": str(q.get("_id", i + 1)),
+                    "question": q.get("question", ""),
+                    "options": q.get("options", []),
+                    # Ensure sensitive info is NOT sent to student
+                    "correct_answer": None,
+                    "explanation": None,
+                    "points": q.get("points", 1),
+                    "type": "mcq"  # Mark as MCQ
+                })
 
 
         # Return assessment details including formatted questions

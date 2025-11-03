@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     code_execution_timeout: int = 5
     code_memory_limit: int = 256
 
-    hackerearth_client_secret: str = os.getenv("HACKEREARTH_CLIENT_SECRET") or os.getenv("HACKEREARTH_CLIENT_SECRET_KEY", "")
+    hackerearth_client_secret: str = os.getenv("HACKEREARTH_CLIENT_SECRET", "")
 
     session_secret: str = os.getenv(
         "SESSION_SECRET", "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"
