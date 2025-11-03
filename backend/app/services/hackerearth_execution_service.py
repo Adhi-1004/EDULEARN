@@ -11,12 +11,14 @@ load_dotenv()
 HACKEREARTH_API_URL = "https://api.hackerearth.com/v4/partner/code-evaluation/submissions/"
 # Note: HackerEarth API v4 does not have a separate compile endpoint.
 # The /submissions/ endpoint handles both compilation and execution.
-HACKEREARTH_CLIENT_SECRET = os.getenv('HACKEREARTH_CLIENT_SECRET')
+# Support both HACKEREARTH_CLIENT_SECRET and HACKEREARTH_CLIENT_SECRET_KEY for backward compatibility
+HACKEREARTH_CLIENT_SECRET = os.getenv('HACKEREARTH_CLIENT_SECRET') or os.getenv('HACKEREARTH_CLIENT_SECRET_KEY')
 
 # Debug: Verify secret is loaded (remove in production)
 if not HACKEREARTH_CLIENT_SECRET:
-    print("[WARNING] [HACKEREARTH] HACKEREARTH_CLIENT_SECRET not found in environment variables")
+    print("[WARNING] [HACKEREARTH] HACKEREARTH_CLIENT_SECRET or HACKEREARTH_CLIENT_SECRET_KEY not found in environment variables")
     print("[WARNING] [HACKEREARTH] Please check your .env file in the backend directory")
+    print("[WARNING] [HACKEREARTH] Expected variable name: HACKEREARTH_CLIENT_SECRET (or HACKEREARTH_CLIENT_SECRET_KEY)")
 else:
     print(f"[OK] [HACKEREARTH] Client secret loaded successfully (length: {len(HACKEREARTH_CLIENT_SECRET)})")
 
