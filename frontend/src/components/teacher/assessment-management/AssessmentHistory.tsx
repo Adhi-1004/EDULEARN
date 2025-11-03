@@ -57,7 +57,7 @@ const AssessmentHistory: React.FC<AssessmentHistoryProps> = ({
               {recentAssessments.slice(0, 5).map((assessment) => (
                 <div 
                   key={assessment.id} 
-                  className="p-3 bg-muted/30 rounded-lg border border-border flex items-center justify-between hover:bg-muted/50 transition-colors"
+                  className="p-3 bg-muted/30 rounded-lg border border-border hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex-1">
                     <div className="text-foreground font-semibold">{assessment.title}</div>

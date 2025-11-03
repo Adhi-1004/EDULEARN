@@ -123,25 +123,11 @@ async def create_teacher_assessment(
             else:
                 print(f"❌ [TEACHER_ASSESSMENT] No students found in batch {batch_id}")
         
-        # Create notifications for students
-        notifications = []
-        for student_id in student_ids:
-            notification = {
-                "student_id": student_id,
-                "type": "teacher_assessment_assigned",
-                "title": f"New Assessment: {assessment_data.title}",
-                "message": f"A new {assessment_data.difficulty} assessment on {assessment_data.topic} has been assigned to you.",
-                "assessment_id": assessment_id,
-                "created_at": datetime.utcnow(),
-                "is_read": False
-            }
-            notifications.append(notification)
-        
-        if notifications:
-            await db.notifications.insert_many(notifications)
+        # Note: Notifications are now sent when the assessment is published, not on creation
+        # This prevents duplicate notifications when assign-batches and publish are called separately
         
         print(f"✅ [TEACHER ASSESSMENT] Created assessment {assessment_id} with {len(generated_questions)} questions")
-        print(f"📢 [TEACHER ASSESSMENT] Sent {len(notifications)} notifications to students")
+        print(f"📢 [TEACHER ASSESSMENT] Assessment will notify students when published")
         
         return TeacherAssessmentResponse(
             success=True,

@@ -63,7 +63,6 @@ async def assign_teacher_assessment_to_batches(
         )
         print(f"✅ [ASSIGN-BATCHES] Updated assessment with batch IDs: {batch_ids}")
 
-        notifications: List[Dict[str, Any]] = []
         total_students_notified = 0
         
         for batch_id in batch_ids:
@@ -82,31 +81,13 @@ async def assign_teacher_assessment_to_batches(
             student_ids = batch.get("student_ids", [])
             print(f"👥 [ASSIGN-BATCHES] Batch has {len(student_ids)} students: {student_ids}")
             
+            # Note: Notifications are sent when assessment is published, not on batch assignment
+            # This prevents duplicate notifications when assign-batches and publish are called separately
             for student_id in student_ids:
-                print(f"🔔 [ASSIGN-BATCHES] Creating notification for student: {student_id}")
-                
-                notification = {
-                    "student_id": student_id,
-                    "type": "assessment_assigned",
-                    "title": f"New Assessment: {assessment.get('title', 'Untitled')}",
-                    "message": f"A new {assessment.get('difficulty', 'medium')} assessment on {assessment.get('topic', 'General')} has been assigned to you.",
-                    "assessment_id": assessment_id,
-                    "created_at": datetime.utcnow(),
-                    "is_read": False
-                }
-                notifications.append(notification)
                 total_students_notified += 1
-                print(f"📝 [ASSIGN-BATCHES] Notification created: {notification['title']}")
 
-        print(f"📊 [ASSIGN-BATCHES] Total notifications to create: {len(notifications)}")
-        print(f"👥 [ASSIGN-BATCHES] Total students to notify: {total_students_notified}")
-
-        if notifications:
-            result = await db.notifications.insert_many(notifications)
-            print(f"✅ [ASSIGN-BATCHES] Inserted {len(result.inserted_ids)} notifications successfully")
-            print(f"📝 [ASSIGN-BATCHES] Notification IDs: {[str(id) for id in result.inserted_ids]}")
-        else:
-            print(f"⚠️ [ASSIGN-BATCHES] No notifications created - no students found in batches")
+        print(f"👥 [ASSIGN-BATCHES] Total students in batches: {total_students_notified}")
+        print(f"📢 [ASSIGN-BATCHES] Students will be notified when assessment is published")
 
         return {"success": True, "message": f"Batches assigned and {total_students_notified} students notified"}
 

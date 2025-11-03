@@ -254,17 +254,22 @@ async def execute_code(
     """Execute code with test cases"""
     try:
         print(f"⚡ [CODING] User {user_id} executing {request.language} code via HackerEarth")
+        print(f"[DEBUG] [CODING] HackerEarth service available: {hackerearth_execution_service is not None}")
         
         # Check if HackerEarth service is available
         if not hackerearth_execution_service:
+            print("[DEBUG] [CODING] Attempting to create HackerEarth service instance...")
             try:
                 service = get_hackerearth_service()
+                print("[DEBUG] [CODING] HackerEarth service created successfully")
             except ValueError as e:
+                print(f"[ERROR] [CODING] Failed to create HackerEarth service: {str(e)}")
                 raise HTTPException(
                     status_code=503,
                     detail="Code execution service is not configured. Please contact the administrator."
                 )
         else:
+            print("[DEBUG] [CODING] Using existing HackerEarth service instance")
             service = hackerearth_execution_service
             
         # Use HackerEarth for deterministic execution against provided test cases
@@ -785,7 +790,7 @@ async def update_coding_session(
 @router.post("/sessions/{session_id}/end")
 async def end_coding_session(
     session_id: str,
-    final_status: str,
+    end_data: dict,  # Changed to dict to accept flexible request body
     user_id: str = Depends(get_current_user_id)
 ):
     """End a coding session"""
@@ -801,23 +806,35 @@ async def end_coding_session(
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         
+        # Extract final_status from request body, default to "completed" if not provided
+        final_status = end_data.get("final_status", "completed")
+        
         # Calculate total time
         end_time = datetime.utcnow()
         total_time = int((end_time - session["start_time"]).total_seconds())
         
+        # Build update document
+        update_doc = {
+            "$set": {
+                "end_time": end_time,
+                "total_time": total_time,
+                "final_status": final_status
+            }
+        }
+        
+        # Optionally save additional fields if provided
+        if "solution_code" in end_data:
+            update_doc["$set"]["solution_code"] = end_data["solution_code"]
+        if "completion_time" in end_data:
+            update_doc["$set"]["completion_time"] = end_data["completion_time"]
+        
         # Update session
         await db.coding_sessions.update_one(
             {"_id": ObjectId(session_id)},
-            {
-                "$set": {
-                    "end_time": end_time,
-                    "total_time": total_time,
-                    "final_status": final_status
-                }
-            }
+            update_doc
         )
         
-        print(f"[OK] [CODING] Session ended: {session_id} (Duration: {total_time}s)")
+        print(f"[OK] [CODING] Session ended: {session_id} (Duration: {total_time}s, Status: {final_status})")
         
         return {
             "success": True,
