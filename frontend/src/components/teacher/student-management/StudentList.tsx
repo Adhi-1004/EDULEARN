@@ -148,39 +148,11 @@ const StudentList: React.FC<StudentListProps> = ({
               </div>
               
               {/* Progress Bar */}
-              <div className="w-full bg-muted rounded-full h-2 mb-3">
+              <div className="w-full bg-muted rounded-full h-2">
                 <div
                   className="bg-gradient-to-r from-primary to-accent h-2 rounded-full transition-all duration-300"
                   style={{ width: `${student.progress}%` }}
                 />
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onStudentClick(student)
-                  }}
-                  className="text-primary hover:text-primary/80"
-                >
-                  View Details
-                </Button>
-                
-                <div className="flex space-x-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      // Handle edit action
-                    }}
-                    className="text-primary hover:text-primary/80"
-                  >
-                    Edit
-                  </Button>
-                </div>
               </div>
             </motion.div>
           ))}

@@ -36,7 +36,7 @@
   --foreground: 222.2 84% 4.9%; /* Darker for better contrast */
 
   --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 35%; /* Darker for better readability */
+  --muted-foreground: 215.4 16.3% 45%; /* Even darker for better readability in light mode */
 
   --card: 0 0% 100%;
   --card-foreground: 222.2 84% 4.9%; /* Darker for better contrast */
@@ -50,7 +50,7 @@
 
   /* Brand: cyan-blue primary + teal accent (unique yet professional) */
   --primary: 200 89% 42%; /* Slightly darker for better contrast */
-  --primary-foreground: 0 0% 100%;
+  --primary-foreground: 0 0% 100%; /* White text on primary buttons */
 
   --secondary: 220 14% 93%; /* Darker for better visibility */
   --secondary-foreground: 222.2 47.4% 11.2%;
@@ -586,6 +586,31 @@ input:checked + .toggle-slider:before {
   --text-high-contrast: #0f172a;
   --text-medium-contrast: #334155;
   --text-low-contrast: #64748b;
+}
+
+/* Light mode overrides for better readability on white backgrounds */
+.light .text-foreground {
+  color: hsl(var(--foreground)) !important;
+}
+
+.light .text-muted-foreground {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.light .text-foreground\\/80 {
+  color: hsl(var(--foreground) / 0.8) !important;
+}
+
+.light .text-foreground\\/90 {
+  color: hsl(var(--foreground) / 0.9) !important;
+}
+
+/* Ensure white text on gradient buttons is always visible */
+a.text-white,
+button.text-white,
+a[class*="to-cyan-500"].text-white,
+a[class*="from-blue-500"].text-white {
+  color: #ffffff !important;
 }
 
 /* Light mode button enhancements */

@@ -40,25 +40,184 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
   const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set())
 
   const languages = [
-    { 
-      value: "python", 
-      label: "Python 3", 
-      template: "# Write your solution here\ndef solution():\n    pass" 
+    {
+      value: "python",
+      label: "Python 3",
+      template: `# Complete the solve function below
+# Input will be automatically parsed and passed to your function
+def solve(input_data):
+    # TODO: Implement your solution here
+    # input_data contains the parsed input (array, string, number, etc.)
+    # Return the result as specified in the problem
+    pass
+
+# DO NOT MODIFY BELOW THIS LINE
+# The code below handles input parsing and output printing automatically
+import sys
+import json
+
+if __name__ == '__main__':
+    # Read input from stdin
+    input_str = sys.stdin.read().strip()
+
+    # Parse input based on format
+    try:
+        input_data = json.loads(input_str)
+    except:
+        input_data = input_str
+
+    # Call your function
+    result = solve(input_data)
+
+    # Print result
+    print(json.dumps(result) if not isinstance(result, str) else result)`
     },
     {
-      value: "c",
-      label: "C (GCC)",
-      template: "// Write your solution here\n#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    // Your code here\n    return 0;\n}",
-    },
-    {
-      value: "cpp",
-      label: "C++ (GCC)",
-      template: "// Write your solution here\n#include <iostream>\nusing namespace std;\n\nint main() {\n    // Your code here\n    return 0;\n}",
+      value: "javascript",
+      label: "JavaScript (Node.js)",
+      template: `// Complete the solve function below
+// Input will be automatically parsed and passed to your function
+function solve(inputData) {
+    // TODO: Implement your solution here
+    // inputData contains the parsed input (array, string, number, etc.)
+    // Return the result as specified in the problem
+}
+
+// DO NOT MODIFY BELOW THIS LINE
+// The code below handles input parsing and output printing automatically
+const fs = require('fs');
+const input = fs.readFileSync(0, 'utf-8').trim();
+
+let inputData;
+try {
+    inputData = JSON.parse(input);
+} catch {
+    inputData = input;
+}
+
+const result = solve(inputData);
+console.log(typeof result === 'string' ? result : JSON.stringify(result));`
     },
     {
       value: "java",
       label: "Java (OpenJDK)",
-      template: "// Write your solution here\npublic class Main {\n    public static void main(String[] args) {\n        // Your code here\n    }\n}",
+      template: `// Complete the solve method below
+// Input will be automatically parsed and passed to your method
+public class Solution {
+    public static Object solve(Object inputData) {
+        // TODO: Implement your solution here
+        // inputData contains the parsed input (array, string, number, etc.)
+        // Return the result as specified in the problem
+        return null;
+    }
+
+    // DO NOT MODIFY BELOW THIS LINE
+    // The code below handles input parsing and output printing automatically
+    public static void main(String[] args) {
+        try {
+            java.util.Scanner scanner = new java.util.Scanner(System.in);
+            String input = scanner.useDelimiter("\\b").next();
+
+            Object inputData;
+            try {
+                inputData = new com.google.gson.Gson().fromJson(input, Object.class);
+            } catch (Exception e) {
+                inputData = input;
+            }
+
+            Object result = solve(inputData);
+
+            if (result instanceof String) {
+                System.out.println(result);
+            } else {
+                System.out.println(new com.google.gson.Gson().toJson(result));
+            }
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+        }
+    }
+}`
+    },
+    {
+      value: "cpp",
+      label: "C++ (GCC)",
+      template: `// Complete the solve function below
+// Input will be automatically parsed and passed to your function
+#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <nlohmann/json.hpp>
+using namespace std;
+using json = nlohmann::json;
+
+// TODO: Implement your solution here
+// input_data contains the parsed input (vector, string, int, etc.)
+// Return the result as specified in the problem
+auto solve(auto input_data) {
+    // Your code here
+    return input_data;  // placeholder
+}
+
+// DO NOT MODIFY BELOW THIS LINE
+// The code below handles input parsing and output printing automatically
+int main() {
+    string input_line;
+    getline(cin, input_line);
+
+    try {
+        auto input_data = json::parse(input_line);
+        auto result = solve(input_data);
+
+        if (result.is_string()) {
+            cout << result.get<string>() << endl;
+        } else {
+            cout << result.dump() << endl;
+        }
+    } catch (const exception& e) {
+        // If JSON parsing fails, pass as string
+        auto result = solve(input_line);
+        cout << result << endl;
+    }
+
+    return 0;
+}`
+    },
+    {
+      value: "c",
+      label: "C (GCC)",
+      template: `// Complete the solve function below
+// Input will be automatically parsed and passed to your function
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// TODO: Implement your solution here
+// input_data contains the parsed input
+// Return the result as specified in the problem
+void* solve(void* input_data) {
+    // Your code here
+    return input_data;  // placeholder
+}
+
+// DO NOT MODIFY BELOW THIS LINE
+// The code below handles input parsing and output printing automatically
+int main() {
+    char input[10000];
+    fgets(input, sizeof(input), stdin);
+
+    // Remove newline character
+    input[strcspn(input, "\n")] = 0;
+
+    // Simple string processing - you can enhance this
+    void* result = solve((void*)input);
+
+    if (result) {
+        printf("%s\n", (char*)result);
+    }
+
+    return 0;
+}`
     },
   ]
 
@@ -82,15 +241,19 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
   }, [problemId])
 
   useEffect(() => {
-    // Set default template when language changes
-    const selectedLang = languages.find((lang) => lang.value === language)
-    if (selectedLang) {
-      // Only set template if code is empty or just whitespace
-      if (!code.trim() || code.trim() === "") {
+    // Set template when language changes or problem loads
+    if (problem && problem.code_templates && problem.code_templates[language]) {
+      // Use problem-specific template for the selected language
+      // Always replace the template when language changes
+      setCode(problem.code_templates[language])
+    } else {
+      // Fallback to hardcoded template if problem templates not available
+      const selectedLang = languages.find((lang) => lang.value === language)
+      if (selectedLang) {
         setCode(selectedLang.template)
       }
     }
-  }, [language])
+  }, [language, problem])
 
   const fetchProblem = async () => {
     try {
@@ -99,6 +262,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
 
       if (response.data.success) {
         setProblem(response.data.problem)
+        // useEffect will handle setting the initial template
       } else {
         showError("Problem not found")
       }
@@ -635,9 +799,9 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                           key={index}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3"
+                          className="bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-500/30 rounded-lg p-3"
                         >
-                          <div className="text-sm text-blue-200">
+                          <div className="text-sm text-blue-900 dark:text-blue-200">
                             <span className="font-semibold">Hint {index + 1}: </span>
                             {hint}
                           </div>
@@ -918,7 +1082,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mt-6 bg-purple-900/20 rounded-lg p-4 border border-purple-500/30"
+                      className="mt-6 bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-300 dark:border-purple-500/30"
                       style={{ maxHeight: "600px", display: "flex", flexDirection: "column" }}
                     >
                       <div className="flex items-center justify-between mb-4 flex-shrink-0">
@@ -930,8 +1094,8 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                           <div
                             className={`px-3 py-1 rounded-full text-sm font-medium ${
                               testResults.filter((r) => r.passed).length === testResults.length
-                                ? "bg-green-900/30 text-green-300 border border-green-500/30"
-                                : "bg-red-900/30 text-red-300 border border-red-500/30"
+                                ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-400 dark:border-green-500/30"
+                                : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-400 dark:border-red-500/30"
                             }`}
                           >
                             {testResults.filter((r) => r.passed).length}/{testResults.length} passed
@@ -952,8 +1116,8 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                               key={index}
                               className={`p-4 rounded-lg border transition-all duration-200 ${
                                 result.passed
-                                  ? "bg-green-900/20 border-green-500/30 hover:bg-green-900/30"
-                                  : "bg-red-900/20 border-red-500/30 hover:bg-red-900/30"
+                                  ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-500/30 hover:bg-green-100 dark:hover:bg-green-900/30"
+                                  : "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-500/30 hover:bg-red-100 dark:hover:bg-red-900/30"
                               }`}
                             >
                               <div className="flex items-center justify-between mb-3">
@@ -964,7 +1128,7 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                                   <div className="flex items-center space-x-2">
                                     <span className="text-sm font-medium text-foreground">Test {index + 1}:</span>
                                     <span
-                                      className={`font-semibold ${result.passed ? "text-green-400" : "text-red-400"}`}
+                                      className={`font-semibold ${result.passed ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}
                                     >
                                       {result.passed ? "✅ Passed" : "❌ Failed"}
                                     </span>
@@ -984,14 +1148,14 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                                   initial={{ opacity: 0, height: 0 }}
                                   animate={{ opacity: 1, height: "auto" }}
                                   exit={{ opacity: 0, height: 0 }}
-                                  className="space-y-4 mt-4 pt-4 border-t border-purple-500/20"
+                                  className="space-y-4 mt-4 pt-4 border-t border-gray-300 dark:border-purple-500/20"
                                 >
                                   {/* Test Case Input */}
                                   <div>
                                     <div className="flex items-center space-x-2 mb-2">
                                       <span className="text-sm font-medium text-foreground">Input:</span>
                                     </div>
-                                    <div className="p-3 bg-black/30 rounded-lg border border-purple-500/20 font-mono text-sm">
+                                    <div className="p-3 bg-gray-100 dark:bg-black/30 rounded-lg border border-gray-300 dark:border-purple-500/20 font-mono text-sm text-foreground">
                                       {result.input ? (
                                         typeof result.input === "string" ? (
                                           result.input
@@ -1010,9 +1174,9 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                               {result.error && (
                                 <div>
                                   <div className="flex items-center space-x-2 mb-2">
-                                    <span className="text-sm font-medium text-red-300">Error:</span>
+                                    <span className="text-sm font-medium text-red-700 dark:text-red-300">Error:</span>
                                   </div>
-                                  <div className="p-3 bg-red-900/30 rounded-lg border border-red-500/30 text-red-200 text-sm font-mono">
+                                  <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg border border-red-300 dark:border-red-500/30 text-red-900 dark:text-red-200 text-sm font-mono">
                                     {typeof result.error === "string"
                                       ? result.error
                                       : JSON.stringify(result.error)}
@@ -1025,29 +1189,29 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                   <div>
                                     <div className="flex items-center space-x-2 mb-2">
-                                      <span className="text-sm font-medium text-green-300">Expected Output:</span>
+                                      <span className="text-sm font-medium text-green-700 dark:text-green-300">Expected Output:</span>
                                     </div>
-                                    <div className="p-3 bg-green-900/20 rounded-lg border border-green-500/30 text-green-200 text-sm font-mono">
+                                    <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg border border-green-300 dark:border-green-500/30 text-green-900 dark:text-green-200 text-sm font-mono">
                                       {result.expected !== undefined && result.expected !== null ? (
                                         typeof result.expected === "string"
                                           ? result.expected
                                           : JSON.stringify(result.expected, null, 2)
                                       ) : (
-                                        <span className="text-green-400 opacity-75">No expected output</span>
+                                        <span className="text-green-700 dark:text-green-400 opacity-75">No expected output</span>
                                       )}
                                     </div>
                                   </div>
                                   <div>
                                     <div className="flex items-center space-x-2 mb-2">
-                                      <span className="text-sm font-medium text-red-300">Your Output:</span>
+                                      <span className="text-sm font-medium text-red-700 dark:text-red-300">Your Output:</span>
                                     </div>
-                                    <div className="p-3 bg-red-900/20 rounded-lg border border-red-500/30 text-red-200 text-sm font-mono">
+                                    <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg border border-red-300 dark:border-red-500/30 text-red-900 dark:text-red-200 text-sm font-mono">
                                       {result.output ? (
                                         typeof result.output === "string"
                                           ? result.output
                                           : JSON.stringify(result.output, null, 2)
                                       ) : (
-                                        <span className="text-red-400 opacity-75">No output</span>
+                                        <span className="text-red-700 dark:text-red-400 opacity-75">No output</span>
                                       )}
                                     </div>
                                   </div>
@@ -1055,32 +1219,43 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                                 
                                 {/* Debug Information */}
                                 {result.debug_info && (
-                                  <div className="mt-4 p-4 bg-gray-900/30 rounded-lg border border-gray-500/30">
+                                  <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-900/30 rounded-lg border border-gray-300 dark:border-gray-500/30">
                                     <div className="flex items-center space-x-2 mb-3">
-                                      <span className="text-sm font-medium text-yellow-300">Debug Analysis:</span>
+                                      <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">Debug Analysis:</span>
                                     </div>
                                     <div className="space-y-3 text-sm">
                                       <div>
-                                        <span className="text-yellow-300">Status: </span>
-                                        <span className="text-yellow-200">{result.debug_info.status}</span>
+                                        <span className="text-yellow-700 dark:text-yellow-300">Status: </span>
+                                        <span className="text-yellow-800 dark:text-yellow-200">{result.debug_info.status}</span>
                                       </div>
+                                      
+                                      {/* Raw Error from HackerEarth */}
+                                      {result.debug_info.raw_error && (
+                                        <div className="mt-3 p-3 bg-red-100 dark:bg-red-900/20 rounded border border-red-300 dark:border-red-500/30">
+                                          <div className="text-red-700 dark:text-red-300 mb-2 font-semibold">Runtime Error Details:</div>
+                                          <pre className="text-red-800 dark:text-red-200 font-mono text-xs whitespace-pre-wrap break-words">
+                                            {result.debug_info.raw_error}
+                                          </pre>
+                                        </div>
+                                      )}
+                                      
                                       <div>
-                                        <span className="text-yellow-300">Comparison: </span>
-                                        <span className="text-yellow-200">{result.debug_info.comparison?.message}</span>
+                                        <span className="text-yellow-700 dark:text-yellow-300">Comparison: </span>
+                                        <span className="text-yellow-800 dark:text-yellow-200">{result.debug_info.comparison?.message}</span>
                                       </div>
                                       {result.debug_info.comparison?.type === "different" && result.debug_info.comparison?.line_analysis?.first_difference && (
-                                        <div className="mt-3 p-3 bg-gray-800/50 rounded border border-gray-600/30">
-                                          <div className="text-yellow-300 mb-2">First Difference at Line {result.debug_info.comparison.line_analysis.first_difference.line_number}:</div>
+                                        <div className="mt-3 p-3 bg-gray-200 dark:bg-gray-800/50 rounded border border-gray-400 dark:border-gray-600/30">
+                                          <div className="text-yellow-700 dark:text-yellow-300 mb-2">First Difference at Line {result.debug_info.comparison.line_analysis.first_difference.line_number}:</div>
                                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             <div>
-                                              <div className="text-red-300 text-xs mb-1">Your Output:</div>
-                                              <div className="p-2 bg-red-900/20 rounded text-red-200 font-mono text-xs">
+                                              <div className="text-red-700 dark:text-red-300 text-xs mb-1">Your Output:</div>
+                                              <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded text-red-900 dark:text-red-200 font-mono text-xs">
                                                 {result.debug_info.comparison.line_analysis.first_difference.actual_line || "No output"}
                                               </div>
                                             </div>
                                             <div>
-                                              <div className="text-green-300 text-xs mb-1">Expected:</div>
-                                              <div className="p-2 bg-green-900/20 rounded text-green-200 font-mono text-xs">
+                                              <div className="text-green-700 dark:text-green-300 text-xs mb-1">Expected:</div>
+                                              <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded text-green-900 dark:text-green-200 font-mono text-xs">
                                                 {result.debug_info.comparison.line_analysis.first_difference.expected_line || "No output"}
                                               </div>
                                             </div>
@@ -1088,24 +1263,24 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
                                         </div>
                                       )}
                                       {result.debug_info.execution_details && (
-                                        <div className="mt-3 p-3 bg-gray-800/50 rounded border border-gray-600/30">
-                                          <div className="text-yellow-300 mb-2">Execution Details:</div>
+                                        <div className="mt-3 p-3 bg-gray-200 dark:bg-gray-800/50 rounded border border-gray-400 dark:border-gray-600/30">
+                                          <div className="text-yellow-700 dark:text-yellow-300 mb-2">Execution Details:</div>
                                           <div className="grid grid-cols-2 gap-4 text-xs">
                                             <div>
-                                              <span className="text-gray-400">Time: </span>
-                                              <span className="text-white">{result.debug_info.execution_details.time}s</span>
+                                              <span className="text-gray-600 dark:text-gray-400">Time: </span>
+                                              <span className="text-gray-900 dark:text-white">{result.debug_info.execution_details.time}s</span>
                                             </div>
                                             <div>
-                                              <span className="text-gray-400">Memory: </span>
-                                              <span className="text-white">{result.debug_info.execution_details.memory}KB</span>
+                                              <span className="text-gray-600 dark:text-gray-400">Memory: </span>
+                                              <span className="text-gray-900 dark:text-white">{result.debug_info.execution_details.memory}KB</span>
                                             </div>
                                             <div>
-                                              <span className="text-gray-400">Exit Code: </span>
-                                              <span className="text-white">{result.debug_info.execution_details.exit_code}</span>
+                                              <span className="text-gray-600 dark:text-gray-400">Exit Code: </span>
+                                              <span className="text-gray-900 dark:text-white">{result.debug_info.execution_details.exit_code}</span>
                                             </div>
                                             <div>
-                                              <span className="text-gray-400">Wall Time: </span>
-                                              <span className="text-white">{result.debug_info.execution_details.wall_time}s</span>
+                                              <span className="text-gray-600 dark:text-gray-400">Wall Time: </span>
+                                              <span className="text-gray-900 dark:text-white">{result.debug_info.execution_details.wall_time}s</span>
                                             </div>
                                           </div>
                                         </div>
@@ -1119,9 +1294,9 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
 
                                   {/* Success Message */}
                                   {result.passed && (
-                                    <div className="flex items-center space-x-2 p-3 bg-green-900/20 rounded-lg border border-green-500/30">
-                                      <span className="text-green-400">✅</span>
-                                      <span className="text-green-300 text-sm font-medium">
+                                    <div className="flex items-center space-x-2 p-3 bg-green-100 dark:bg-green-900/20 rounded-lg border border-green-300 dark:border-green-500/30">
+                                      <span className="text-green-700 dark:text-green-400">✅</span>
+                                      <span className="text-green-800 dark:text-green-300 text-sm font-medium">
                                         Output matches expected result
                                       </span>
                                     </div>

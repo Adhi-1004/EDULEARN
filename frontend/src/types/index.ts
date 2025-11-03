@@ -108,6 +108,9 @@ expected_complexity: {
   time: string;
   space: string;
 };
+code_templates?: {
+  [language: string]: string;
+};
 success_rate: number;
 average_time?: number;
 last_attempt?: {

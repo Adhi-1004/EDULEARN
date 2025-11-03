@@ -285,6 +285,13 @@ class GeminiCodingService:
                 "expected_complexity": {{
                     "time": "O(n)",
                     "space": "O(1)"
+                }},
+                "code_templates": {{
+                    "python": "# Complete the solve function below\\n# Input will be automatically parsed and passed to your function\\ndef solve(input_data):\\n    # TODO: Implement your solution here\\n    # input_data contains the parsed input (array, string, number, etc.)\\n    # Return the result as specified in the problem\\n    pass\\n\\n# DO NOT MODIFY BELOW THIS LINE\\n# The code below handles input parsing and output printing automatically\\nimport sys\\nimport json\\n\\nif __name__ == '__main__':\\n    # Read input from stdin\\n    input_str = sys.stdin.read().strip()\\n    \\n    # Parse input based on format\\n    try:\\n        input_data = json.loads(input_str)\\n    except:\\n        input_data = input_str\\n    \\n    # Call your function\\n    result = solve(input_data)\\n    \\n    # Print result\\n    print(json.dumps(result) if not isinstance(result, str) else result)",
+                    "javascript": "// Complete the solve function below\\n// Input will be automatically parsed and passed to your function\\nfunction solve(inputData) {{\\n    // TODO: Implement your solution here\\n    // inputData contains the parsed input (array, string, number, etc.)\\n    // Return the result as specified in the problem\\n}}\\n\\n// DO NOT MODIFY BELOW THIS LINE\\n// The code below handles input parsing and output printing automatically\\nconst fs = require('fs');\\nconst input = fs.readFileSync(0, 'utf-8').trim();\\n\\nlet inputData;\\ntry {{\\n    inputData = JSON.parse(input);\\n}} catch {{\\n    inputData = input;\\n}}\\n\\nconst result = solve(inputData);\\nconsole.log(typeof result === 'string' ? result : JSON.stringify(result));",
+                    "java": "// Complete the solve method below\\n// Input will be automatically parsed and passed to your method\\npublic class Solution {{\\n    public static Object solve(Object inputData) {{\\n        // TODO: Implement your solution here\\n        // inputData contains the parsed input (array, string, number, etc.)\\n        // Return the result as specified in the problem\\n        return null;\\n    }}\\n\\n    // DO NOT MODIFY BELOW THIS LINE\\n    // The code below handles input parsing and output printing automatically\\n    public static void main(String[] args) {{\\n        try {{\\n            java.util.Scanner scanner = new java.util.Scanner(System.in);\\n            String input = scanner.useDelimiter(\\\\\"\\\\\\b\\\\\\\").next();\\n            \\n            Object inputData;\\n            try {{\\n                inputData = new com.google.gson.Gson().fromJson(input, Object.class);\\n            }} catch (Exception e) {{\\n                inputData = input;\\n            }}\\n            \\n            Object result = solve(inputData);\\n            \\n            if (result instanceof String) {{\\n                System.out.println(result);\\n            }} else {{\\n                System.out.println(new com.google.gson.Gson().toJson(result));\\n            }}\\n        }} catch (Exception e) {{\\n            System.err.println(\\\"Error: \\\" + e.getMessage());\\n        }}\\n    }}\\n}}",
+                    "cpp": "// Complete the solve function below\\n// Input will be automatically parsed and passed to your function\\n#include <iostream>\\n#include <vector>\\n#include <string>\\n#include <sstream>\\n#include <nlohmann/json.hpp>\\nusing namespace std;\\nusing json = nlohmann::json;\\n\\n// TODO: Implement your solution here\\n// input_data contains the parsed input (vector, string, int, etc.)\\n// Return the result as specified in the problem\\nauto solve(auto input_data) {{\\n    // Your code here\\n    return input_data;  // placeholder\\n}}\\n\\n// DO NOT MODIFY BELOW THIS LINE\\n// The code below handles input parsing and output printing automatically\\nint main() {{\\n    string input_line;\\n    getline(cin, input_line);\\n    \\n    try {{\\n        auto input_data = json::parse(input_line);\\n        auto result = solve(input_data);\\n        \\n        if (result.is_string()) {{\\n            cout << result.get<string>() << endl;\\n        }} else {{\\n            cout << result.dump() << endl;\\n        }}\\n    }} catch (const exception& e) {{\\n        // If JSON parsing fails, pass as string\\n        auto result = solve(input_line);\\n        cout << result << endl;\\n    }}\\n    \\n    return 0;\\n}}",
+                    "c": "// Complete the solve function below\\n// Input will be automatically parsed and passed to your function\\n#include <stdio.h>\\n#include <stdlib.h>\\n#include <string.h>\\n\\n// TODO: Implement your solution here\\n// input_data contains the parsed input\\n// Return the result as specified in the problem\\nvoid* solve(void* input_data) {{\\n    // Your code here\\n    return input_data;  // placeholder\\n}}\\n\\n// DO NOT MODIFY BELOW THIS LINE\\n// The code below handles input parsing and output printing automatically\\nint main() {{\\n    char input[10000];\\n    fgets(input, sizeof(input), stdin);\\n    \\n    // Remove newline character\\n    input[strcspn(input, \\\"\\\\n\\\")] = 0;\\n    \\n    // Simple string processing - you can enhance this\\n    void* result = solve((void*)input);\\n    \\n    if (result) {{\\n        printf(\\\"%s\\\\n\\\", (char*)result);\\n    }}\\n    \\n    return 0;\\n}}"
                 }}
             }}
             
@@ -292,10 +299,25 @@ class GeminiCodingService:
             - Make it solvable and educational
             - Include 2-3 examples
             - Include at least 2 visible test cases
-            - Include 2-3 hidden test cases  
+            - Include 2-3 hidden test cases
             - Provide 2-4 helpful hints
             - Specify realistic constraints
             - Be clear and specific
+
+            CRITICAL: Generate complete, runnable code templates for each language:
+            - Each template MUST be a complete, executable program
+            - Include automatic input parsing from stdin (JSON format)
+            - Include function/method definition that the user will complete
+            - Include automatic function calling with parsed input
+            - Include automatic output printing
+            - The user should ONLY implement the core logic inside the solve function
+            - Templates should handle different input types (arrays, strings, numbers)
+            - For Python: Use json.loads() for parsing, handle both structured and string inputs
+            - For JavaScript: Use JSON.parse(), handle both structured and string inputs
+            - For Java: Use Gson for JSON parsing
+            - For C++: Use nlohmann/json library for parsing
+            - For C: Basic string input handling
+            - All templates should be immediately runnable without any modifications
             
             Return ONLY the JSON, no markdown formatting.
             """
@@ -346,6 +368,7 @@ class GeminiCodingService:
                 problem_data.setdefault('hints', ["Try to solve it step by step"])
                 problem_data.setdefault('tags', [topic.lower()])
                 problem_data.setdefault('expected_complexity', {"time": "O(n)", "space": "O(1)"})
+                problem_data.setdefault('code_templates', self._get_default_templates())
                 
                 # Ensure test_cases and hidden_test_cases are not empty
                 if not problem_data['test_cases']:
@@ -987,6 +1010,170 @@ try {{
             "memory_used": 80
         }
 
+    def _get_default_templates(self) -> Dict[str, str]:
+        """Get default code templates for all supported languages"""
+        return {
+            "python": """# Complete the solve function below
+# Input will be automatically parsed and passed to your function
+def solve(input_data):
+    # TODO: Implement your solution here
+    # input_data contains the parsed input (array, string, number, etc.)
+    # Return the result as specified in the problem
+    pass
+
+# DO NOT MODIFY BELOW THIS LINE
+# The code below handles input parsing and output printing automatically
+import sys
+import json
+
+if __name__ == '__main__':
+    # Read input from stdin
+    input_str = sys.stdin.read().strip()
+
+    # Parse input based on format
+    try:
+        input_data = json.loads(input_str)
+    except:
+        input_data = input_str
+
+    # Call your function
+    result = solve(input_data)
+
+    # Print result
+    print(json.dumps(result) if not isinstance(result, str) else result)""",
+            "javascript": """// Complete the solve function below
+// Input will be automatically parsed and passed to your function
+function solve(inputData) {
+    // TODO: Implement your solution here
+    // inputData contains the parsed input (array, string, number, etc.)
+    // Return the result as specified in the problem
+}
+
+// DO NOT MODIFY BELOW THIS LINE
+// The code below handles input parsing and output printing automatically
+const fs = require('fs');
+const input = fs.readFileSync(0, 'utf-8').trim();
+
+let inputData;
+try {
+    inputData = JSON.parse(input);
+} catch {
+    inputData = input;
+}
+
+const result = solve(inputData);
+console.log(typeof result === 'string' ? result : JSON.stringify(result));""",
+            "java": """// Complete the solve method below
+// Input will be automatically parsed and passed to your method
+public class Solution {
+    public static Object solve(Object inputData) {
+        // TODO: Implement your solution here
+        // inputData contains the parsed input (array, string, number, etc.)
+        // Return the result as specified in the problem
+        return null;
+    }
+
+    // DO NOT MODIFY BELOW THIS LINE
+    // The code below handles input parsing and output printing automatically
+    public static void main(String[] args) {
+        try {
+            java.util.Scanner scanner = new java.util.Scanner(System.in);
+            String input = scanner.useDelimiter("\\b").next();
+
+            Object inputData;
+            try {
+                inputData = new com.google.gson.Gson().fromJson(input, Object.class);
+            } catch (Exception e) {
+                inputData = input;
+            }
+
+            Object result = solve(inputData);
+
+            if (result instanceof String) {
+                System.out.println(result);
+            } else {
+                System.out.println(new com.google.gson.Gson().toJson(result));
+            }
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+        }
+    }
+}""",
+            "cpp": """// Complete the solve function below
+// Input will be automatically parsed and passed to your function
+#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <nlohmann/json.hpp>
+using namespace std;
+using json = nlohmann::json;
+
+// TODO: Implement your solution here
+// input_data contains the parsed input (vector, string, int, etc.)
+// Return the result as specified in the problem
+auto solve(auto input_data) {
+    // Your code here
+    return input_data;  // placeholder
+}
+
+// DO NOT MODIFY BELOW THIS LINE
+// The code below handles input parsing and output printing automatically
+int main() {
+    string input_line;
+    getline(cin, input_line);
+
+    try {
+        auto input_data = json::parse(input_line);
+        auto result = solve(input_data);
+
+        if (result.is_string()) {
+            cout << result.get<string>() << endl;
+        } else {
+            cout << result.dump() << endl;
+        }
+    } catch (const exception& e) {
+        // If JSON parsing fails, pass as string
+        auto result = solve(input_line);
+        cout << result << endl;
+    }
+
+    return 0;
+}""",
+            "c": """// Complete the solve function below
+// Input will be automatically parsed and passed to your function
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// TODO: Implement your solution here
+// input_data contains the parsed input
+// Return the result as specified in the problem
+void* solve(void* input_data) {
+    // Your code here
+    return input_data;  // placeholder
+}
+
+// DO NOT MODIFY BELOW THIS LINE
+// The code below handles input parsing and output printing automatically
+int main() {
+    char input[10000];
+    fgets(input, sizeof(input), stdin);
+
+    // Remove newline character
+    input[strcspn(input, "\n")] = 0;
+
+    // Simple string processing - you can enhance this
+    void* result = solve((void*)input);
+
+    if (result) {
+        printf("%s\n", (char*)result);
+    }
+
+    return 0;
+}"""
+        }
+
     def _get_fallback_coding_problem(self, topic: str, difficulty: str) -> Dict[str, Any]:
         """Get a fallback coding problem when AI is not available"""
         import random
@@ -1045,7 +1232,8 @@ try {{
                     "Loop through each element and add it to the sum"
                 ],
                 "tags": ["array", "math"],
-                "expected_complexity": {"time": "O(n)", "space": "O(1)"}
+                "expected_complexity": {"time": "O(n)", "space": "O(1)"},
+                "code_templates": self._get_default_templates()
             }
         
         # Ensure all required fields are present
@@ -1054,6 +1242,7 @@ try {{
         problem.setdefault('difficulty', difficulty)
         problem.setdefault('hints', ["Try to break down the problem step by step"])
         problem.setdefault('tags', [topic.lower()])
+        problem.setdefault('code_templates', self._get_default_templates())
         
         return problem
 

@@ -213,7 +213,7 @@ const CodingPlatform: React.FC<CodingPlatformProps> = ({ user: propUser }) => {
         {/* Header */}
         <Card className="p-8 mb-8">
           <motion.div variants={ANIMATION_VARIANTS.slideDown} className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-foreground mb-2">🚀 AI Coding Platform</h1>
+            <h1 className="text-4xl font-bold text-foreground mb-2">AI Coding Platform</h1>
             <p className="text-muted-foreground text-lg">
               Master coding with AI-powered problems, real-time feedback, and personalized learning
             </p>

@@ -38,7 +38,6 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
           {/* AI Generated Assessment */}
           <div className="p-4 bg-gradient-to-br from-muted/30 to-muted/50 rounded-lg border border-border">
             <div className="text-center">
-              <div className="text-3xl mb-2">🤖</div>
               <h3 className="text-foreground font-semibold mb-2">AI Generated</h3>
               <p className="text-muted-foreground text-sm mb-3">Generate questions automatically using AI</p>
               <Button 
@@ -55,7 +54,6 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
           {/* Manual MCQ */}
           <div className="p-4 bg-gradient-to-br from-muted/30 to-muted/50 rounded-lg border border-border">
             <div className="text-center">
-              <div className="text-3xl mb-2">📝</div>
               <h3 className="text-foreground font-semibold mb-2">Manual MCQ</h3>
               <p className="text-muted-foreground text-sm mb-3">Create multiple choice questions manually</p>
               <Button 
@@ -72,7 +70,6 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({
           {/* AI Coding Assessment */}
           <div className="p-4 bg-gradient-to-br from-muted/30 to-muted/50 rounded-lg border border-border">
             <div className="text-center">
-              <div className="text-3xl mb-2">💻</div>
               <h3 className="text-foreground font-semibold mb-2">AI Coding</h3>
               <p className="text-muted-foreground text-sm mb-3">Generate coding problems automatically using AI</p>
               <Button 

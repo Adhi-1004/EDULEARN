@@ -15,12 +15,6 @@ interface Feature {
   color: string
 }
 
-interface Stat {
-  number: string
-  label: string
-  icon: React.ReactNode
-}
-
 const features: Feature[] = [
   {
     title: "AI-Powered Assessments",
@@ -112,60 +106,6 @@ const features: Feature[] = [
       </svg>
     ),
     color: "from-yellow-500 to-orange-500",
-  },
-]
-
-const stats: Stat[] = [
-  {
-    number: "10K+",
-    label: "Active Students",
-    icon: (
-      <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 014 0z"
-        />
-      </svg>
-    ),
-  },
-  {
-    number: "500+",
-    label: "Teachers",
-    icon: (
-      <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-        />
-      </svg>
-    ),
-  },
-  {
-    number: "50K+",
-    label: "Questions Generated",
-    icon: (
-      <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-        />
-      </svg>
-    ),
-  },
-  {
-    number: "99.9%",
-    label: "Uptime",
-    icon: (
-      <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    ),
   },
 ]
 
@@ -315,43 +255,8 @@ const LandingPage: React.FC = () => {
                   <div className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 mb-4">
                     {step.step}
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-4">{step.title}</h3>
-                  <p className="text-gray-300 leading-relaxed">{step.description}</p>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Statistics Dashboard Section */}
-        <motion.div
-          variants={ANIMATION_VARIANTS.slideUp}
-          initial="initial"
-          animate="animate"
-          transition={{ delay: 1.4 }}
-          className="mt-32"
-        >
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Platform Statistics</h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">Trusted by thousands of users worldwide</p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                variants={ANIMATION_VARIANTS.slideUp}
-                transition={{ delay: 1.5 + index * 0.1 }}
-                className="text-center"
-              >
-                <Card className="p-8 bg-card hover:scale-105 transition-all duration-300 border border-border">
-                  <div className="flex items-center justify-center mb-6">
-                    <div className="p-4 rounded-full bg-gradient-to-r from-blue-500/20 to-cyan-500/20">
-                      {stat.icon}
-                    </div>
-                  </div>
-                  <div className="text-4xl font-bold text-white mb-3">{stat.number}</div>
-                  <div className="text-purple-300 font-medium text-lg">{stat.label}</div>
+                  <h3 className="text-2xl font-bold text-foreground mb-4">{step.title}</h3>
+                  <p className="text-muted-foreground leading-relaxed">{step.description}</p>
                 </Card>
               </motion.div>
             ))}
@@ -363,12 +268,12 @@ const LandingPage: React.FC = () => {
           variants={ANIMATION_VARIANTS.slideUp}
           initial="initial"
           animate="animate"
-          transition={{ delay: 1.6 }}
+          transition={{ delay: 1.4 }}
           className="mt-32 text-center"
         >
           <Card className="p-16 max-w-4xl mx-auto bg-card border border-border">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Ready to Transform Your Learning?</h2>
-            <p className="text-xl text-purple-200 mb-12 max-w-3xl mx-auto">
+            <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6">Ready to Transform Your Learning?</h2>
+            <p className="text-xl text-foreground/90 mb-12 max-w-3xl mx-auto">
               Join thousands of students and teachers who are already experiencing the future of education. Start your
               journey today and unlock your full potential.
             </p>
@@ -384,7 +289,7 @@ const LandingPage: React.FC = () => {
                 </Button>
               </Link>
             </div>
-            <p className="text-purple-300 mt-8 text-sm">
+            <p className="text-muted-foreground mt-8 text-sm">
               No credit card required • Free forever • Start learning in minutes
             </p>
           </Card>

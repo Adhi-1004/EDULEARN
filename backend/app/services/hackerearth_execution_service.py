@@ -236,8 +236,18 @@ class HackerEarthExecutionService:
                 # Convert list/dict to JSON string for input
                 input_str = _json.dumps(input_data, separators=(',', ':'))
             else:
-                # For strings or other types, convert to string
-                input_str = str(input_data)
+                # For strings, check if this is Python with input() usage
+                # If so, ensure the string is properly quoted to avoid eval issues
+                if language == "PYTHON" and isinstance(input_data, str):
+                    # Check if code uses input() - if so, send quoted string to avoid Python 2 eval issues
+                    if "input()" in code:
+                        # Send as a properly quoted string so input() doesn't evaluate it
+                        input_str = f'"{input_data}"'
+                    else:
+                        input_str = str(input_data)
+                else:
+                    # For other types or languages, convert to string
+                    input_str = str(input_data)
         else:
             input_str = ""
 

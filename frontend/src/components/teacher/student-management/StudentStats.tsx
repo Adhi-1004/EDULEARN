@@ -5,7 +5,6 @@
 import React from "react"
 import { motion } from "framer-motion"
 import Card from "../../ui/Card"
-import Button from "../../ui/Button"
 import { ANIMATION_VARIANTS } from "../../../utils/constants"
 
 interface StudentStatsProps {
@@ -29,15 +28,13 @@ interface StudentStatsProps {
     studentCount: number
     createdAt: string
   }>
-  onShowBatchPerformance: () => void
-  onShowAIReports: () => void
+  onShowBatchPerformance?: () => void
+  onShowAIReports?: () => void
 }
 
 const StudentStats: React.FC<StudentStatsProps> = ({
   students,
-  batches,
-  onShowBatchPerformance,
-  onShowAIReports
+  batches
 }) => {
   // Calculate statistics
   const totalStudents = students.length
@@ -62,66 +59,37 @@ const StudentStats: React.FC<StudentStatsProps> = ({
   return (
     <motion.div variants={ANIMATION_VARIANTS.slideUp}>
       <Card className="p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-          <h2 className="text-2xl font-bold text-foreground mb-4 md:mb-0">Student Analytics</h2>
-          
-          <div className="flex space-x-3">
-            <Button variant="secondary" onClick={onShowBatchPerformance}>
-              Batch Performance
-            </Button>
-            <Button variant="secondary" onClick={onShowAIReports}>
-              AI Reports
-            </Button>
-          </div>
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-foreground">Student Analytics</h2>
         </div>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20 border border-blue-500/30 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm">Total Students</p>
-                <p className="text-2xl font-bold text-foreground">{totalStudents}</p>
-              </div>
-              <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
-                <span className="text-primary text-sm">👥</span>
-              </div>
+            <div>
+              <p className="text-muted-foreground text-sm">Total Students</p>
+              <p className="text-2xl font-bold text-foreground">{totalStudents}</p>
             </div>
           </div>
 
           <div className="bg-gradient-to-r from-green-500/10 to-green-600/10 dark:from-green-500/20 dark:to-green-600/20 border border-green-500/30 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm">High Performers</p>
-                <p className="text-2xl font-bold text-foreground">{highPerformers}</p>
-              </div>
-              <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
-                <span className="text-green-600 dark:text-green-400 text-sm">⭐</span>
-              </div>
+            <div>
+              <p className="text-muted-foreground text-sm">High Performers</p>
+              <p className="text-2xl font-bold text-foreground">{highPerformers}</p>
             </div>
           </div>
 
           <div className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 dark:from-purple-500/20 dark:to-purple-600/20 border border-purple-500/30 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm">Active (7 days)</p>
-                <p className="text-2xl font-bold text-foreground">{activeStudents}</p>
-              </div>
-              <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center">
-                <span className="text-purple-600 dark:text-purple-400 text-sm">🔥</span>
-              </div>
+            <div>
+              <p className="text-muted-foreground text-sm">Active (7 days)</p>
+              <p className="text-2xl font-bold text-foreground">{activeStudents}</p>
             </div>
           </div>
 
           <div className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 dark:from-orange-500/20 dark:to-orange-600/20 border border-orange-500/30 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm">Avg. Progress</p>
-                <p className="text-2xl font-bold text-foreground">{averageProgress}%</p>
-              </div>
-              <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
-                <span className="text-orange-600 dark:text-orange-400 text-sm">📊</span>
-              </div>
+            <div>
+              <p className="text-muted-foreground text-sm">Avg. Progress</p>
+              <p className="text-2xl font-bold text-foreground">{averageProgress}%</p>
             </div>
           </div>
         </div>

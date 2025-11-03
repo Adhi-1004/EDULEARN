@@ -317,8 +317,6 @@ const StudentManagement: React.FC = () => {
           <StudentStats
             students={students}
             batches={batches}
-            onShowBatchPerformance={() => setShowBatchPerformance(true)}
-            onShowAIReports={() => setShowAIReports(true)}
           />
 
           {/* Batches */}

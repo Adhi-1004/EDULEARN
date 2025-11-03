@@ -26,8 +26,9 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ user, onLogou
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Only show profile/settings for non-admin users
-  const menuItems = isAdmin ? [] : [
+  // Hide profile/settings for admin and teacher users
+  const isTeacher = user.role === 'teacher';
+  const menuItems = (isAdmin || isTeacher) ? [] : [
     {
       label: 'Profile',
       path: '/profile',

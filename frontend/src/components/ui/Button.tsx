@@ -23,7 +23,7 @@ const Button: React.FC<ButtonProps> = ({
     "font-medium rounded-lg transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
 
   const variantClasses = {
-    primary: "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary shadow-sm",
+    primary: "bg-primary text-white hover:bg-primary/90 active:bg-primary shadow-sm",
     secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90 active:bg-secondary shadow-sm",
     outline: "border border-border text-foreground hover:bg-muted/30",
     ghost: "text-muted-foreground hover:text-foreground hover:bg-muted/20",

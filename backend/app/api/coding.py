@@ -78,6 +78,7 @@ async def generate_problem(
             "hidden_test_cases": problem_data["hidden_test_cases"],
             "expected_complexity": problem_data["expected_complexity"],
             "hints": problem_data["hints"],
+            "code_templates": problem_data.get("code_templates", {}),
             "created_by": "AI",
             "created_at": datetime.utcnow(),
             "tags": problem_data["tags"],
@@ -106,6 +107,7 @@ async def generate_problem(
                 "hints": problem_data["hints"],
                 "tags": problem_data["tags"],
                 "expected_complexity": problem_data["expected_complexity"],
+                "code_templates": problem_data.get("code_templates", {}),
                 "success_rate": 0.0,
                 "average_time": None
             }
