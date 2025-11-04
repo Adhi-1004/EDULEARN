@@ -119,11 +119,11 @@ const TestResultDetail: React.FC = () => {
   }
 
   const getScoreMessage = (percentage: number) => {
-    if (percentage >= 90) return "Excellent work! 🎉"
-    if (percentage >= 80) return "Great job! 👏"
-    if (percentage >= 70) return "Good effort! 👍"
-    if (percentage >= 60) return "Not bad! Keep practicing! 💪"
-    return "Don't give up! Practice more! 📚"
+    if (percentage >= 90) return "Excellent work!"
+    if (percentage >= 80) return "Great job!"
+    if (percentage >= 70) return "Good effort!"
+    if (percentage >= 60) return "Not bad! There's room for improvement!"
+    return "Don't give up! Practice more!"
   }
 
   if (loading) {
@@ -169,36 +169,108 @@ const TestResultDetail: React.FC = () => {
           transition={{ delay: 0.2 }}
           className="mb-8"
         >
-          <Card className="p-8 text-center">
-            <div className="mb-6">
-              <div className={`text-6xl font-bold mb-4 ${getScoreColor(result.percentage)}`}>
-                {result.percentage}%
+          <Card className="p-8 text-center bg-gradient-to-br from-purple-900/40 to-blue-900/40 border-2 border-purple-500/30">
+            {/* Circular Score */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.3, type: "spring", stiffness: 100 }}
+              className="mb-6"
+            >
+              <div className="w-48 h-48 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-orange-500/50">
+                <span className="text-5xl font-bold text-white">{parseFloat(result.percentage.toString()).toFixed(2)}%</span>
               </div>
-              <h2 className="text-2xl font-semibold text-white mb-2">
-                {getScoreMessage(result.percentage)}
-              </h2>
-              <p className="text-gray-300">
-                You scored {result.score} out of {result.total_questions} questions
-              </p>
+              
+              {/* Motivational Message */}
+              <div className="flex items-center justify-center space-x-2 mb-6">
+                <h2 className="text-2xl font-bold text-white">
+                  {getScoreMessage(result.percentage)}
+                </h2>
+                <div className="flex space-x-1">
+                  <div className="w-3 h-3 bg-red-500 rounded"></div>
+                  <div className="w-3 h-3 bg-green-500 rounded"></div>
+                  <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-purple-900/50 rounded-full h-4 mb-8">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${result.percentage}%` }}
+                transition={{ duration: 1, ease: "easeOut", delay: 0.5 }}
+                className="bg-gradient-to-r from-yellow-500 to-orange-500 h-4 rounded-full shadow-lg"
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-400 mb-2">{result.score}</div>
-                <div className="text-gray-300">Correct Answers</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-400 mb-2">{formatTime(result.time_taken)}</div>
-                <div className="text-gray-300">Time Taken</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-400 mb-2">{result.difficulty}</div>
-                <div className="text-gray-300">Difficulty</div>
-              </div>
-            </div>
-
-            <div className="text-sm text-gray-400">
-              Submitted on {new Date(result.submitted_at).toLocaleDateString()} at {new Date(result.submitted_at).toLocaleTimeString()}
+            {/* Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {[
+                { 
+                  label: "Total Questions", 
+                  value: result.total_questions, 
+                  icon: (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )
+                },
+                { 
+                  label: "Correct Answers", 
+                  value: result.score, 
+                  icon: (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )
+                },
+                { 
+                  label: "Time Taken", 
+                  value: formatTime(result.time_taken), 
+                  icon: (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )
+                },
+                { 
+                  label: "Topic", 
+                  value: result.subject || "N/A", 
+                  icon: (
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-green-500 rounded"></div>
+                      <div className="w-2 h-2 bg-red-500 rounded"></div>
+                      <div className="w-2 h-2 bg-blue-500 rounded"></div>
+                    </div>
+                  )
+                },
+                { 
+                  label: "Difficulty", 
+                  value: result.difficulty || "N/A", 
+                  icon: (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  )
+                }
+              ].map((stat, index) => (
+                <motion.div
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 + index * 0.1 }}
+                  className="p-5 rounded-lg bg-purple-900/30 border border-purple-500/30 text-center"
+                >
+                  <div className="flex justify-center mb-3 text-white">
+                    {stat.icon}
+                  </div>
+                  <p className="text-white font-bold text-xl mb-1">
+                    {stat.value}
+                  </p>
+                  <p className="text-white/80 text-sm">{stat.label}</p>
+                </motion.div>
+              ))}
             </div>
           </Card>
         </motion.div>
@@ -290,7 +362,7 @@ const TestResultDetail: React.FC = () => {
                       </div>
 
                       {/* Options */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         {question.options.map((option, optIndex) => {
                           // Handle correct answer matching - check both text and index
                           let isCorrectAnswer = false
@@ -326,50 +398,73 @@ const TestResultDetail: React.FC = () => {
                             }
                           }
                           
-                          const isWrongUserAnswer = isUserAnswer && !question.is_correct
+                          const isWrongUserAnswer = isUserAnswer && !question.is_correct && !isCorrectAnswer
+                          const isCorrectUserAnswer = isUserAnswer && question.is_correct
+                          
+                          // Priority: Correct answer always shows in green, wrong user answer shows in red (if not correct)
+                          const showAsCorrect = isCorrectAnswer
+                          const showAsWrong = isWrongUserAnswer && !isCorrectAnswer
                           
                           return (
                             <div
                               key={optIndex}
                               className={`
-                                group relative p-6 rounded-xl text-left transition-all duration-300 overflow-hidden
-                                ${isCorrectAnswer 
-                                  ? "bg-green-900/30 border-2 border-green-500/50 shadow-lg shadow-green-500/20" 
-                                  : isWrongUserAnswer
-                                    ? "bg-red-900/30 border-2 border-red-500/50 shadow-lg shadow-red-500/20"
-                                    : "bg-gray-800/30 border border-gray-600/30"
+                                group relative p-5 rounded-lg text-left transition-all duration-300
+                                ${showAsCorrect
+                                  ? "bg-green-600 border-2 border-green-500" 
+                                  : showAsWrong
+                                    ? "bg-red-600 border-2 border-red-500"
+                                    : "bg-purple-900/30 border border-purple-500/30"
                                 }
                               `}
                             >
-                              <div className="flex items-center space-x-4 relative z-10">
-                                <div className={`
-                                  w-10 h-10 rounded-full flex items-center justify-center font-bold text-white
-                                  ${isCorrectAnswer 
-                                    ? "bg-gradient-to-r from-green-500 to-green-600" 
-                                    : isWrongUserAnswer
-                                      ? "bg-gradient-to-r from-red-500 to-red-600"
-                                      : "bg-gradient-to-r from-gray-500 to-gray-600"
-                                  }
-                                `}>
-                                  {String.fromCharCode(65 + optIndex)}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3 flex-1">
+                                  <div className={`
+                                    w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
+                                    ${showAsCorrect
+                                      ? "bg-green-700 text-white" 
+                                      : showAsWrong
+                                        ? "bg-red-700 text-white"
+                                        : "bg-purple-500/20 border border-purple-500/50 text-white"
+                                    }
+                                  `}>
+                                    {String.fromCharCode(65 + optIndex)}
+                                  </div>
+                                  <span className={`
+                                    font-medium text-base
+                                    ${showAsCorrect || showAsWrong
+                                      ? "text-white font-semibold" 
+                                      : "text-white"
+                                    }
+                                  `}>
+                                    {option}
+                                  </span>
                                 </div>
-                                <span className={`
-                                  flex-1 font-medium font-sans
-                                  ${isCorrectAnswer 
-                                    ? "text-green-200" 
-                                    : isWrongUserAnswer
-                                      ? "text-red-200"
-                                      : "text-gray-300"
-                                  }
-                                `}>
-                                  {option}
-                                </span>
-                                {isCorrectAnswer && (
-                                  <div className="text-green-400 text-xl font-bold">✓</div>
-                                )}
-                                {isWrongUserAnswer && (
-                                  <div className="text-red-400 text-xl font-bold">✗</div>
-                                )}
+                                {/* Icons and Labels on the right */}
+                                <div className="flex items-center space-x-2">
+                                  {showAsCorrect && (
+                                    <>
+                                      <span className="text-green-200 text-xl font-bold">✓</span>
+                                      <span className="px-3 py-1 rounded-full bg-green-700/50 text-white text-sm font-semibold">
+                                        Correct
+                                      </span>
+                                    </>
+                                  )}
+                                  {isCorrectUserAnswer && (
+                                    <span className="px-3 py-1 rounded-full bg-green-700/50 text-white text-sm font-semibold">
+                                      Your Choice
+                                    </span>
+                                  )}
+                                  {showAsWrong && (
+                                    <>
+                                      <span className="text-red-200 text-xl font-bold">✗</span>
+                                      <span className="px-3 py-1 rounded-full bg-red-700/50 text-white text-sm font-semibold">
+                                        Your Choice
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           )
@@ -377,35 +472,25 @@ const TestResultDetail: React.FC = () => {
                       </div>
 
                       {/* Explanation */}
-                      {(question.explanation && question.explanation.trim() !== '' && question.explanation !== 'No explanation available for this question.') ? (
-                        <div className="mt-6 p-4 bg-blue-800/20 rounded-xl border border-blue-500/30">
-                          <div className="flex items-start space-x-3">
-                            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <span className="text-blue-400 text-sm">💡</span>
-                            </div>
-                            <div>
-                              <h5 className="text-blue-200 font-semibold mb-2">Explanation</h5>
-                              <p className="text-blue-300 text-sm leading-relaxed">
-                                {question.explanation}
-                              </p>
-                            </div>
-                          </div>
+                      <div className="mt-6">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <span className="text-yellow-400 text-xl">💡</span>
+                          <h5 className="text-white font-semibold text-lg">Explanation</h5>
                         </div>
-                      ) : (
-                        <div className="mt-6 p-4 bg-gray-800/20 rounded-xl border border-gray-600/30">
-                          <div className="flex items-start space-x-3">
-                            <div className="w-6 h-6 rounded-full bg-gray-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <span className="text-gray-400 text-sm">ℹ️</span>
-                            </div>
-                            <div>
-                              <h5 className="text-gray-300 font-semibold mb-2">Explanation</h5>
-                              <p className="text-gray-400 text-sm leading-relaxed italic">
-                                No explanation available for this question.
-                              </p>
-                            </div>
+                        {question.explanation && question.explanation.trim() !== '' && question.explanation !== 'No explanation available for this question.' ? (
+                          <div className="bg-blue-900/40 rounded-lg p-4 border border-blue-500/50">
+                            <p className="text-blue-100 text-base leading-relaxed whitespace-pre-wrap">
+                              {question.explanation}
+                            </p>
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-600/30">
+                            <p className="text-gray-400 text-sm leading-relaxed italic">
+                              No explanation available for this question.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 ))}

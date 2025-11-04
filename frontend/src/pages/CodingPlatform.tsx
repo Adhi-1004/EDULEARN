@@ -221,32 +221,25 @@ const CodingPlatform: React.FC<CodingPlatformProps> = ({ user: propUser }) => {
 
           {/* Analytics Overview */}
           {analytics && (
-            <motion.div variants={ANIMATION_VARIANTS.stagger} className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <motion.div variants={ANIMATION_VARIANTS.stagger} className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-foreground">{analytics.total_problems_solved}</div>
-                  <div className="text-sm text-muted-foreground">Problems Solved</div>
+                <Card className="p-6 text-center !bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/80 dark:to-green-800/80 !border-green-300 dark:!border-green-500 !border-2">
+                  <div className="text-3xl font-extrabold text-green-700 dark:text-green-100 mb-2">{analytics.total_problems_solved}</div>
+                  <div className="text-sm font-semibold text-green-800 dark:text-green-200">Problems Solved</div>
                 </Card>
               </motion.div>
 
               <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-foreground">{Math.round(analytics.success_rate)}%</div>
-                  <div className="text-sm text-muted-foreground">Success Rate</div>
+                <Card className="p-6 text-center !bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/80 dark:to-blue-800/80 !border-blue-300 dark:!border-blue-500 !border-2">
+                  <div className="text-3xl font-extrabold text-blue-700 dark:text-blue-100 mb-2">{Math.round(analytics.success_rate)}%</div>
+                  <div className="text-sm font-semibold text-blue-800 dark:text-blue-200">Success Rate</div>
                 </Card>
               </motion.div>
 
               <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-foreground">{analytics.coding_streak}</div>
-                  <div className="text-sm text-muted-foreground">Current Streak</div>
-                </Card>
-              </motion.div>
-
-              <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-foreground capitalize">{analytics.skill_level}</div>
-                  <div className="text-sm text-muted-foreground">Skill Level</div>
+                <Card className="p-6 text-center !bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/80 dark:to-purple-800/80 !border-purple-300 dark:!border-purple-500 !border-2">
+                  <div className="text-3xl font-extrabold text-purple-700 dark:text-purple-100 mb-2">{analytics.total_problems_attempted || 0}</div>
+                  <div className="text-sm font-semibold text-purple-800 dark:text-purple-200">Total Attempted</div>
                 </Card>
               </motion.div>
             </motion.div>

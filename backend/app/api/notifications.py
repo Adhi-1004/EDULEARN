@@ -123,9 +123,42 @@ async def mark_notification_as_read(
     """
     try:
         user_id = current_user.id
+        
+        # Validate notification_id format
+        if not ObjectId.is_valid(notification_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid notification ID format"
+            )
+        
+        notification_object_id = ObjectId(notification_id)
+        
+        # Try to find notification with multiple field formats
+        notification = await db.notifications.find_one({"_id": notification_object_id})
+        
+        if not notification:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found"
+            )
+        
+        # Check if notification belongs to current user (support multiple field formats)
+        notification_user_id = notification.get("user_id") or notification.get("student_id")
+        if notification_user_id:
+            # Convert to string for comparison
+            if isinstance(notification_user_id, ObjectId):
+                notification_user_id = str(notification_user_id)
+            
+            if str(notification_user_id) != str(user_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to modify this notification"
+                )
+        
+        # Update both 'read' and 'is_read' fields for compatibility
         result = await db.notifications.update_one(
-            {"_id": ObjectId(notification_id), "user_id": ObjectId(user_id)},
-            {"$set": {"read": True}}
+            {"_id": notification_object_id},
+            {"$set": {"read": True, "is_read": True, "read_at": datetime.utcnow()}}
         )
 
         if result.modified_count == 1:
@@ -133,13 +166,17 @@ async def mark_notification_as_read(
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Notification not found"
+                detail="Notification not found or already marked as read"
             )
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[ERROR] [NOTIFICATIONS] Failed to mark notification as read: {str(e)}")
+        import traceback
+        print(f"[ERROR] [NOTIFICATIONS] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to mark notification as read"
+            detail=f"Failed to mark notification as read: {str(e)}"
         )
 
 @router.post("/mark-all-read")
@@ -152,9 +189,32 @@ async def mark_all_notifications_as_read(
     """
     try:
         user_id = current_user.id
+        
+        # Find all unread notifications for this user (support multiple field formats)
+        query = {
+            "$and": [
+                {
+                    "$or": [
+                        {"user_id": ObjectId(user_id)},
+                        {"student_id": str(user_id)},
+                        {"user_id": str(user_id)}
+                    ]
+                },
+                {
+                    "$or": [
+                        {"read": {"$ne": True}},
+                        {"is_read": {"$ne": True}},
+                        {"read": False},
+                        {"is_read": False}
+                    ]
+                }
+            ]
+        }
+        
+        # Update all unread notifications
         result = await db.notifications.update_many(
-            {"user_id": ObjectId(user_id), "read": False},
-            {"$set": {"read": True}}
+            query,
+            {"$set": {"read": True, "is_read": True, "read_at": datetime.utcnow()}}
         )
 
         return {
@@ -162,9 +222,11 @@ async def mark_all_notifications_as_read(
         }
     except Exception as e:
         print(f"[ERROR] [NOTIFICATIONS] Failed to mark all notifications as read: {str(e)}")
+        import traceback
+        print(f"[ERROR] [NOTIFICATIONS] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to mark all notifications as read"
+            detail=f"Failed to mark all notifications as read: {str(e)}"
         )
 
 @router.delete("/{notification_id}")
@@ -178,9 +240,40 @@ async def delete_notification(
     """
     try:
         user_id = current_user.id
-        result = await db.notifications.delete_one(
-            {"_id": ObjectId(notification_id), "user_id": ObjectId(user_id)}
-        )
+        
+        # Validate notification_id format
+        if not ObjectId.is_valid(notification_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid notification ID format"
+            )
+        
+        notification_object_id = ObjectId(notification_id)
+        
+        # Try to find notification first
+        notification = await db.notifications.find_one({"_id": notification_object_id})
+        
+        if not notification:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found"
+            )
+        
+        # Check if notification belongs to current user (support multiple field formats)
+        notification_user_id = notification.get("user_id") or notification.get("student_id")
+        if notification_user_id:
+            # Convert to string for comparison
+            if isinstance(notification_user_id, ObjectId):
+                notification_user_id = str(notification_user_id)
+            
+            if str(notification_user_id) != str(user_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to delete this notification"
+                )
+        
+        # Delete the notification
+        result = await db.notifications.delete_one({"_id": notification_object_id})
 
         if result.deleted_count == 1:
             return {"message": "Notification deleted successfully"}
@@ -189,11 +282,15 @@ async def delete_notification(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Notification not found"
             )
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[ERROR] [NOTIFICATIONS] Failed to delete notification: {str(e)}")
+        import traceback
+        print(f"[ERROR] [NOTIFICATIONS] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete notification"
+            detail=f"Failed to delete notification: {str(e)}"
         )
 
 @router.get("/unread-count")

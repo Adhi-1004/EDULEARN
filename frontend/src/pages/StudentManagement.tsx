@@ -18,6 +18,7 @@ import {
   BatchGrid,
   StudentDetailsModal,
   BatchAssignmentModal,
+  BatchChangeModal,
   StudentStats
 } from "../components/teacher/student-management"
 import api from "../utils/api"
@@ -31,6 +32,7 @@ interface Student {
   lastActive: string
   batch?: string
   batchId?: string
+  batchIds?: string[]
   level?: number
   xp?: number
   badges?: string[]
@@ -234,11 +236,6 @@ const StudentManagement: React.FC = () => {
     setShowStudentDetailsModal(true)
   }
 
-  const handleEditStudent = (student: Student) => {
-    // Implementation for editing student
-    console.log("Edit student:", student)
-  }
-
   const handleChangeBatch = (student: Student) => {
     setSelectedStudentForBatchChange(student)
     setShowBatchChangeModal(true)
@@ -246,27 +243,45 @@ const StudentManagement: React.FC = () => {
 
   const handleRemoveStudent = async (studentId: string) => {
     const student = students.find(s => s.id === studentId);
-    const batchId = student?.batchId;
-
-    if (!batchId) {
-      showError("Cannot Remove", "This student is not assigned to a batch.");
+    
+    // Get batch IDs - support multi-batch
+    const batchIds = (student as any)?.batchIds || (student?.batchId ? [student.batchId] : []);
+    
+    if (batchIds.length === 0) {
+      showError("Cannot Remove", "This student is not assigned to any batch.");
       return;
     }
 
-    if (!confirm("Are you sure you want to remove this student from their batch?")) {
-      return;
+    // If student is in multiple batches, ask which one to remove from
+    let batchIdToRemove: string;
+    if (batchIds.length > 1) {
+      const batchNames = batchIds.map((bid: string) => {
+        const batch = batches.find(b => b.id === bid);
+        return batch?.name || bid;
+      }).join(", ");
+      const userChoice = confirm(
+        `This student is in multiple batches: ${batchNames}\n\n` +
+        `Do you want to remove from the first batch (${batches.find(b => b.id === batchIds[0])?.name || batchIds[0]})?`
+      );
+      if (!userChoice) return;
+      batchIdToRemove = batchIds[0];
+    } else {
+      if (!confirm("Are you sure you want to remove this student from their batch?")) {
+        return;
+      }
+      batchIdToRemove = batchIds[0];
     }
 
     try {
-      // This is the new, functional code
       const response = await api.post("/api/teacher/students/remove", {
         student_id: studentId,
-        batch_id: batchId
+        batch_id: batchIdToRemove
       });
 
       if (response.data.success) {
         success("Student removed successfully", response.data.message);
         fetchDashboardData(); // Refresh all data
+        setShowStudentDetailsModal(false); // Close modal after removal
       } else {
         showError("Failed to remove student", response.data.message || "An error occurred.");
       }
@@ -410,9 +425,22 @@ const StudentManagement: React.FC = () => {
             student={selectedStudentForDetails}
             isOpen={showStudentDetailsModal}
             onClose={() => setShowStudentDetailsModal(false)}
-            onEditStudent={handleEditStudent}
             onChangeBatch={handleChangeBatch}
             onRemoveStudent={handleRemoveStudent}
+          />
+
+          <BatchChangeModal
+            student={selectedStudentForBatchChange}
+            batches={batches}
+            isOpen={showBatchChangeModal}
+            onClose={() => {
+              setShowBatchChangeModal(false)
+              setSelectedStudentForBatchChange(null)
+            }}
+            onSuccess={() => {
+              fetchDashboardData()
+              setShowStudentDetailsModal(false) // Close details modal after batch change
+            }}
           />
 
           <BatchAssignmentModal

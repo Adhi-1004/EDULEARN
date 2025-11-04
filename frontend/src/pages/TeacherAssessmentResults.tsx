@@ -176,6 +176,25 @@ const TeacherAssessmentResults: React.FC = () => {
     return `${m}m ${s}s`
   }
 
+  const formatDateTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        return "Invalid Date"
+      }
+      // Format as: MM/DD/YYYY, HH:MM:SS (24-hour format)
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const year = date.getFullYear()
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      return `${month}/${day}/${year}, ${hours}:${minutes}:${seconds}`
+    } catch (error) {
+      return "Invalid Date"
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen pt-20 px-4 flex items-center justify-center">
@@ -269,7 +288,7 @@ const TeacherAssessmentResults: React.FC = () => {
                   )}
                   <div className="flex items-center justify-between">
                     <div className="text-muted-foreground text-xs">
-                      {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : ""}
+                      {s.submitted_at ? formatDateTime(s.submitted_at) : ""}
                     </div>
                     {s.present ? (
                       <Button variant="primary" size="sm" onClick={() => s.result_id ? navigate(`/teacher/test-result/${s.result_id}`) : viewStudentDetailedResult(s.student_id)}>
@@ -297,7 +316,6 @@ const TeacherAssessmentResults: React.FC = () => {
                     <th className="text-left py-3 px-4 text-muted-foreground font-medium">Score</th>
                     <th className="text-left py-3 px-4 text-muted-foreground font-medium">Time Taken</th>
                     <th className="text-left py-3 px-4 text-muted-foreground font-medium">Submitted</th>
-                    <th className="text-left py-3 px-4 text-muted-foreground font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -318,12 +336,7 @@ const TeacherAssessmentResults: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-muted-foreground">{formatTime(r.time_taken)}</td>
-                      <td className="py-3 px-4 text-muted-foreground">{new Date(r.submitted_at).toLocaleString()}</td>
-                      <td className="py-3 px-4">
-                        <Button variant="primary" size="sm" onClick={() => viewStudentDetailedResult(r.student_id)}>
-                          View Details
-                        </Button>
-                      </td>
+                      <td className="py-3 px-4 text-muted-foreground">{formatDateTime(r.submitted_at)}</td>
                     </motion.tr>
                   ))}
                 </tbody>

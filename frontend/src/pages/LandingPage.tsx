@@ -251,12 +251,12 @@ const LandingPage: React.FC = () => {
                 transition={{ delay: 1.1 + index * 0.2 }}
                 className="text-center"
               >
-                <Card className="p-8 bg-card hover:scale-105 transition-all duration-300 border border-border">
-                  <div className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 mb-4">
+                <Card className="p-8 bg-white dark:bg-background border border-primary/20 rounded-lg hover:shadow-lg transition-shadow duration-300">
+                  <div className="text-6xl md:text-7xl font-bold text-primary/40 mb-6">
                     {step.step}
                   </div>
-                  <h3 className="text-2xl font-bold text-foreground mb-4">{step.title}</h3>
-                  <p className="text-muted-foreground leading-relaxed">{step.description}</p>
+                  <h3 className="text-xl md:text-2xl font-bold text-foreground mb-4">{step.title}</h3>
+                  <p className="text-muted-foreground leading-relaxed text-base">{step.description}</p>
                 </Card>
               </motion.div>
             ))}

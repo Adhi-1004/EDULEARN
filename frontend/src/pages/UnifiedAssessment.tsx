@@ -241,7 +241,7 @@ const UnifiedAssessment: React.FC = () => {
       })
 
       if (response.data.success) {
-        success("🎉 New unique coding problem generated successfully!")
+        success("New unique coding problem generated successfully!")
         window.location.href = `/coding/problem/${response.data.problem.id}`
       }
     } catch (error: any) {
@@ -303,7 +303,7 @@ const UnifiedAssessment: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">🎯 Assessment Platform</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Assessment Platform</h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Choose your assessment type and customize your learning experience with AI-powered questions and coding challenges
           </p>
@@ -422,7 +422,7 @@ const UnifiedAssessment: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h2 className="text-3xl font-bold text-foreground mb-2">📝 MCQ Assessment</h2>
+                <h2 className="text-3xl font-bold text-foreground mb-2">MCQ Assessment</h2>
                 <p className="text-muted-foreground text-lg">Configure your multiple-choice assessment with AI-powered questions</p>
               </motion.div>
 
@@ -575,7 +575,7 @@ const UnifiedAssessment: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                   </svg>
                 </div>
-                <h2 className="text-3xl font-bold text-foreground mb-2">💻 Coding Challenge</h2>
+                <h2 className="text-3xl font-bold text-foreground mb-2">Coding Challenge</h2>
                 <p className="text-muted-foreground text-lg">Generate AI-powered coding problems and track your progress</p>
               </motion.div>
 
@@ -601,33 +601,26 @@ const UnifiedAssessment: React.FC = () => {
                   variants={ANIMATION_VARIANTS.stagger} 
                   initial="initial"
                   animate="animate"
-                  className="grid grid-cols-1 md:grid-cols-4 gap-6"
+                  className="grid grid-cols-1 md:grid-cols-3 gap-6"
                 >
                   <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-                    <Card className="p-6 text-center bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
-                      <div className="text-3xl font-bold text-green-600">{analytics.total_problems_solved}</div>
-                      <div className="text-sm text-muted-foreground font-medium">Problems Solved</div>
+                    <Card className="p-6 text-center !bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/80 dark:to-green-800/80 !border-green-300 dark:!border-green-500 !border-2">
+                      <div className="text-3xl font-extrabold text-green-700 dark:text-green-100 mb-2">{analytics.total_problems_solved}</div>
+                      <div className="text-sm font-semibold text-green-800 dark:text-green-200">Problems Solved</div>
                     </Card>
                   </motion.div>
 
                   <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-                    <Card className="p-6 text-center bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
-                      <div className="text-3xl font-bold text-blue-600">{Math.round(analytics.success_rate)}%</div>
-                      <div className="text-sm text-muted-foreground font-medium">Success Rate</div>
+                    <Card className="p-6 text-center !bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/80 dark:to-blue-800/80 !border-blue-300 dark:!border-blue-500 !border-2">
+                      <div className="text-3xl font-extrabold text-blue-700 dark:text-blue-100 mb-2">{Math.round(analytics.success_rate)}%</div>
+                      <div className="text-sm font-semibold text-blue-800 dark:text-blue-200">Success Rate</div>
                     </Card>
                   </motion.div>
 
                   <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-                    <Card className="p-6 text-center bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
-                      <div className="text-3xl font-bold text-orange-600">{analytics.coding_streak}</div>
-                      <div className="text-sm text-muted-foreground font-medium">Current Streak</div>
-                    </Card>
-                  </motion.div>
-
-                  <motion.div variants={ANIMATION_VARIANTS.slideUp}>
-                    <Card className="p-6 text-center bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
-                      <div className="text-3xl font-bold text-purple-600 capitalize">{analytics.skill_level}</div>
-                      <div className="text-sm text-muted-foreground font-medium">Skill Level</div>
+                    <Card className="p-6 text-center !bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/80 dark:to-purple-800/80 !border-purple-300 dark:!border-purple-500 !border-2">
+                      <div className="text-3xl font-extrabold text-purple-700 dark:text-purple-100 mb-2">{analytics.total_problems_attempted || 0}</div>
+                      <div className="text-sm font-semibold text-purple-800 dark:text-purple-200">Total Attempted</div>
                     </Card>
                   </motion.div>
                 </motion.div>
@@ -639,7 +632,6 @@ const UnifiedAssessment: React.FC = () => {
                   className="text-center py-8"
                 >
                   <Card className="p-6 bg-muted/20 border border-border/50">
-                    <div className="text-4xl mb-4">📊</div>
                     <h3 className="text-lg font-semibold text-foreground mb-2">No Analytics Yet</h3>
                     <p className="text-muted-foreground">Start solving coding problems to see your progress!</p>
                   </Card>
@@ -654,7 +646,7 @@ const UnifiedAssessment: React.FC = () => {
                   animate="animate"
                   className="text-center mb-8"
                 >
-                  <h3 className="text-2xl font-bold text-foreground mb-2">🚀 Generate New Problem</h3>
+                  <h3 className="text-2xl font-bold text-foreground mb-2">Generate New Problem</h3>
                   <p className="text-muted-foreground">Create AI-powered coding challenges tailored to your skill level</p>
                 </motion.div>
 
@@ -667,14 +659,14 @@ const UnifiedAssessment: React.FC = () => {
                       className="w-full px-3 py-2 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     >
                       <option value="">Select Topic</option>
-                      <optgroup label="🔥 Popular Topics">
+                      <optgroup label="Popular Topics">
                         {popularTopics.map((topic) => (
                           <option key={topic} value={topic}>
                             {topic}
                           </option>
                         ))}
                       </optgroup>
-                      <optgroup label="📚 All Topics">
+                      <optgroup label="All Topics">
                         {allTopics
                           .filter((topic) => !popularTopics.includes(topic))
                           .map((topic) => (
@@ -721,7 +713,7 @@ const UnifiedAssessment: React.FC = () => {
                             <span className="ml-2">AI Generating Problem...</span>
                           </>
                         ) : (
-                          "🚀 Generate Problem"
+                          "Generate Problem"
                         )}
                       </Button>
 
@@ -742,7 +734,7 @@ const UnifiedAssessment: React.FC = () => {
                             <span className="ml-2">Creating...</span>
                           </>
                         ) : (
-                          "🎲 Quick Generate"
+                          "Quick Generate"
                         )}
                       </Button>
                     </div>
@@ -759,7 +751,7 @@ const UnifiedAssessment: React.FC = () => {
                   className="flex items-center justify-between mb-6"
                 >
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground">📚 Recent Coding Problems</h2>
+                    <h2 className="text-2xl font-bold text-foreground">Recent Coding Problems</h2>
                     <p className="text-muted-foreground">Continue where you left off</p>
                   </div>
                   <Button onClick={() => (window.location.href = "/coding/problems")} variant="outline" size="sm">
@@ -774,7 +766,6 @@ const UnifiedAssessment: React.FC = () => {
                   </div>
                 ) : recentProblems.length === 0 ? (
                   <div className="text-center py-12">
-                    <div className="text-6xl mb-4">🤖</div>
                     <h3 className="text-xl font-semibold text-foreground mb-2">No Problems Yet</h3>
                     <p className="text-muted-foreground mb-6">
                       Generate your first AI-powered coding problem to get started!
@@ -848,9 +839,8 @@ const UnifiedAssessment: React.FC = () => {
         >
           <Button 
             onClick={() => navigate("/dashboard")} 
-            variant="outline" 
+            variant="primary" 
             size="lg"
-            className="bg-gradient-to-r from-muted/50 to-muted/30 border-2 border-border/50 hover:border-primary/50 transition-all duration-300"
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
