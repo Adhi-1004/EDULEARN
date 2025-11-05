@@ -11,10 +11,47 @@ import { ANIMATION_VARIANTS, TRANSITION_DEFAULTS } from "../utils/constants";
 const CodingResults: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [resultState, setResultState] = useState<any>(location.state || null);
+  const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    // Try to get state from location first, then from sessionStorage as fallback
+    let state = location.state;
+    
+    if (!state) {
+      try {
+        const storedState = sessionStorage.getItem("codingResultsState");
+        if (storedState) {
+          state = JSON.parse(storedState);
+          sessionStorage.removeItem("codingResultsState"); // Clean up after use
+          console.log("📦 [RESULTS] Loaded state from sessionStorage");
+          setResultState(state);
+          
+          // Update location state for consistency
+          window.history.replaceState({ ...window.history.state, state }, '', window.location.pathname);
+        }
+      } catch (storageError) {
+        console.error("Failed to load state from sessionStorage:", storageError);
+      }
+    } else {
+      setResultState(state);
+    }
+    
+    if (!state) {
+      console.log("❌ No state found, redirecting to dashboard");
+      navigate('/dashboard');
+      return;
+    }
+  }, [location.state, navigate]);
+
+  // Extract data from resultState
   const { 
-    assessmentId, 
-    assessmentTitle, 
-    question, 
+    assessmentId,
+    problemId,
+    assessmentTitle,
+    problemTitle,
+    question,
+    problem,
     code, 
     language, 
     testResults, 
@@ -24,17 +61,11 @@ const CodingResults: React.FC = () => {
     totalTests, 
     score, 
     timeTaken 
-  } = location.state || {};
-
-  const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set());
-
-  useEffect(() => {
-    if (!location.state) {
-      console.log("❌ No state found, redirecting to dashboard");
-      navigate('/dashboard');
-      return;
-    }
-  }, [location.state, navigate]);
+  } = resultState || {};
+  
+  // Handle both assessment and standalone problem
+  const title = assessmentTitle || problemTitle || "Coding Challenge";
+  const problemData = question || problem;
 
   const toggleTestExpansion = (index: number) => {
     setExpandedTests((prev) => {
@@ -62,7 +93,7 @@ const CodingResults: React.FC = () => {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  if (!location.state) {
+  if (!resultState) {
     return (
       <>
         <AnimatedBackground />
@@ -100,7 +131,7 @@ const CodingResults: React.FC = () => {
           <h2 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400 mb-4">
             Coding Assessment Results
           </h2>
-          <p className="text-purple-200 text-xl">{assessmentTitle || "Coding Challenge"}</p>
+          <p className="text-purple-200 text-xl">{title}</p>
         </motion.div>
 
         {/* Score Card */}
@@ -191,7 +222,7 @@ const CodingResults: React.FC = () => {
         </motion.div>
 
         {/* Problem Statement */}
-        {question && (
+        {problemData && (
           <motion.div
             variants={ANIMATION_VARIANTS.slideUp}
             className="max-w-4xl mx-auto mb-8"
@@ -199,7 +230,7 @@ const CodingResults: React.FC = () => {
             <Card className="p-6">
               <h3 className="text-2xl font-bold text-purple-200 mb-4">Problem Statement</h3>
               <p className="text-purple-100 text-lg leading-relaxed whitespace-pre-line">
-                {question.problem_statement || question.description || ""}
+                {problemData.problem_statement || problemData.description || ""}
               </p>
             </Card>
           </motion.div>

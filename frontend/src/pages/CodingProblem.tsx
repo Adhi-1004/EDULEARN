@@ -14,6 +14,8 @@ import PageShell from "../components/ui/PageShell"
 import Button from "../components/ui/Button"
 import LoadingSpinner from "../components/ui/LoadingSpinner"
 import Card from "../components/ui/Card"
+import ConfirmDialog from "../components/ui/ConfirmDialog"
+import { useNavigate } from "react-router-dom"
 
 interface CodingProblemPageProps {
   user: User
@@ -38,6 +40,8 @@ const CodingProblemPage: React.FC<CodingProblemPageProps> = ({ user: _user }) =>
   const [startTime] = useState(Date.now())
   const [autocompleteEnabled, setAutocompleteEnabled] = useState(true)
   const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set())
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
+  const navigate = useNavigate()
 
   const languages = [
     {
@@ -421,6 +425,19 @@ int main() {
       return
     }
 
+    // Show confirmation dialog
+    setShowSubmitConfirm(true)
+  }
+
+  const handleConfirmSubmit = async () => {
+    setShowSubmitConfirm(false)
+    const codeToExecute = code
+
+    if (!problem || !codeToExecute.trim()) {
+      showError("Please write some code first")
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -447,19 +464,22 @@ int main() {
       if (!testResponse.data.success || !exec) {
         showError("Code failed test cases. Please fix your solution.")
         setTestResults(exec?.results || [])
+        setSubmitting(false)
         return
       }
 
-      const passedTests = (exec.results || []).filter((r: any) => r.passed).length
-      const totalTests = (exec.results || []).length
+      const initialPassedTests = (exec.results || []).filter((r: any) => r.passed).length
+      const initialTotalTests = (exec.results || []).length
 
-      if (passedTests < totalTests) {
-        showError(`Only ${passedTests}/${totalTests} test cases passed. Please fix your solution before submitting.`)
+      if (initialPassedTests < initialTotalTests) {
+        showError(`Only ${initialPassedTests}/${initialTotalTests} test cases passed. Please fix your solution before submitting.`)
         setTestResults(exec.results || [])
+        setSubmitting(false)
         return
       }
 
       // Submit to coding platform
+      console.log("📤 [SUBMISSION] Submitting to backend...")
       const response = await api.post("/api/coding/submit", {
         problem_id: problemId,
         code: codeToExecute,
@@ -467,51 +487,102 @@ int main() {
         session_id: sessionId,
       })
 
-      if (response.data.success) {
-        const submission = response.data.submission
+      console.log("📤 [SUBMISSION] Response received:", response.data)
+      console.log("📤 [SUBMISSION] Response status:", response.status)
 
-        if (submission.status === "accepted") {
-          success("🎉 Solution Accepted! Great job!")
+      // Handle response - it might have submission object or be the submission directly
+      const submission = response.data.submission || response.data
+      const isSuccess = response.data.success !== false && response.status !== 500 && response.status < 400
 
-          // End session with success
-          if (sessionId) {
-            await api.post(`/api/coding/sessions/${sessionId}/end`, {
-              final_status: "accepted",
-              solution_code: codeToExecute,
-              completion_time: Date.now() - startTime,
-            })
-          }
+      console.log("📤 [SUBMISSION] Submission object:", submission)
+      console.log("📤 [SUBMISSION] Is success:", isSuccess)
 
-          // Navigate to submission details
-          setTimeout(() => {
-            window.location.href = `/coding/submission/${submission.id}`
-          }, 2000)
-        } else {
-          const statusMessages = {
-            wrong_answer: "Wrong Answer - Some test cases failed",
-            time_limit_exceeded: "Time Limit Exceeded - Your solution is too slow",
-            runtime_error: "Runtime Error - Check your code for errors",
-            compilation_error: "Compilation Error - Fix syntax errors",
-            memory_limit_exceeded: "Memory Limit Exceeded - Your solution uses too much memory",
-            presentation_error: "Presentation Error - Check your output format",
-          }
-
-          const errorMessage = statusMessages[submission.status as keyof typeof statusMessages] || "Submission failed"
-          showError(errorMessage)
-          setTestResults(submission.test_results || [])
-
-          // Update session with failure
-          updateSession({
-            submissions: 1,
-            last_submission_status: submission.status,
-            last_error: errorMessage,
+      // Always prepare result state and navigate, regardless of response structure
+      // This ensures user can see what happened
+      const submissionStatus = submission?.status || "accepted"
+      
+      // End session (don't block on this)
+      if (sessionId) {
+        try {
+          await api.post(`/api/coding/sessions/${sessionId}/end`, {
+            final_status: submissionStatus === "accepted" ? "accepted" : "failed",
+            solution_code: codeToExecute,
+            completion_time: Date.now() - startTime,
           })
+        } catch (sessionError) {
+          console.error("Failed to end session:", sessionError)
+          // Don't block navigation if session end fails
         }
+      }
+
+      // Get test results from execution or submission
+      const finalTestResults = submission?.test_results || exec.results || []
+      const passedTests = finalTestResults.filter((r: any) => r.passed).length
+      const totalTests = finalTestResults.length
+
+      // Prepare result state for CodingResults page
+      const resultState = {
+        problemId: problemId,
+        problemTitle: problem.title,
+        problem: problem,
+        code: codeToExecute,
+        language: language,
+        testResults: finalTestResults,
+        executionTime: exec.execution_time || submission?.execution_time || 0,
+        memoryUsed: exec.memory_used || submission?.memory_used || 0,
+        passedTests: passedTests,
+        totalTests: totalTests,
+        score: submissionStatus === "accepted" ? 1 : 0,
+        timeTaken: Math.floor((Date.now() - startTime) / 1000),
+        submissionStatus: submissionStatus,
+        submissionId: submission?.id || submission?._id || response.data?.id,
+      }
+
+      console.log("📤 [SUBMISSION] Prepared result state:", resultState)
+
+      // Store state in sessionStorage as backup in case navigation loses state
+      try {
+        sessionStorage.setItem("codingResultsState", JSON.stringify(resultState))
+        console.log("✅ [SUBMISSION] State stored in sessionStorage")
+      } catch (storageError) {
+        console.warn("Failed to store state in sessionStorage:", storageError)
+      }
+
+      // Always navigate to CodingResults page, regardless of success status
+      console.log("📤 [SUBMISSION] Attempting navigation...")
+      try {
+        navigate("/coding-results", { state: resultState, replace: false })
+        console.log("✅ [SUBMISSION] Navigation called - should redirect now")
+      } catch (navError) {
+        console.error("❌ [SUBMISSION] Navigation error:", navError)
+        showError("Navigation failed. Please refresh the page or go to /coding-results manually.")
+      }
+
+      // Show success/error message
+      if (isSuccess && submissionStatus === "accepted") {
+        success("🎉 Solution Accepted! Great job!")
+      } else if (!isSuccess) {
+        showError(response.data?.error || "Submission failed, but you can view results.")
       } else {
-        showError(response.data.error || "Submission failed")
+        const statusMessages = {
+          wrong_answer: "Wrong Answer - Some test cases failed",
+          time_limit_exceeded: "Time Limit Exceeded - Your solution is too slow",
+          runtime_error: "Runtime Error - Check your code for errors",
+          compilation_error: "Compilation Error - Fix syntax errors",
+          memory_limit_exceeded: "Memory Limit Exceeded - Your solution uses too much memory",
+          presentation_error: "Presentation Error - Check your output format",
+        }
+
+        const errorMessage = statusMessages[submissionStatus as keyof typeof statusMessages] || "Submission completed with issues"
+        showError(errorMessage)
       }
     } catch (error: any) {
-      console.error("Submission error:", error)
+      console.error("❌ [SUBMISSION] Submission error:", error)
+      console.error("❌ [SUBMISSION] Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      })
       
       // Handle validation errors from FastAPI (422 status)
       let errorMessage = "Failed to submit solution. Please try again."
@@ -531,15 +602,21 @@ int main() {
         }
       } else if (error.response?.data?.error) {
         errorMessage = error.response.data.error
+      } else if (error.message) {
+        errorMessage = error.message
       }
       
       showError(errorMessage)
 
       // Update session with error
-      updateSession({
-        submissions: 1,
-        last_error: errorMessage,
-      })
+      try {
+        updateSession({
+          submissions: 1,
+          last_error: errorMessage,
+        })
+      } catch (sessionError) {
+        console.error("Failed to update session:", sessionError)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -907,6 +984,18 @@ int main() {
                           "🚀 Submit"
                         )}
                       </Button>
+                      
+                      <ConfirmDialog
+                        isOpen={showSubmitConfirm}
+                        onClose={() => setShowSubmitConfirm(false)}
+                        onConfirm={handleConfirmSubmit}
+                        title="Confirm Submission"
+                        message="Are you sure you want to submit your solution? This action cannot be undone."
+                        confirmText="Submit"
+                        cancelText="Cancel"
+                        variant="warning"
+                        loading={submitting}
+                      />
                     </div>
                   </div>
 
