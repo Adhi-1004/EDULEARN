@@ -10,6 +10,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import Button from './ui/Button';
 import LoadingSpinner from './ui/LoadingSpinner';
 import Card from './ui/Card';
+import ConfirmDialog from './ui/ConfirmDialog';
 
 interface Question {
   id: string;
@@ -91,6 +92,7 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
   const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set());
   const [autocompleteEnabled, setAutocompleteEnabled] = useState(true);
   const [codingStartTime] = useState(Date.now());
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   
   const languages = [
     { value: 'python', label: 'Python 3', template: '# Write your solution here\ndef solution():\n    pass' },
@@ -380,6 +382,14 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
       return;
     }
 
+    // Show confirmation dialog
+    setShowSubmitConfirm(true);
+  };
+
+  const handleConfirmSubmitCode = async () => {
+    setShowSubmitConfirm(false);
+    const currentQ = assessment!.questions[currentQuestionIndex];
+    
     setSubmitting(true);
     
     try {
@@ -391,35 +401,74 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
           description: `Example ${index + 1}`,
         }));
 
-      const response = await api.post("/api/coding/execute", {
+      const execResponse = await api.post("/api/coding/execute", {
         code: code,
         language,
         test_cases: testCases,
         timeout: 10,
       });
 
-      const exec = response.data.execution_result || response.data;
-      if (response.data.success && exec) {
-        const results = exec.results || [];
-        setTestResults(results);
+      const exec = execResponse.data.execution_result || execResponse.data;
+      if (!execResponse.data.success || !exec) {
+        showError("Code failed test cases. Please fix your solution.");
+        setTestResults(exec?.results || []);
+        setSubmitting(false);
+        return;
+      }
+
+      const results = exec.results || [];
+      setTestResults(results);
+      
+      const passed = results.filter((r: any) => r.passed).length;
+      const total = results.length;
+      
+      // Check if all tests passed
+      if (passed < total) {
+        showError(`Only ${passed}/${total} test cases passed. Fix your solution before submitting.`);
+        setSubmitting(false);
+        return;
+      }
+
+      // Submit to assessment
+      const response = await api.post(`/api/assessments/${assessmentId}/coding-submit`, {
+        assessment_id: assessmentId,
+        question_id: currentQ.id,
+        code: code,
+        language: language,
+        time_taken: Math.floor((Date.now() - codingStartTime) / 1000),
+        test_results: results,
+        execution_time: exec.execution_time,
+        memory_used: exec.memory_used,
+      });
+
+      if (response.data.success) {
+        success('🎉 Solution submitted successfully!');
         
-        const passed = results.filter((r: any) => r.passed).length;
-        const total = results.length;
+        // Prepare result state for CodingResults page
+        const resultState = {
+          assessmentId: assessmentId,
+          assessmentTitle: assessment!.title,
+          question: currentQ,
+          code: code,
+          language: language,
+          testResults: results,
+          executionTime: exec.execution_time,
+          memoryUsed: exec.memory_used,
+          passedTests: passed,
+          totalTests: total,
+          score: response.data.score || (passed === total ? 1 : 0),
+          timeTaken: Math.floor((Date.now() - codingStartTime) / 1000),
+        };
         
-        // Check if all tests passed
-        if (passed === total && total > 0) {
-          // Mark as answered by saving code
-          const newAnswers = [...answers];
-          newAnswers[currentQuestionIndex] = code;
-          setAnswers(newAnswers);
-          
-          success('Solution submitted for this question!');
-        } else {
-          showError(`Only ${passed}/${total} test cases passed. Please fix your solution before submitting.`);
+        // Navigate to CodingResults page
+        navigate('/coding-results', { state: resultState });
+        
+        // Call onComplete if provided
+        if (onComplete) {
+          onComplete(response.data);
         }
       } else {
-        const errorMessage = exec?.error || response.data.error || "Execution failed";
-        showError(`Execution failed: ${errorMessage}`);
+        showError(response.data.error || "Submission failed");
       }
     } catch (error: any) {
       console.error("Submission error:", error);
@@ -473,12 +522,20 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
         is_completed: true
       });
       
+      // Get response data - it may have question_reviews
+      const responseData = response.data;
+      const questionReviews = responseData.question_reviews || [];
+      
+      // Use backend score if available, otherwise use local score
+      const finalScore = responseData.score !== undefined ? responseData.score : score;
+      const finalPercentage = responseData.percentage !== undefined ? responseData.percentage : percentage;
+      
       success('Success', 'Assessment submitted successfully!');
       
       // Prepare result state for Results page
       const resultState = {
-        score: score,
-        totalQuestions: assessment!.questions.length,
+        score: finalScore,
+        totalQuestions: responseData.total_questions || assessment!.questions.length,
         topic: assessment!.topic,
         difficulty: assessment!.difficulty,
         questions: assessment!.questions.map((q, idx) => ({
@@ -486,6 +543,7 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
           question: q.question,
           options: q.options,
           answer: q.options?.[q.correct_answer || 0],
+          correct_answer: q.correct_answer,
           explanation: q.explanation,
           difficulty: assessment!.difficulty,
           topic: assessment!.topic
@@ -501,7 +559,8 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
         explanations: assessment!.questions.map((q, idx) => ({
           questionIndex: idx,
           explanation: q.explanation || "",
-        }))
+        })),
+        questionReviews: questionReviews
       };
       
       // Navigate to Results page with state
@@ -796,6 +855,18 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
                           "🚀 Submit"
                         )}
                       </Button>
+                      
+                      <ConfirmDialog
+                        isOpen={showSubmitConfirm}
+                        onClose={() => setShowSubmitConfirm(false)}
+                        onConfirm={handleConfirmSubmitCode}
+                        title="Confirm Submission"
+                        message="Are you sure you want to submit your solution? This action cannot be undone."
+                        confirmText="Submit"
+                        cancelText="Cancel"
+                        variant="warning"
+                        loading={submitting}
+                      />
                     </div>
                   </div>
 

@@ -1618,13 +1618,13 @@ async def submit_assessment(
         
         for i, question in enumerate(questions):
             if i < len(submission.answers):
-                user_answer = submission.answers[i]
+                user_answer_raw = submission.answers[i]
                 correct_answer_index = question.get("correct_answer", -1)
                 correct_answer = ""
+                options = question.get("options", [])
                 
                 # Handle both string and integer correct answers
                 if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
-                    options = question.get("options", [])
                     if correct_answer_index < len(options):
                         correct_answer = options[correct_answer_index]
                 else:
@@ -1633,13 +1633,20 @@ async def submit_assessment(
                 # If correct answer is just a letter (A, B, C, D), find the matching option
                 if len(correct_answer) == 1 and correct_answer.isalpha():
                     letter = correct_answer.upper()
-                    options = question.get("options", [])
                     for option in options:
                         if option.startswith(f"{letter})"):
                             correct_answer = option
                             break
                 
-                if user_answer == correct_answer:
+                # Convert user answer to text if it's an index for comparison
+                user_answer_text = ""
+                if isinstance(user_answer_raw, int) and 0 <= user_answer_raw < len(options):
+                    user_answer_text = options[user_answer_raw]
+                else:
+                    user_answer_text = str(user_answer_raw)
+                
+                # Compare text answers
+                if user_answer_text == correct_answer:
                     score += question.get("points", 1)
         
         percentage = (score / sum(q.get("points", 1) for q in questions)) * 100 if questions else 0
@@ -1699,7 +1706,71 @@ async def submit_assessment(
             teacher_id
         )
         
-        return AssessmentResult(
+        # Generate question reviews for immediate display
+        question_reviews = []
+        for i, question in enumerate(questions):
+            if i < len(submission.answers):
+                user_answer_raw = submission.answers[i]
+                options = question.get("options", [])
+                correct_answer_index = question.get("correct_answer", -1)
+                correct_answer = ""
+                
+                # Handle both string and integer correct answers
+                if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
+                    if correct_answer_index < len(options):
+                        correct_answer = options[correct_answer_index]
+                else:
+                    correct_answer = question.get("answer", "")
+                
+                # If correct answer is just a letter (A, B, C, D), find the matching option
+                if len(correct_answer) == 1 and correct_answer.isalpha():
+                    letter = correct_answer.upper()
+                    for option in options:
+                        if option.startswith(f"{letter})"):
+                            correct_answer = option
+                            break
+                
+                # Convert user answer to text if it's an index
+                if isinstance(user_answer_raw, int) and 0 <= user_answer_raw < len(options):
+                    user_answer_text = options[user_answer_raw]
+                else:
+                    user_answer_text = str(user_answer_raw)
+                
+                is_correct = user_answer_text == correct_answer
+                
+                question_reviews.append({
+                    "question_index": i,
+                    "question": question.get("question", ""),
+                    "options": options,
+                    "correct_answer": correct_answer,
+                    "user_answer": user_answer_text,
+                    "is_correct": is_correct,
+                    "explanation": question.get("explanation", "")
+                })
+            else:
+                # No answer provided
+                options = question.get("options", [])
+                correct_answer_index = question.get("correct_answer", -1)
+                correct_answer = ""
+                
+                if isinstance(correct_answer_index, int) and correct_answer_index >= 0:
+                    if correct_answer_index < len(options):
+                        correct_answer = options[correct_answer_index]
+                else:
+                    correct_answer = question.get("answer", "")
+                
+                question_reviews.append({
+                    "question_index": i,
+                    "question": question.get("question", ""),
+                    "options": options,
+                    "correct_answer": correct_answer,
+                    "user_answer": "",
+                    "is_correct": False,
+                    "explanation": question.get("explanation", "")
+                })
+        
+        # Return result with question reviews
+        result_obj = AssessmentResult(
             id=str(result.inserted_id),
             assessment_id=assessment_id,
             student_id=str(user.id),
@@ -1711,6 +1782,22 @@ async def submit_assessment(
             submitted_at=result_doc["submitted_at"].isoformat(),
             attempt_number=result_doc["attempt_number"]
         )
+        
+        # Add question_reviews to response (we'll need to modify the response model or use a dict)
+        # For now, return as dict with question_reviews
+        return {
+            "id": str(result.inserted_id),
+            "assessment_id": assessment_id,
+            "student_id": str(user.id),
+            "student_name": result_doc["student_name"],
+            "score": score,
+            "total_questions": total_questions,
+            "percentage": percentage,
+            "time_taken": submission.time_taken,
+            "submitted_at": result_doc["submitted_at"].isoformat(),
+            "attempt_number": result_doc["attempt_number"],
+            "question_reviews": question_reviews
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

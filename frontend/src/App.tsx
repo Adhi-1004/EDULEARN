@@ -15,6 +15,7 @@ import LandingPage from "./pages/LandingPage"
 import Dashboard from "./pages/Dashboard"
 import Assessment from "./pages/Assessment"
 import Results from "./pages/Results"
+import CodingResults from "./pages/CodingResults"
 import TestResultDetail from "./pages/TestResultDetail"
 import Login from "./pages/Login"
 import Signup from "./pages/Signup"
@@ -230,6 +231,14 @@ const AppRouter: React.FC<{ user: any; setUser: any; logout: any }> = ({ user, s
                   element={
                     <ProtectedRoute allowedRoles={["student"]}>
                       {user && <Results user={user} />}
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/coding-results"
+                  element={
+                    <ProtectedRoute allowedRoles={["student"]}>
+                      <CodingResults />
                     </ProtectedRoute>
                   }
                 />

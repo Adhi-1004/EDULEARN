@@ -281,16 +281,36 @@ const Results: React.FC<ResultsProps> = ({ }) => {
                                             questionReview = questionReviews[index];
                                         }
                                         
-                                        const userAnswer = questionReview?.user_answer || userAnswers[index];
-                                        const correctAnswer = questionReview?.correct_answer || '';
-                                        const isCorrect = questionReview?.is_correct ?? false;
+                                        // Get user answer - prefer questionReview, then userAnswers array
+                                        let userAnswer = questionReview?.user_answer || userAnswers[index] || '';
+                                        
+                                        // Get correct answer - prefer questionReview, then calculate from question
+                                        let correctAnswer = questionReview?.correct_answer || '';
+                                        if (!correctAnswer && question.options && typeof question.correct_answer === 'number') {
+                                            correctAnswer = question.options[question.correct_answer] || '';
+                                        } else if (!correctAnswer && question.answer) {
+                                            correctAnswer = question.answer;
+                                        }
+                                        
+                                        // Determine if correct - prefer questionReview, otherwise calculate
+                                        let isCorrect = false;
+                                        if (questionReview !== null) {
+                                            isCorrect = questionReview.is_correct ?? false;
+                                        } else {
+                                            // Fallback: compare user answer with correct answer
+                                            const normalizedUserAnswer = (userAnswer || '').trim().toLowerCase();
+                                            const normalizedCorrectAnswer = (correctAnswer || '').trim().toLowerCase();
+                                            isCorrect = normalizedUserAnswer === normalizedCorrectAnswer && normalizedUserAnswer !== '';
+                                        }
+                                        
                                         const explanation = questionReview?.explanation || explanations.find(exp => exp.questionIndex === index)?.explanation || '';
                                         
                                         console.log(`🔍 [RESULTS] Question ${index + 1}:`, {
                                             userAnswer,
                                             correctAnswer,
                                             isCorrect,
-                                            hasQuestionReview: !!questionReview
+                                            hasQuestionReview: !!questionReview,
+                                            userAnswersArray: userAnswers[index]
                                         });
 
                                         return (
@@ -335,12 +355,13 @@ const Results: React.FC<ResultsProps> = ({ }) => {
                                                         const normalizedUserAnswer = (userAnswer || '').trim();
                                                         const normalizedCorrectAnswer = (correctAnswer || '').trim();
                                                         
+                                                        // Check if this option matches user answer or correct answer
                                                         const isUserChoice = normalizedOption.toLowerCase() === normalizedUserAnswer.toLowerCase();
                                                         const isCorrectChoice = normalizedOption.toLowerCase() === normalizedCorrectAnswer.toLowerCase();
                                                         
                                                         // Priority: Correct answer always shows in green, wrong user answer shows in red (if not correct)
-                                                        const showAsCorrect = isCorrectChoice
-                                                        const showAsWrong = isUserChoice && !isCorrect && !isCorrectChoice
+                                                        const showAsCorrect = isCorrectChoice;
+                                                        const showAsWrong = isUserChoice && !isCorrectChoice;
                                                         
                                                         let optionClasses = "p-5 rounded-lg border transition-all duration-200 ";
                                                         

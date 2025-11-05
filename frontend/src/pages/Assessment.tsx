@@ -304,10 +304,18 @@ const Assessment: React.FC = () => {
           const res = await api.post(`/api/assessments/${id}/submit`, submission)
           success("Success", `Test completed! Your score: ${score}/${assessment?.question_count} (${percentage}%)`)
           
+          // Get response data - it may have question_reviews
+          const responseData = res.data;
+          const questionReviews = responseData.question_reviews || [];
+          
+          // Use backend score if available
+          const finalScore = responseData.score !== undefined ? responseData.score : score;
+          const finalTotalQuestions = responseData.total_questions || assessment?.question_count || 0;
+          
           // Prepare result state for Results page (same format as student-generated)
           const resultState = {
-            score: score,
-            totalQuestions: assessment?.question_count || 0,
+            score: finalScore,
+            totalQuestions: finalTotalQuestions,
             topic: assessment?.subject || '',
             difficulty: assessment?.difficulty || '',
             questions: assessment?.questions.map((q, idx) => ({
@@ -330,7 +338,8 @@ const Assessment: React.FC = () => {
             explanations: assessment?.questions.map((q, idx) => ({
               questionIndex: idx,
               explanation: q.explanation || "",
-            })) || []
+            })) || [],
+            questionReviews: questionReviews
           };
           
           // Navigate to Results page with state
