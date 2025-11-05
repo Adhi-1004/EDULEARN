@@ -12,7 +12,8 @@ from ..core.security import security_manager
 from ..db import get_db
 from ..schemas.schemas import UserResponse
 from ..models.models import UserModel
-from ..dependencies import require_teacher_or_admin, require_batch_management, require_analytics_access
+from ..dependencies import require_teacher_or_admin, require_batch_management, require_analytics_access, require_student, get_current_user
+from ..services.hackerearth_execution_service import hackerearth_execution_service
 
 router = APIRouter()
 
@@ -958,6 +959,380 @@ async def generate_student_report(payload: GenerateReportRequest, current_user: 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate student report: {str(e)}")
 
+# Student Teacher Assessment Endpoints
+class TeacherAssessmentQuestionResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    problem_statement: str
+    topic: str
+    difficulty: str
+    constraints: List[str]
+    examples: List[Dict[str, Any]]
+    hints: List[str]
+    tags: List[str]
+    expected_complexity: Dict[str, str]
+    code_templates: Dict[str, str]
+    time_limit: Optional[int] = 30
+
+class TeacherAssessmentCodingSubmission(BaseModel):
+    problem_id: str
+    code: str
+    language: str
+    session_id: Optional[str] = None
+
+@router.get("/assessments/{assessment_id}/student/questions")
+async def get_teacher_assessment_questions(
+    assessment_id: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Get coding questions for a teacher assessment (student/teacher access)"""
+    try:
+        db = await get_db()
+
+        # Validate assessment ID
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+
+        # Get teacher assessment
+        assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+
+        # Check if assessment is active and accessible to student
+        assessment_status = assessment.get("status")
+        if not assessment.get("is_active", False) or assessment_status not in ("published", "active"):
+            raise HTTPException(status_code=403, detail="Assessment is not available")
+
+        # Check if user has access to this assessment
+        has_access = False
+        
+        # Teachers and admins can access assessments they created
+        if current_user.role in ["teacher", "admin"]:
+            assessment_creator = assessment.get("teacher_id")
+            if assessment_creator and (str(assessment_creator) == str(current_user.id) or current_user.role == "admin"):
+                has_access = True
+        
+        # Students can access assessments assigned to their batches
+        if not has_access and current_user.role == "student":
+            student_batches = await db.batches.find({"student_ids": str(current_user.id)}).to_list(None)
+            batch_ids = [str(batch["_id"]) for batch in student_batches]
+            assessment_batches = assessment.get("batches", [])
+            has_access = any(batch_id in assessment_batches for batch_id in batch_ids)
+
+        if not has_access:
+            raise HTTPException(status_code=403, detail="Access denied to this assessment")
+
+        # Check if assessment type is ai_coding
+        if assessment.get("type") != "ai_coding":
+            raise HTTPException(status_code=400, detail="This endpoint is only for AI coding assessments")
+
+        # Format questions for student access
+        raw_questions = assessment.get("questions", [])
+
+        questions = []
+        for i, question in enumerate(raw_questions):
+            question_response = TeacherAssessmentQuestionResponse(
+                id=str(i + 1),
+                title=question.get("title", f"Problem {i + 1}"),
+                description=question.get("description", ""),
+                problem_statement=question.get("problem_statement", ""),
+                topic=question.get("topic", ""),
+                difficulty=question.get("difficulty", ""),
+                constraints=question.get("constraints", []),
+                examples=question.get("examples", []),
+                hints=question.get("hints", []),
+                tags=question.get("tags", []),
+                expected_complexity=question.get("expected_complexity", {}),
+                code_templates=question.get("code_templates", {}),
+                time_limit=assessment.get("time_limit", 30)
+            )
+            questions.append(question_response)
+
+        return {"success": True, "questions": questions}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] [TEACHER ASSESSMENT] Error getting questions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get assessment questions: {str(e)}")
+
+@router.post("/assessments/{assessment_id}/submit-coding-student")
+async def submit_teacher_assessment_coding_solution(
+    assessment_id: str,
+    submission: TeacherAssessmentCodingSubmission,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Submit a coding solution for a teacher assessment problem (student/teacher access)"""
+    try:
+        db = await get_db()
+
+        # Validate assessment ID
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+
+        # Get teacher assessment
+        assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+
+        # Check if assessment is active and accessible
+        assessment_status = assessment.get("status")
+        if not assessment.get("is_active", False) or assessment_status not in ("published", "active"):
+            raise HTTPException(status_code=403, detail="Assessment is not available")
+
+        # Check if user has access to this assessment
+        has_access = False
+        
+        # Teachers and admins can access assessments they created
+        if current_user.role in ["teacher", "admin"]:
+            assessment_creator = assessment.get("teacher_id")
+            if assessment_creator and (str(assessment_creator) == str(current_user.id) or current_user.role == "admin"):
+                has_access = True
+        
+        # Students can access assessments assigned to their batches
+        if not has_access and current_user.role == "student":
+            student_batches = await db.batches.find({"student_ids": str(current_user.id)}).to_list(None)
+            batch_ids = [str(batch["_id"]) for batch in student_batches]
+            assessment_batches = assessment.get("batches", [])
+            has_access = any(batch_id in assessment_batches for batch_id in batch_ids)
+
+        if not has_access:
+            raise HTTPException(status_code=403, detail="Access denied to this assessment")
+
+        # Get the specific problem
+        questions = assessment.get("questions", [])
+
+        try:
+            problem_index = int(submission.problem_id) - 1  # Convert 1-based to 0-based
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid problem ID format: {submission.problem_id}")
+
+        if problem_index < 0 or problem_index >= len(questions):
+            raise HTTPException(status_code=400, detail="Invalid problem ID")
+
+        problem = questions[problem_index]
+
+        # Use HackerEarth to execute the code against all test cases
+        if not hackerearth_execution_service:
+            from ..services.hackerearth_execution_service import get_hackerearth_service
+            service = get_hackerearth_service()
+        else:
+            from ..services.hackerearth_execution_service import hackerearth_execution_service as service
+
+        # Combine visible and hidden test cases for evaluation
+        visible_cases = problem.get("test_cases", [])
+        hidden_cases = problem.get("hidden_test_cases", [])
+        all_test_cases = visible_cases + hidden_cases
+
+        if not all_test_cases:
+            raise HTTPException(status_code=400, detail="No test cases available for this problem")
+
+        judge_results = service.run_tests(
+            language=submission.language,
+            code=submission.code,
+            test_cases=all_test_cases
+        )
+
+        # Calculate results
+        passed = sum(1 for r in judge_results if r.get("passed"))
+        total = len(judge_results)
+        exec_time_ms = int(sum((r.get("execution_time") or 0) for r in judge_results))
+        mem_used_kb = int(max((r.get("memory") or 0) for r in judge_results)) if judge_results else 0
+
+        # Determine status
+        if passed == total and total > 0:
+            status = "accepted"
+        else:
+            has_errors = any((r or {}).get("error") for r in judge_results)
+            has_timeouts = any("Time Limit" in ((r or {}).get("error", "") or "") for r in judge_results)
+
+            if has_timeouts:
+                status = "time_limit_exceeded"
+            elif has_errors:
+                status = "runtime_error"
+            elif total == 0:
+                status = "no_result"
+            else:
+                status = "wrong_answer"
+
+        # Count previous attempts for this specific problem
+        previous_attempts = await db.teacher_assessment_results.count_documents({
+            "assessment_id": assessment_id,
+            "student_id": str(current_user.id),
+            "problem_id": submission.problem_id
+        })
+
+        # Create submission record
+        submission_doc = {
+            "assessment_id": assessment_id,
+            "student_id": str(current_user.id),
+            "problem_id": submission.problem_id,
+            "code": submission.code,
+            "language": submission.language,
+            "status": status,
+            "execution_time": exec_time_ms,
+            "memory_used": mem_used_kb,
+            "test_results": judge_results,
+            "submitted_at": datetime.utcnow(),
+            "attempts": previous_attempts + 1,
+            "session_id": submission.session_id
+        }
+
+        result = await db.teacher_assessment_results.insert_one(submission_doc)
+
+        # Update session if provided
+        if submission.session_id:
+            try:
+                await db.coding_sessions.update_one(
+                    {"_id": ObjectId(submission.session_id), "user_id": ObjectId(current_user.id)},
+                    {
+                        "$inc": {"submissions": 1},
+                        "$set": {
+                            "last_submission_status": status,
+                            "updated_at": datetime.utcnow()
+                        }
+                    }
+                )
+            except Exception as session_err:
+                print(f"[WARN] [TEACHER ASSESSMENT] Failed to update session {submission.session_id}: {str(session_err)}")
+
+        return {
+            "success": True,
+            "submission": {
+                "id": str(result.inserted_id),
+                "status": status,
+                "execution_time": exec_time_ms,
+                "memory_used": mem_used_kb,
+                "passed_tests": passed,
+                "total_tests": total,
+                "submitted_at": submission_doc["submitted_at"].isoformat()
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] [TEACHER ASSESSMENT] Error submitting solution: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to submit solution: {str(e)}")
+
+@router.get("/assessments/{assessment_id}/results")
+async def get_teacher_assessment_results(
+    assessment_id: str,
+    current_user: UserModel = Depends(require_teacher_or_admin)
+):
+    """Get all student submissions for a teacher assessment"""
+    try:
+        db = await get_db()
+        
+        # Validate assessment ID
+        if not ObjectId.is_valid(assessment_id):
+            raise HTTPException(status_code=400, detail="Invalid assessment ID")
+        
+        # Get teacher assessment
+        assessment = await db.teacher_assessments.find_one({"_id": ObjectId(assessment_id)})
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        # Check if teacher owns this assessment
+        assessment_creator = assessment.get("teacher_id")
+        if not assessment_creator or (str(assessment_creator) != str(current_user.id) and current_user.role != "admin"):
+            raise HTTPException(status_code=403, detail="Access denied to this assessment")
+        
+        # Get all results for this assessment, sorted by submission time
+        results_cursor = db.teacher_assessment_results.find({
+            "assessment_id": assessment_id
+        }).sort("submitted_at", -1)
+        
+        raw_results = await results_cursor.to_list(length=None)
+        
+        # Format results with student information
+        results = []
+        for result in raw_results:
+            # Get student info
+            student = await db.users.find_one({"_id": ObjectId(result["student_id"])})
+            student_name = "Unknown Student"
+            student_email = ""
+            
+            if student:
+                student_name = student.get("full_name") or student.get("username") or student.get("email", "Unknown Student")
+                student_email = student.get("email", "")
+            
+            # Get problem title from assessment
+            questions = assessment.get("questions", [])
+            problem_title = "Problem"
+            try:
+                problem_idx = int(result["problem_id"]) - 1
+                if 0 <= problem_idx < len(questions):
+                    problem_title = questions[problem_idx].get("title", f"Problem {result['problem_id']}")
+            except:
+                problem_title = f"Problem {result['problem_id']}"
+            
+            formatted_result = {
+                "id": str(result["_id"]),
+                "student_id": result["student_id"],
+                "student_name": student_name,
+                "student_email": student_email,
+                "problem_id": result["problem_id"],
+                "problem_title": problem_title,
+                "language": result["language"],
+                "status": result["status"],
+                "execution_time": result.get("execution_time", 0),
+                "memory_used": result.get("memory_used", 0),
+                "passed_tests": sum(1 for r in result.get("test_results", []) if r.get("passed")),
+                "total_tests": len(result.get("test_results", [])),
+                "submitted_at": result["submitted_at"].isoformat(),
+                "attempts": result.get("attempts", 1)
+            }
+            results.append(formatted_result)
+        
+        # Group results by student for summary
+        student_summary = {}
+        for result in results:
+            sid = result["student_id"]
+            if sid not in student_summary:
+                student_summary[sid] = {
+                    "student_id": sid,
+                    "student_name": result["student_name"],
+                    "student_email": result["student_email"],
+                    "total_submissions": 0,
+                    "accepted_submissions": 0,
+                    "problems_attempted": set()
+                }
+            
+            student_summary[sid]["total_submissions"] += 1
+            if result["status"] == "accepted":
+                student_summary[sid]["accepted_submissions"] += 1
+            student_summary[sid]["problems_attempted"].add(result["problem_id"])
+        
+        # Convert sets to counts
+        for sid in student_summary:
+            student_summary[sid]["problems_attempted"] = len(student_summary[sid]["problems_attempted"])
+        
+        return {
+            "success": True,
+            "results": results,
+            "total_submissions": len(results),
+            "student_summary": list(student_summary.values()),
+            "assessment_info": {
+                "id": str(assessment["_id"]),
+                "title": assessment["title"],
+                "topic": assessment.get("topic", ""),
+                "difficulty": assessment["difficulty"],
+                "question_count": assessment["question_count"]
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] [TEACHER ASSESSMENT] Error getting results: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to get assessment results: {str(e)}")
+
 # Teacher Assessment Management
 class TeacherAssessmentCreate(BaseModel):
     title: str
@@ -1081,7 +1456,7 @@ async def create_teacher_assessment(
                 except Exception as e:
                     print(f"[ERROR] [AI_CODING] Failed to generate coding problem {i+1}: {e}")
                     try:
-                        fallback_problem = gemini_service._get_fallback_problem(assessment_data.topic, assessment_data.difficulty)
+                        fallback_problem = gemini_service._get_fallback_coding_problem(assessment_data.topic, assessment_data.difficulty)
                         generated_questions.append(fallback_problem)
                         print(f"[RECOVERY] [AI_CODING] Fallback problem used for question {i+1}")
                     except Exception as e2:

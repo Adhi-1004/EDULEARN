@@ -227,7 +227,13 @@ class AssessmentService {
    * Submit coding solution
    */
   async submitCodingSolution(assessmentId: string, submission: CodingSubmission): Promise<CodingSubmissionResponse> {
-    const response = await api.post(`/api/assessments/${assessmentId}/coding-submit`, submission);
+    // Transform submission to match teacher assessment API format
+    const teacherSubmission = {
+      problem_id: submission.question_id,
+      code: submission.code,
+      language: submission.language,
+    };
+    const response = await api.post(`/api/teacher/assessments/${assessmentId}/submit-coding-student`, teacherSubmission);
     return response.data;
   }
 

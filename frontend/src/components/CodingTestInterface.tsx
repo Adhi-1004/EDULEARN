@@ -254,16 +254,11 @@ public class Main {
         return
       }
 
-      // Now submit to assessment
-      const response = await api.post(`/api/assessments/${assessmentId}/coding-submit`, {
-        assessment_id: assessmentId,
-        question_id: question.id,
+      // Now submit to teacher assessment
+      const response = await api.post(`/api/teacher/assessments/${assessmentId}/submit-coding-student`, {
+        problem_id: question.id,
         code: code,
         language: language,
-        time_taken: 0,
-        test_results: exec.results,
-        execution_time: exec.execution_time,
-        memory_used: exec.memory_used,
       })
 
       if (response.data.success) {
@@ -274,7 +269,25 @@ public class Main {
       }
     } catch (err: any) {
       console.error("❌ [CODING_TEST] Submission error:", err)
-      const errorMessage = err.response?.data?.detail || err.response?.data?.error || "Failed to submit solution"
+
+      // Handle FastAPI validation errors (422 status)
+      let errorMessage = "Failed to submit solution";
+      if (err.response?.status === 422 && err.response?.data?.detail) {
+        // FastAPI validation errors come as an array of objects
+        const validationErrors = err.response.data.detail;
+        if (Array.isArray(validationErrors)) {
+          errorMessage = validationErrors.map(error =>
+            `${error.loc?.join('.') || 'Field'}: ${error.msg || 'Invalid value'}`
+          ).join('; ');
+        } else {
+          errorMessage = validationErrors;
+        }
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      }
+
       showError(errorMessage)
     } finally {
       setSubmitting(false)

@@ -72,6 +72,27 @@ interface CodingTestResult {
   debug_info?: any;
 }
 
+const deriveProblemId = (question: Question, fallbackIndex: number): string => {
+  const candidateKeys = ['problem_id', 'id', 'question_id', 'questionId', 'index'];
+
+  for (const key of candidateKeys) {
+    const rawValue = (question as any)?.[key];
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+      continue;
+    }
+
+    const numericValue = typeof rawValue === 'number'
+      ? rawValue
+      : parseInt(String(rawValue), 10);
+
+    if (!Number.isNaN(numericValue) && numericValue >= 1) {
+      return String(numericValue);
+    }
+  }
+
+  return String(fallbackIndex + 1);
+};
+
 const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete }) => {
   const { error: showError, success, info } = useToast();
   const { user } = useAuth();
@@ -429,17 +450,16 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
         return;
       }
 
-      // Submit to assessment
-      const response = await api.post(`/api/assessments/${assessmentId}/coding-submit`, {
-        assessment_id: assessmentId,
-        question_id: currentQ.id,
+      // Submit to teacher assessment
+      const problemId = deriveProblemId(currentQ, currentQuestionIndex);
+
+      const requestBody = {
+        problem_id: problemId,
         code: code,
         language: language,
-        time_taken: Math.floor((Date.now() - codingStartTime) / 1000),
-        test_results: results,
-        execution_time: exec.execution_time,
-        memory_used: exec.memory_used,
-      });
+      };
+
+      const response = await api.post(`/api/teacher/assessments/${assessmentId}/submit-coding-student`, requestBody);
 
       if (response.data.success) {
         success('🎉 Solution submitted successfully!');
@@ -456,7 +476,7 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
           memoryUsed: exec.memory_used,
           passedTests: passed,
           totalTests: total,
-          score: response.data.score || (passed === total ? 1 : 0),
+          score: response.data.submission?.status === 'accepted' ? 1 : 0,
           timeTaken: Math.floor((Date.now() - codingStartTime) / 1000),
         };
         
@@ -472,7 +492,25 @@ const TestInterface: React.FC<TestInterfaceProps> = ({ assessmentId, onComplete 
       }
     } catch (error: any) {
       console.error("Submission error:", error);
-      const errorMessage = error.response?.data?.detail || error.response?.data?.error || "Code execution failed.";
+
+      // Handle FastAPI validation errors (422 status)
+      let errorMessage = "Code execution failed.";
+      if (error.response?.status === 422 && error.response?.data?.detail) {
+        // FastAPI validation errors come as an array of objects
+        const validationErrors = error.response.data.detail;
+        if (Array.isArray(validationErrors)) {
+          errorMessage = validationErrors.map(err =>
+            `${err.loc?.join('.') || 'Field'}: ${err.msg || 'Invalid value'}`
+          ).join('; ');
+        } else {
+          errorMessage = validationErrors;
+        }
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+
       showError(errorMessage);
     } finally {
       setSubmitting(false);
