@@ -1243,26 +1243,30 @@ SOFTWARE.
 
 ### Documentation
 
-#### 📖 Feature Documentation (NEW!)
+#### 📖 Documentation Index
+- **[Documentation README](./docs/README.md)** - Complete documentation index and navigation guide
+
+#### 📖 Feature Documentation
 Complete guides explaining how each feature works with detailed flows and diagrams:
-- **[Features Overview](./docs/FEATURES_OVERVIEW.md)** - Complete feature catalog
+- **[Features Overview](./docs/FEATURES/FEATURES_OVERVIEW.md)** - Complete feature catalog
 - **[Authentication Features](./docs/AUTHENTICATION_FEATURES.md)** - Login, OAuth, face recognition
 - **[Assessment Features](./docs/ASSESSMENT_FEATURES.md)** - Assessment creation and grading
-- **[Student Features](./docs/STUDENT_FEATURES.md)** - Dashboard, gamification
-- **[Teacher Features](./docs/TEACHER_FEATURES.md)** - Batch management, analytics
-- **[Admin Features](./docs/ADMIN_FEATURES.md)** - Platform administration
-- **[Coding Platform](./docs/CODING_PLATFORM_FEATURES.md)** - Problem generation, code execution
+- **[Student Features](./docs/FEATURES/STUDENT_FEATURES.md)** - Dashboard, gamification
+- **[Teacher Features](./docs/FEATURES/TEACHER_FEATURES.md)** - Batch management, analytics
+- **[Admin Features](./docs/FEATURES/ADMIN_FEATURES.md)** - Platform administration
+- **[Coding Platform](./docs/FEATURES/CODING_PLATFORM_FEATURES.md)** - Problem generation, code execution
 
 #### 🔌 API Documentation
 - **[Complete API Reference](./docs/COMPLETE_API_REFERENCE.md)** - All 100+ endpoints
-- **[API Endpoints Summary](./docs/API_ENDPOINTS_SUMMARY.md)** - Quick reference
+- **[API Quick Reference](./docs/API/API_REFERENCE_QUICK_REFERENCE.md)** - Quick endpoint reference
 
 #### 📋 Setup & Deployment
 - **Quick Start Guide**: `docs/QUICK_START.md`
-- **Project Structure**: `docs/PROJECT_STRUCTURE.md`
-- **MongoDB Setup**: `docs/setup_mongodb.md`
-- **Migration Guide**: `backend/docs/MIGRATION_GUIDE.md`
-- **Deployment Guide**: `backend/docs/PRODUCTION_DEPLOYMENT_GUIDE.md`
+- **Project Report**: `docs/PROJECT_REPORT.md`
+- **Project Structure**: `docs/ARCHITECTURE/PROJECT_STRUCTURE.md`
+- **MongoDB Setup**: `docs/SETUP/setup_mongodb.md`
+- **Migration Guide**: `docs/DEVELOPMENT/MIGRATION_GUIDE.md`
+- **Deployment Guide**: `docs/DEPLOYMENT/PRODUCTION_DEPLOYMENT_GUIDE.md`
 
 ### Getting Help
 1. **Check Documentation**: Review the docs folder
