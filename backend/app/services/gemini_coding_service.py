@@ -57,7 +57,74 @@ class GeminiCodingService:
             del self.cache[oldest_key]
         
         self.cache[cache_key] = data
+        self.cache[cache_key] = data
         print(f"[CACHE] [GEMINI_CODING] Cached {cache_key}")
+
+    async def parse_course_handout(self, handout_text: str, subject: str) -> List[Dict[str, Any]]:
+        """Parse course handout text to extract session topics"""
+        try:
+            print(f"🧠 [GEMINI_CODING] Parsing handout for {subject}")
+            
+            if not self.available:
+                # Fallback implementation
+                return [
+                    {"topic": "Introduction to " + subject, "description": "Basic concepts"},
+                    {"topic": subject + " Fundamentals", "description": "Core principles"},
+                    {"topic": "Advanced " + subject, "description": "Complex topics"}
+                ]
+                
+            prompt = f"""
+            Analyze the following Course Handout/Syllabus for the subject "{subject}" and extract a list of teaching sessions.
+            The handout likely contains units, modules, or a day-by-day plan.
+            Break down the content into individual sessions (1 hour each).
+            
+            Handout Text:
+            {handout_text[:10000]}  # Limit text length to avoid token limits
+            
+            Return ONLY a valid JSON array of objects with this structure:
+            [
+                {{
+                    "topic": "Session Topic Title",
+                    "description": "Brief description of what will be covered",
+                    "unit": "Unit 1" (optional, inferred from context)
+                }}
+            ]
+            
+            Detailed Instructions:
+            - If the text explicitly lists "Session 1", "Session 2", use those.
+            - If it lists "Unit 1" with subtopics, break subtopics into rational session chunks.
+            - Ensure topics are concise and actionable as class titles.
+            """
+            
+            import asyncio
+            try:
+                response = await asyncio.wait_for(
+                    self.model.generate_content_async(prompt),
+                    timeout=40.0
+                )
+            except asyncio.TimeoutError:
+                print("[TIMEOUT] [GEMINI_CODING] Handout parsing timed out")
+                return []
+                
+            if not response.text:
+                return []
+                
+            json_text = self._clean_json_response(response.text.strip())
+            
+            try:
+                data = json.loads(json_text)
+                if isinstance(data, list):
+                    return data
+                if isinstance(data, dict) and "sessions" in data:
+                    return data["sessions"]
+                return []
+            except json.JSONDecodeError:
+                print(f"[ERROR] [GEMINI_CODING] JSON parse failed for Handout Parsing")
+                return []
+
+        except Exception as e:
+            print(f"❌ [GEMINI_CODING] Error parsing handout: {e}")
+            return []
 
     async def generate_mcq_questions(
         self,
@@ -227,6 +294,86 @@ class GeminiCodingService:
             })
         
         return fallback_questions
+
+    async def generate_live_class_content(self, topic: str) -> Dict[str, Any]:
+        """Generate Live Class content: MCQs, Polls, Flashcards"""
+        try:
+            print(f"🧠 [GEMINI_CODING] Generating Live Class content for topic: {topic}")
+            
+            if not self.available:
+                # Return basic fallback structure
+                return {
+                    "quizzes": [],
+                    "polls": [],
+                    "flashcards": ["Fallback Flashcard 1", "Fallback Flashcard 2"]
+                }
+            
+            prompt = f"""
+            Generate content for a Live Class session on the topic: "{topic}".
+            
+            Requirements:
+            1. 5 MCQ Questions (Assessment)
+               - format: {{ "question": "...", "options": ["A","B","C","D"], "correct_option": 0 }}
+               - "correct_option" is index 0-3
+            2. 3 Pulse Check Polls (Understanding check)
+               - format: {{ "text": "...", "type": "POLL", "options": ["Yes", "No", "Somewhat"] }}
+            3. 5 Key Definition Flashcards
+               - format: simple string "Term: Definition"
+            
+            Return ONLY a valid JSON object with this EXACT structure:
+            {{
+                "quizzes": [
+                    {{
+                        "title": "Quick Quiz",
+                        "questions": [
+                            {{ "text": "...", "type": "MCQ", "options": ["..."], "correct_option": 0 }}
+                        ]
+                    }}
+                ],
+                "polls": [
+                    {{ "text": "...", "type": "POLL", "options": ["..."] }}
+                ],
+                "flashcards": [
+                    "Term: Definition",
+                    "..."
+                ]
+            }}
+            """
+            
+            import asyncio
+            try:
+                response = await asyncio.wait_for(
+                    self.model.generate_content_async(prompt),
+                    timeout=30.0 
+                )
+            except asyncio.TimeoutError:
+                print("[TIMEOUT] [GEMINI_CODING] Live Content generation timed out")
+                return {"quizzes": [], "polls": [], "flashcards": []}
+            
+            if not response.text:
+                 return {"quizzes": [], "polls": [], "flashcards": []}
+                 
+            json_text = self._clean_json_response(response.text.strip())
+            
+            try:
+                data = json.loads(json_text)
+                
+                # Basic validation/cleanup can go here if needed
+                # Ensure "quizzes" structure matches what frontend expects for Assessment
+                # The prompt asks for "questions" list inside "quizzes"; we need to wrap it if needed or 
+                # in the prompt we asked for "quizzes" as a list of Assessments. 
+                # Actually, in LiveContent model: quizzes: List[Assessment]
+                # Assessment has: title, questions: List[Question]
+                
+                return data
+            except json.JSONDecodeError:
+                print(f"[ERROR] [GEMINI_CODING] JSON parse failed for Live Content")
+                return {"quizzes": [], "polls": [], "flashcards": []}
+
+        except Exception as e:
+            print(f"❌ [GEMINI_CODING] Error generating live content: {e}")
+            return {"quizzes": [], "polls": [], "flashcards": []}
+
 
     async def generate_coding_problem(
         self, 

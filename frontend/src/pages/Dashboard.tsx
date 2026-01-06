@@ -24,6 +24,7 @@ const Dashboard: React.FC = () => {
 
   const [recentTests, setRecentTests] = useState<TestResult[]>([])
   const [upcomingTests, setUpcomingTests] = useState<any[]>([])
+  const [activeSessions, setActiveSessions] = useState<any[]>([])
   const [error] = useState<string | null>(null)
 
   useEffect(() => {
@@ -31,6 +32,7 @@ const Dashboard: React.FC = () => {
       console.log("📊 [DASHBOARD] Fetching analytics for user:", user.email)
       fetchRecentTests()
       fetchUpcomingTests()
+      fetchActiveSessions()
     }
   }, [user?._id, user?.id])
 
@@ -87,18 +89,18 @@ const Dashboard: React.FC = () => {
       console.log("📊 [DASHBOARD] Fetching upcoming tests for user:", user?.email)
       console.log("👤 [DASHBOARD] User ID:", user?.id)
       console.log("🌐 [DASHBOARD] Making upcoming tests API request to: /api/assessments/student/upcoming")
-      
+
       // Fetch upcoming assessments for the student
       const response = await api.get("/api/assessments/student/upcoming")
-      
+
       console.log("📊 [DASHBOARD] Upcoming tests response:", response.data)
       console.log("📊 [DASHBOARD] Response status:", response.status)
       console.log("📊 [DASHBOARD] Response headers:", response.headers)
-      
+
       const upcomingAssessments = response.data || []
       console.log("📋 [DASHBOARD] Number of upcoming assessments:", upcomingAssessments.length)
       console.log("📋 [DASHBOARD] Upcoming assessments:", upcomingAssessments)
-      
+
       setUpcomingTests(upcomingAssessments)
       console.log("✅ [DASHBOARD] fetchUpcomingTests completed successfully")
     } catch (error: any) {
@@ -111,6 +113,19 @@ const Dashboard: React.FC = () => {
         config: error.config,
       })
       setUpcomingTests([])
+    }
+  }
+
+  const fetchActiveSessions = async () => {
+    try {
+      if (!user) return
+      const response = await api.get("/api/sessions/active-for-student")
+      if (response.data && response.data.active_sessions) {
+        console.log("🔴 [DASHBOARD] Active Sessions:", response.data.active_sessions)
+        setActiveSessions(response.data.active_sessions)
+      }
+    } catch (error) {
+      console.error("Failed to fetch active sessions", error)
     }
   }
 
@@ -128,7 +143,7 @@ const Dashboard: React.FC = () => {
           <Card className="p-8 mb-8">
             <motion.div variants={ANIMATION_VARIANTS.slideDown} className="text-center mb-8">
               <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
-                Welcome back, {user?.username || user?.name || "Learner"}!
+                Welcome back, {user?.username || user?.name || (user?.email ? user.email.split('@')[0] : "Learner")}!
               </h1>
               <p className="text-muted-foreground text-base md:text-lg mb-4">
                 Ready to continue your learning journey?
@@ -142,6 +157,37 @@ const Dashboard: React.FC = () => {
               animate="animate"
               className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8"
             >
+
+              {/* JOIN LIVE CLASS - DYNAMIC SECTION */}
+              {activeSessions.length > 0 && activeSessions.map((session, idx) => (
+                <motion.div key={idx} variants={ANIMATION_VARIANTS.slideUp}>
+                  <Card className="p-6 h-full bg-gradient-to-br from-red-900/40 to-orange-900/40 border-red-500/30">
+                    <div className="flex items-center mb-4">
+                      <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center mr-4 animate-pulse">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white">Join Live Class</h3>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-green-500 text-white animate-pulse">LIVE NOW</span>
+                      </div>
+                    </div>
+                    <p className="text-red-100/70 mb-4 leading-relaxed">
+                      {session.batch_name} is currently live! Join the session to interact.
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      <div className="text-xs text-red-200/50 uppercase font-mono tracking-widest mb-1">Passcode: {session.session_code}</div>
+                      <Link to={`/student/live/${session.batch_id}`}>
+                        <Button variant="primary" className="w-full bg-red-600 hover:bg-red-500 border-none">
+                          JOIN SESSION
+                        </Button>
+                      </Link>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+
               <motion.div variants={ANIMATION_VARIANTS.slideUp}>
                 <Card className="p-6 h-full">
                   <div className="flex items-center mb-4">
@@ -274,8 +320,8 @@ const Dashboard: React.FC = () => {
                           Practice Assessment
                         </Button>
                       </Link>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => window.location.reload()}
                       >
@@ -327,13 +373,12 @@ const Dashboard: React.FC = () => {
                             </div>
                             <div className="text-right">
                               <div
-                                className={`text-lg font-bold ${
-                                  (test.percentage || (test.score / test.total_questions) * 100) >= 80
-                                    ? "text-green-400"
-                                    : (test.percentage || (test.score / test.total_questions) * 100) >= 60
-                                      ? "text-yellow-400"
-                                      : "text-red-400"
-                                }`}
+                                className={`text-lg font-bold ${(test.percentage || (test.score / test.total_questions) * 100) >= 80
+                                  ? "text-green-400"
+                                  : (test.percentage || (test.score / test.total_questions) * 100) >= 60
+                                    ? "text-yellow-400"
+                                    : "text-red-400"
+                                  }`}
                               >
                                 {Math.round(test.percentage || (test.score / test.total_questions) * 100)}%
                               </div>

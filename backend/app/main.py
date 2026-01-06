@@ -170,6 +170,18 @@ app.include_router(auth_router, prefix="/auth", tags=["Authentication (Legacy)"]
 app.include_router(bulk_students_router, prefix="/bulk-students", tags=["Bulk Students"])
 app.include_router(bulk_teachers_router, prefix="/bulk-teachers", tags=["Bulk Teachers"])
 
+# Include Live Class WebSocket Router
+from .routers import live_socket
+app.include_router(live_socket.router, tags=["Live Class"])
+
+# Include Schedule Router
+from .routers import schedule
+app.include_router(schedule.router, prefix="/api/schedule", tags=["Schedule"])
+
+# Include Live Session Management Router
+from .routers import live_session
+app.include_router(live_session.router, prefix="/api/sessions", tags=["Live Session"])
+
 # Add /db/questions endpoint for backward compatibility
 @app.get("/db/questions")
 async def get_questions_from_db(

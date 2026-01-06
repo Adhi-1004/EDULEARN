@@ -266,6 +266,7 @@ async def auth_status(user_id: Optional[str] = Depends(get_current_user_id)):
             "user": {
                 "id": str(user["_id"]),
                 "email": user["email"],
+                "username": user.get("username"),
                 "name": user.get("name"),
                 "profile_picture": user.get("profile_picture"),
                 "role": user.get("role", "student"),

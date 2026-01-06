@@ -60,6 +60,7 @@ class UserModel(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = None
     settings: Optional[Dict[str, Any]] = None
+    batch_ids: List[str] = Field(default_factory=list)
 
     model_config = ConfigDict(
         populate_by_name=True,
